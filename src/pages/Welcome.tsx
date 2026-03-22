@@ -39,18 +39,19 @@ const Welcome = () => {
   };
 
   return (
-    <div className="flex h-screen w-full overflow-hidden">
+    <div className="flex h-screen w-full overflow-hidden relative">
+      {/* Background image - covers full viewport including behind sidebar */}
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat z-0"
+        style={{ backgroundImage: 'url(/images/hero-bg.png)' }}
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/60 to-background/90 z-0" />
+
       {/* Sidebar */}
       <TaskSidebar />
 
       {/* Main content area */}
-      <div className="flex-1 flex flex-col h-screen min-w-0 relative">
-        {/* Background image */}
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: 'url(/images/hero-bg.png)' }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/60 to-background/90" />
+      <div className="flex-1 flex flex-col h-screen min-w-0 relative z-10">
 
         {/* Top bar */}
         <div className="relative z-10 flex items-center justify-between px-6 py-3 border-b border-border/30">
