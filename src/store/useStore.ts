@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
-export type AgentStatus = 'idle' | 'running' | 'done' | 'error';
-export type LogType = 'perceive' | 'plan' | 'act' | 'verify' | 'done' | 'error' | 'browser' | 'web' | 'shell';
+export type AgentStatus = 'idle' | 'running' | 'done' | 'error' | 'paused';
+export type LogType = 'perceive' | 'plan' | 'act' | 'verify' | 'done' | 'error' | 'browser' | 'web' | 'shell' | 'info' | 'thinking' | 'ask' | 'result';
 
 export interface LogEntry {
   id: string;
@@ -13,6 +13,17 @@ export interface LogEntry {
   screenshot_b64?: string;
   tool_result?: Record<string, unknown>;
   actionType?: string;
+  toolLabel?: string;        // Human-readable tool description e.g. "Navigating the web"
+  attachments?: FileAttachment[];
+  askOptions?: string[];     // For 'ask' type - choices for user
+  askResolved?: boolean;     // Whether user has responded
+}
+
+export interface FileAttachment {
+  name: string;
+  type: string;  // mime type
+  url?: string;
+  content?: string;
 }
 
 export interface MemoryItem {
@@ -67,6 +78,10 @@ interface AppState {
   settingsOpen: boolean;
   historyOpen: boolean;
 
+  // Human takeover
+  takeoverRequested: boolean;
+  takeoverReason: string | null;
+
   // Timer
   timerInterval: ReturnType<typeof setInterval> | null;
 
@@ -81,8 +96,13 @@ interface AppState {
 
   startAgent: () => Promise<void>;
   stopAgent: () => Promise<void>;
+  pauseAgent: () => void;
+  resumeAgent: () => void;
   processEvent: (event: any) => void;
   addLogEntry: (entry: LogEntry) => void;
+  resolveAsk: (entryId: string, answer: string) => void;
+  requestTakeover: (reason: string) => void;
+  releaseTakeover: () => void;
   clearMemory: () => void;
   removeMemoryItem: (key: string) => void;
   reset: () => void;
@@ -92,6 +112,21 @@ interface AppState {
 }
 
 const API_BASE = 'http://localhost:8000';
+
+// Map action types to human-readable labels
+const toolLabels: Record<string, string> = {
+  browser_navigate: 'Navigating the web',
+  browser_click: 'Clicking an element',
+  browser_type: 'Typing text',
+  browser_scroll: 'Scrolling page',
+  browser_screenshot: 'Capturing screenshot',
+  web_search: 'Searching the web',
+  web_extract: 'Extracting web content',
+  shell: 'Running terminal command',
+  file_read: 'Reading a file',
+  file_write: 'Writing a file',
+  code_execute: 'Executing code',
+};
 
 export const useStore = create<AppState>((set, get) => ({
   task: '',
@@ -112,6 +147,8 @@ export const useStore = create<AppState>((set, get) => ({
   viewingHistory: null,
   settingsOpen: false,
   historyOpen: false,
+  takeoverRequested: false,
+  takeoverReason: null,
   timerInterval: null,
 
   setTask: (task) => set({ task }),
@@ -135,9 +172,55 @@ export const useStore = create<AppState>((set, get) => ({
     set({ timerInterval: null });
   },
 
+  pauseAgent: () => {
+    set({ status: 'paused' });
+  },
+
+  resumeAgent: () => {
+    set({ status: 'running' });
+  },
+
+  requestTakeover: (reason) => {
+    set({ takeoverRequested: true, takeoverReason: reason, status: 'paused' });
+  },
+
+  releaseTakeover: () => {
+    set({ takeoverRequested: false, takeoverReason: null, status: 'running' });
+  },
+
+  resolveAsk: (entryId, answer) => {
+    set((s) => ({
+      entries: s.entries.map((e) =>
+        e.id === entryId ? { ...e, askResolved: true, action: e.action + `\n\n**Your answer:** ${answer}` } : e
+      ),
+    }));
+  },
+
   startAgent: async () => {
     const { task, model, maxSteps, captureInterval } = get();
-    set({ status: 'running', currentStep: 0, elapsedTime: 0, entries: [], memory: [], currentScreenshot: null, annotations: [], errorMessage: null });
+    
+    // Add initial info message
+    const infoEntry: LogEntry = {
+      id: crypto.randomUUID(),
+      step: 0,
+      timestamp: new Date().toISOString(),
+      type: 'info',
+      action: `I'll work on this task for you. Let me analyze what needs to be done...`,
+      reasoning: '',
+    };
+
+    set({
+      status: 'running',
+      currentStep: 0,
+      elapsedTime: 0,
+      entries: [infoEntry],
+      memory: [],
+      currentScreenshot: null,
+      annotations: [],
+      errorMessage: null,
+      takeoverRequested: false,
+      takeoverReason: null,
+    });
     get().startTimer();
 
     try {
@@ -150,7 +233,6 @@ export const useStore = create<AppState>((set, get) => ({
       const data = await res.json();
       set({ runId: data.run_id, backendOnline: true });
 
-      // Connect SSE — backend expects query params on the stream URL
       const params = new URLSearchParams({
         task,
         model,
@@ -173,7 +255,7 @@ export const useStore = create<AppState>((set, get) => ({
         }
       };
     } catch {
-      set({ backendOnline: false, status: 'idle' });
+      set({ backendOnline: false, status: 'idle', entries: [] });
       get().stopTimer();
     }
   },
@@ -194,10 +276,18 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   processEvent: (event) => {
-    // Map action type to log type
     const actionType = event.parsed_action?.type || '';
     let logType: LogType = event.type === 'step' ? 'act' : event.type;
-    if (event.type === 'step' && actionType) {
+    
+    // Map specific event types
+    if (event.type === 'info') logType = 'info';
+    else if (event.type === 'thinking') logType = 'thinking';
+    else if (event.type === 'ask') logType = 'ask';
+    else if (event.type === 'result') logType = 'result';
+    else if (event.type === 'takeover') {
+      get().requestTakeover(event.action || 'Human interaction required');
+      logType = 'info';
+    } else if (event.type === 'step' && actionType) {
       if (actionType.startsWith('browser_')) logType = 'browser';
       else if (actionType.startsWith('web_')) logType = 'web';
       else if (actionType === 'shell') logType = 'shell';
@@ -213,9 +303,11 @@ export const useStore = create<AppState>((set, get) => ({
       screenshot_b64: event.screenshot_b64,
       tool_result: event.tool_result,
       actionType,
+      toolLabel: toolLabels[actionType] || (actionType ? actionType.replace(/_/g, ' ') : undefined),
+      attachments: event.attachments,
+      askOptions: event.ask_options,
     };
 
-    // Build annotations from parsed_action if present
     const newAnnotations: Annotation[] = [];
     if (event.parsed_action && event.parsed_action.type) {
       const pa = event.parsed_action;
@@ -231,13 +323,11 @@ export const useStore = create<AppState>((set, get) => ({
       }
     }
 
-    // Screenshot may arrive as raw base64 or as a data URI
     let screenshotB64 = event.screenshot_b64 || null;
     if (screenshotB64 && screenshotB64.startsWith('data:')) {
       screenshotB64 = screenshotB64.replace(/^data:image\/[a-z]+;base64,/, '');
     }
 
-    // Memory: backend sends dict, convert to {key,value}[] for frontend
     let memoryItems: MemoryItem[] | undefined;
     if (event.memory) {
       if (Array.isArray(event.memory)) {
@@ -283,7 +373,19 @@ export const useStore = create<AppState>((set, get) => ({
   removeMemoryItem: (key) => set((s) => ({ memory: s.memory.filter((m) => m.key !== key) })),
   reset: () => {
     get().stopTimer();
-    set({ status: 'idle', currentStep: 0, elapsedTime: 0, entries: [], memory: [], currentScreenshot: null, annotations: [], errorMessage: null, runId: null });
+    set({
+      status: 'idle',
+      currentStep: 0,
+      elapsedTime: 0,
+      entries: [],
+      memory: [],
+      currentScreenshot: null,
+      annotations: [],
+      errorMessage: null,
+      runId: null,
+      takeoverRequested: false,
+      takeoverReason: null,
+    });
   },
   setViewingHistory: (run) => set({ viewingHistory: run }),
 }));

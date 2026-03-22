@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Eye, Brain, MousePointer, CheckCircle, AlertTriangle, ChevronDown, Globe, Terminal, Search } from 'lucide-react';
+import { Eye, Brain, MousePointer, CheckCircle, AlertTriangle, ChevronDown, Globe, Terminal, Search, Info, Loader2, MessageCircleQuestion, FileText } from 'lucide-react';
 import type { LogEntry, LogType } from '@/store/useStore';
 
 const typeConfig: Record<LogType, { icon: typeof Eye; color: string; border: string }> = {
@@ -12,6 +12,10 @@ const typeConfig: Record<LogType, { icon: typeof Eye; color: string; border: str
   browser: { icon: Globe, color: 'text-secondary', border: 'border-l-secondary' },
   web: { icon: Search, color: 'text-primary', border: 'border-l-primary' },
   shell: { icon: Terminal, color: 'text-accent', border: 'border-l-accent' },
+  info: { icon: Info, color: 'text-muted-foreground', border: 'border-l-muted-foreground' },
+  thinking: { icon: Loader2, color: 'text-primary', border: 'border-l-primary' },
+  ask: { icon: MessageCircleQuestion, color: 'text-accent', border: 'border-l-accent' },
+  result: { icon: FileText, color: 'text-success', border: 'border-l-success' },
 };
 
 const ActionLogEntry = ({ entry }: { entry: LogEntry }) => {

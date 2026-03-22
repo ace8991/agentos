@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Monitor, Terminal, Globe, ChevronDown, Maximize2, Minimize2 } from 'lucide-react';
+import { Monitor, Terminal, Globe, Maximize2, Minimize2, Hand, ExternalLink } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import ActionAnnotationOverlay from './ActionAnnotationOverlay';
 import StepProgressBar from './StepProgressBar';
@@ -14,12 +14,19 @@ const ExecutionScreen = () => {
   const currentStep = useStore((s) => s.currentStep);
   const maxSteps = useStore((s) => s.maxSteps);
   const elapsedTime = useStore((s) => s.elapsedTime);
+  const takeoverRequested = useStore((s) => s.takeoverRequested);
+  const releaseTakeover = useStore((s) => s.releaseTakeover);
   const [activeTab, setActiveTab] = useState<Tab>('browser');
   const [expanded, setExpanded] = useState(false);
 
   const isRunning = status === 'running';
+  const isPaused = status === 'paused';
   const hasScreenshot = !!currentScreenshot;
   const terminalEntries = entries.filter((e) => e.type === 'shell');
+
+  // Derive current action label from latest entry
+  const latestEntry = entries[0];
+  const currentAction = latestEntry?.toolLabel || (isRunning ? 'Processing...' : '');
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
@@ -27,8 +34,7 @@ const ExecutionScreen = () => {
     return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
   };
 
-  // If no activity, show placeholder
-  if (!hasScreenshot && !isRunning && entries.length === 0) {
+  if (!hasScreenshot && !isRunning && !isPaused && entries.length === 0) {
     return null;
   }
 
@@ -59,7 +65,7 @@ const ExecutionScreen = () => {
           </button>
         </div>
         <div className="flex items-center gap-3">
-          {isRunning && (
+          {(isRunning || isPaused) && (
             <span className="text-xs text-muted-foreground tabular-nums">{formatTime(elapsedTime)}</span>
           )}
           <button
@@ -71,8 +77,27 @@ const ExecutionScreen = () => {
         </div>
       </div>
 
+      {/* Current action label */}
+      {currentAction && (isRunning || isPaused) && (
+        <div className="px-4 py-2 border-b border-border flex items-center gap-2">
+          {isRunning && (
+            <div className="flex gap-0.5">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="w-1 h-1 rounded-full bg-primary"
+                  style={{ animation: `pulse-dot 1.2s ease-in-out ${i * 0.15}s infinite` }}
+                />
+              ))}
+            </div>
+          )}
+          {isPaused && <Hand size={12} className="text-accent" />}
+          <span className="text-xs text-muted-foreground">{currentAction}</span>
+        </div>
+      )}
+
       {/* Content */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden relative">
         {activeTab === 'browser' ? (
           <div className="w-full h-full relative flex items-center justify-center bg-muted">
             {currentScreenshot ? (
@@ -83,6 +108,27 @@ const ExecutionScreen = () => {
                   className="w-full h-full object-contain"
                 />
                 <ActionAnnotationOverlay annotations={annotations} />
+
+                {/* Takeover overlay */}
+                {takeoverRequested && (
+                  <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center z-10">
+                    <div className="bg-card border border-accent/30 rounded-xl p-6 max-w-xs text-center shadow-lg">
+                      <div className="w-10 h-10 rounded-xl bg-accent/15 flex items-center justify-center mx-auto mb-3">
+                        <Hand size={20} className="text-accent" />
+                      </div>
+                      <h3 className="text-sm font-medium text-foreground mb-1">Your turn</h3>
+                      <p className="text-xs text-muted-foreground mb-4">
+                        Complete the required action in the browser, then click below.
+                      </p>
+                      <button
+                        onClick={releaseTakeover}
+                        className="w-full text-xs bg-accent text-accent-foreground px-4 py-2 rounded-lg hover:opacity-90 transition-opacity active:scale-[0.97] font-medium"
+                      >
+                        Done, resume agent
+                      </button>
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <div className="flex flex-col items-center gap-3 text-muted-foreground">
@@ -99,7 +145,7 @@ const ExecutionScreen = () => {
                 <span className="text-xs">No terminal output yet</span>
               </div>
             ) : (
-              terminalEntries.map((entry) => (
+              [...terminalEntries].reverse().map((entry) => (
                 <div key={entry.id} className="log-entry-enter">
                   <span className="text-secondary">$ </span>
                   <span className="text-foreground">{entry.action}</span>
@@ -122,6 +168,12 @@ const ExecutionScreen = () => {
             <>
               <div className="status-dot bg-primary status-dot-running" />
               <span>Step {currentStep}/{maxSteps}</span>
+            </>
+          )}
+          {isPaused && (
+            <>
+              <div className="status-dot bg-accent" />
+              <span>Paused — awaiting input</span>
             </>
           )}
           {status === 'done' && <span className="text-success">✓ Completed</span>}
