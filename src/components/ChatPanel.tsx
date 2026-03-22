@@ -72,6 +72,7 @@ const ChatPanel = () => {
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-border">
         <div className="flex items-center gap-3">
+          <ModelSelector onConfigureProvider={setConfigProvider} />
           <span className="text-sm font-medium text-foreground">
             {task ? task.slice(0, 60) + (task.length > 60 ? '...' : '') : 'New Task'}
           </span>
