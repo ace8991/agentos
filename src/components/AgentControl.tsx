@@ -68,8 +68,8 @@ const AgentControl = () => {
               disabled={isRunning}
               className="bg-muted border border-border rounded-md px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 w-full"
             >
-              {models.map((m) => (
-                <option key={m} value={m}>{m}</option>
+              {allModels.map((m) => (
+                <option key={m.id} value={m.id}>{m.label}</option>
               ))}
             </select>
           </ConfigRow>
