@@ -1,5 +1,7 @@
 import { create } from 'zustand';
+import { startRun, stopRun, createEventStream, type AgentEvent } from '@/lib/api';
 
+export type AgentMode = 'chat' | 'agent';
 export type AgentStatus = 'idle' | 'running' | 'done' | 'error' | 'paused';
 export type LogType = 'perceive' | 'plan' | 'act' | 'verify' | 'done' | 'error' | 'browser' | 'web' | 'shell' | 'info' | 'thinking' | 'ask' | 'result';
 
@@ -13,15 +15,15 @@ export interface LogEntry {
   screenshot_b64?: string;
   tool_result?: Record<string, unknown>;
   actionType?: string;
-  toolLabel?: string;        // Human-readable tool description e.g. "Navigating the web"
+  toolLabel?: string;
   attachments?: FileAttachment[];
-  askOptions?: string[];     // For 'ask' type - choices for user
-  askResolved?: boolean;     // Whether user has responded
+  askOptions?: string[];
+  askResolved?: boolean;
 }
 
 export interface FileAttachment {
   name: string;
-  type: string;  // mime type
+  type: string;
   url?: string;
   content?: string;
 }
@@ -48,6 +50,9 @@ export interface HistoryRun {
 }
 
 interface AppState {
+  // Mode
+  mode: AgentMode;
+
   // Agent
   task: string;
   status: AgentStatus;
@@ -86,6 +91,7 @@ interface AppState {
   timerInterval: ReturnType<typeof setInterval> | null;
 
   // Actions
+  setMode: (mode: AgentMode) => void;
   setTask: (task: string) => void;
   setModel: (model: string) => void;
   setMaxSteps: (n: number) => void;
@@ -98,7 +104,7 @@ interface AppState {
   stopAgent: () => Promise<void>;
   pauseAgent: () => void;
   resumeAgent: () => void;
-  processEvent: (event: any) => void;
+  processEvent: (event: AgentEvent) => void;
   addLogEntry: (entry: LogEntry) => void;
   resolveAsk: (entryId: string, answer: string) => void;
   requestTakeover: (reason: string) => void;
@@ -110,8 +116,6 @@ interface AppState {
   startTimer: () => void;
   stopTimer: () => void;
 }
-
-const API_BASE = 'http://localhost:8000';
 
 // Map action types to human-readable labels
 const toolLabels: Record<string, string> = {
@@ -129,6 +133,7 @@ const toolLabels: Record<string, string> = {
 };
 
 export const useStore = create<AppState>((set, get) => ({
+  mode: 'agent',
   task: '',
   status: 'idle',
   currentStep: 0,
@@ -151,6 +156,7 @@ export const useStore = create<AppState>((set, get) => ({
   takeoverReason: null,
   timerInterval: null,
 
+  setMode: (mode) => set({ mode }),
   setTask: (task) => set({ task }),
   setModel: (model) => set({ model }),
   setMaxSteps: (n) => set({ maxSteps: Math.max(1, Math.min(100, n)) }),
@@ -172,13 +178,8 @@ export const useStore = create<AppState>((set, get) => ({
     set({ timerInterval: null });
   },
 
-  pauseAgent: () => {
-    set({ status: 'paused' });
-  },
-
-  resumeAgent: () => {
-    set({ status: 'running' });
-  },
+  pauseAgent: () => set({ status: 'paused' }),
+  resumeAgent: () => set({ status: 'running' }),
 
   requestTakeover: (reason) => {
     set({ takeoverRequested: true, takeoverReason: reason, status: 'paused' });
@@ -198,8 +199,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   startAgent: async () => {
     const { task, model, maxSteps, captureInterval } = get();
-    
-    // Add initial info message
+
     const infoEntry: LogEntry = {
       id: crypto.randomUUID(),
       step: 0,
@@ -224,36 +224,29 @@ export const useStore = create<AppState>((set, get) => ({
     get().startTimer();
 
     try {
-      const res = await fetch(`${API_BASE}/agent/start`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ task, model, max_steps: maxSteps, capture_interval_ms: captureInterval }),
-      });
-      if (!res.ok) throw new Error('Failed to start agent');
-      const data = await res.json();
-      set({ runId: data.run_id, backendOnline: true });
-
-      const params = new URLSearchParams({
+      const { run_id } = await startRun({
         task,
         model,
-        max_steps: String(maxSteps),
-        capture_interval_ms: String(captureInterval),
+        max_steps: maxSteps,
+        capture_interval_ms: captureInterval,
       });
-      const evtSource = new EventSource(`${API_BASE}/agent/stream/${data.run_id}?${params}`);
-      evtSource.onmessage = (e) => {
-        try {
-          const event = JSON.parse(e.data);
-          get().processEvent(event);
-        } catch {}
-      };
-      evtSource.onerror = () => {
-        evtSource.close();
-        const s = get();
-        if (s.status === 'running') {
-          set({ status: 'error', errorMessage: 'Lost connection to agent stream' });
-          s.stopTimer();
-        }
-      };
+      set({ runId: run_id, backendOnline: true });
+
+      createEventStream(
+        run_id,
+        { task, model, max_steps: maxSteps, capture_interval_ms: captureInterval },
+        (event) => get().processEvent(event),
+        () => {
+          // done handled in processEvent
+        },
+        (msg) => {
+          const s = get();
+          if (s.status === 'running') {
+            set({ status: 'error', errorMessage: msg });
+            s.stopTimer();
+          }
+        },
+      );
     } catch {
       set({ backendOnline: false, status: 'idle', entries: [] });
       get().stopTimer();
@@ -266,20 +259,15 @@ export const useStore = create<AppState>((set, get) => ({
     set({ status: 'idle' });
     if (runId) {
       try {
-        await fetch(`${API_BASE}/agent/stop`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ run_id: runId }),
-        });
+        await stopRun(runId);
       } catch {}
     }
   },
 
   processEvent: (event) => {
     const actionType = event.parsed_action?.type || '';
-    let logType: LogType = event.type === 'step' ? 'act' : event.type;
-    
-    // Map specific event types
+    let logType: LogType = event.type === 'step' ? 'act' : (event.type as LogType);
+
     if (event.type === 'info') logType = 'info';
     else if (event.type === 'thinking') logType = 'thinking';
     else if (event.type === 'ask') logType = 'ask';
@@ -301,30 +289,27 @@ export const useStore = create<AppState>((set, get) => ({
       action: event.action || '',
       reasoning: event.reasoning || '',
       screenshot_b64: event.screenshot_b64,
-      tool_result: event.tool_result,
+      tool_result: event.tool_result as Record<string, unknown>,
       actionType,
       toolLabel: toolLabels[actionType] || (actionType ? actionType.replace(/_/g, ' ') : undefined),
-      attachments: event.attachments,
+      attachments: event.attachments as FileAttachment[],
       askOptions: event.ask_options,
     };
 
     const newAnnotations: Annotation[] = [];
-    if (event.parsed_action && event.parsed_action.type) {
+    if (event.parsed_action?.type) {
       const pa = event.parsed_action;
-      const clickTypes = ['click', 'browser_click'];
-      const typeTypes = ['type', 'browser_type'];
-      const scrollTypes = ['scroll', 'browser_scroll'];
-      if (clickTypes.includes(pa.type) && pa.x != null && pa.y != null) {
+      if (['click', 'browser_click'].includes(pa.type) && pa.x != null && pa.y != null) {
         newAnnotations.push({ type: 'click', x: pa.x, y: pa.y, text: pa.text });
-      } else if (typeTypes.includes(pa.type)) {
+      } else if (['type', 'browser_type'].includes(pa.type)) {
         newAnnotations.push({ type: 'type', x: pa.x ?? 0, y: pa.y ?? 0, text: pa.text || pa.selector });
-      } else if (scrollTypes.includes(pa.type) && pa.x != null && pa.y != null) {
+      } else if (['scroll', 'browser_scroll'].includes(pa.type) && pa.x != null && pa.y != null) {
         newAnnotations.push({ type: 'scroll', x: pa.x, y: pa.y });
       }
     }
 
     let screenshotB64 = event.screenshot_b64 || null;
-    if (screenshotB64 && screenshotB64.startsWith('data:')) {
+    if (screenshotB64?.startsWith('data:')) {
       screenshotB64 = screenshotB64.replace(/^data:image\/[a-z]+;base64,/, '');
     }
 
@@ -371,6 +356,7 @@ export const useStore = create<AppState>((set, get) => ({
   addLogEntry: (entry) => set((s) => ({ entries: [entry, ...s.entries] })),
   clearMemory: () => set({ memory: [] }),
   removeMemoryItem: (key) => set((s) => ({ memory: s.memory.filter((m) => m.key !== key) })),
+  
   reset: () => {
     get().stopTimer();
     set({
@@ -387,5 +373,6 @@ export const useStore = create<AppState>((set, get) => ({
       takeoverReason: null,
     });
   },
+  
   setViewingHistory: (run) => set({ viewingHistory: run }),
 }));

@@ -1,10 +1,14 @@
 import { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Plus, Search, Settings, SlidersHorizontal, BookOpen, Bot, FolderPlus,
-  Share2, ChevronRight, Plug, Globe, PanelLeftClose, PanelLeftOpen
+  Share2, ChevronRight, Plug, Globe, PanelLeftClose, PanelLeftOpen,
+  BarChart3, Clock
 } from 'lucide-react';
 import { useStore, type HistoryRun } from '@/store/useStore';
 import HexLogo from './HexLogo';
+import SidebarModeSwitch from './sidebar/SidebarModeSwitch';
+import SidebarToolStatus from './sidebar/SidebarToolStatus';
 
 const statusDot: Record<string, string> = {
   done: 'bg-success',
@@ -22,13 +26,17 @@ const TaskSidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const handleNewTask = () => {
     reset();
+    navigate('/');
   };
 
   const handleTaskClick = (run: HistoryRun) => {
     setViewingHistory(run);
+    navigate('/dashboard');
   };
 
   const filteredHistory = searchQuery
@@ -93,6 +101,9 @@ const TaskSidebar = () => {
           <PanelLeftClose size={15} />
         </button>
       </div>
+
+      {/* Mode switcher */}
+      <SidebarModeSwitch />
 
       {/* Main navigation */}
       <div className="px-3 py-2 space-y-0.5">
@@ -173,6 +184,10 @@ const TaskSidebar = () => {
         ))}
       </div>
 
+      {/* Tool status */}
+      <SidebarToolStatus />
+
+      {/* Referral */}
       <div className="mx-3 mb-2">
         <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary/10 hover:bg-primary/15 transition-colors text-left">
           <Share2 size={16} className="text-primary shrink-0" />
