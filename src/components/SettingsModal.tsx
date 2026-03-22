@@ -51,10 +51,9 @@ const SettingsModal = () => {
   const setCaptureInterval = useStore((s) => s.setCaptureInterval);
 
   const [section, setSection] = useState<Section>('general');
-  const [anthropicKey, setAnthropicKey] = useState('');
-  const [openaiKey, setOpenaiKey] = useState('');
-  const [tavilyKey, setTavilyKey] = useState('');
-  const [braveKey, setBraveKey] = useState('');
+  const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
+  const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
+  const [baseUrls, setBaseUrls] = useState<Record<string, string>>({});
   const [showAnthropic, setShowAnthropic] = useState(false);
   const [showOpenai, setShowOpenai] = useState(false);
   const [showTavily, setShowTavily] = useState(false);
