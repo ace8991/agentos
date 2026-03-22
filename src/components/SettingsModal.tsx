@@ -68,8 +68,20 @@ const SettingsModal = () => {
 
   useEffect(() => {
     if (!open) return;
-    setAnthropicKey(localStorage.getItem('ANTHROPIC_API_KEY') || '');
-    setOpenaiKey(localStorage.getItem('OPENAI_API_KEY') || '');
+    // Load all provider API keys
+    const keys: Record<string, string> = {};
+    const urls: Record<string, string> = {};
+    MODEL_PROVIDERS.forEach((p) => {
+      if (p.requiresKey && p.keyName) {
+        keys[p.keyName] = localStorage.getItem(p.keyName) || '';
+      }
+      if (p.baseUrlConfigurable) {
+        urls[p.id] = localStorage.getItem(`${p.id.toUpperCase()}_BASE_URL`) || p.defaultBaseUrl || '';
+      }
+    });
+    setApiKeys(keys);
+    setBaseUrls(urls);
+    setShowKeys({});
     setTavilyKey(localStorage.getItem('TAVILY_API_KEY') || '');
     setBraveKey(localStorage.getItem('BRAVE_API_KEY') || '');
     setPlaywrightHost(localStorage.getItem('PLAYWRIGHT_HOST') || 'http://localhost:9222');
