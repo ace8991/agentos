@@ -4,6 +4,8 @@ import { useStore } from '@/store/useStore';
 import ChatMessage from './chat/ChatMessage';
 import ThinkingIndicator from './chat/ThinkingIndicator';
 import TakeoverBanner from './chat/TakeoverBanner';
+import ModelSelector from './ModelSelector';
+import ProviderConfigModal from './ProviderConfigModal';
 
 const ChatPanel = () => {
   const task = useStore((s) => s.task);
