@@ -19,6 +19,7 @@ const ChatPanel = () => {
   const maxSteps = useStore((s) => s.maxSteps);
   const elapsedTime = useStore((s) => s.elapsedTime);
   const [inputValue, setInputValue] = useState('');
+  const [configProvider, setConfigProvider] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const isRunning = status === 'running';
