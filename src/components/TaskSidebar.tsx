@@ -38,7 +38,7 @@ const TaskSidebar = () => {
   // Collapsed mini sidebar
   if (collapsed) {
     return (
-      <div className="w-14 shrink-0 h-screen bg-card border-r border-border flex flex-col items-center py-3 gap-1 transition-all duration-300">
+      <div className="w-14 shrink-0 h-screen bg-transparent flex flex-col items-center py-3 gap-1 transition-all duration-300 z-20">
         <button
           onClick={() => setCollapsed(false)}
           className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95 mb-2"
