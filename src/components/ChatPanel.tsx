@@ -4,6 +4,8 @@ import { useStore } from '@/store/useStore';
 import ChatMessage from './chat/ChatMessage';
 import ThinkingIndicator from './chat/ThinkingIndicator';
 import TakeoverBanner from './chat/TakeoverBanner';
+import ModelSelector from './ModelSelector';
+import ProviderConfigModal from './ProviderConfigModal';
 
 const ChatPanel = () => {
   const task = useStore((s) => s.task);
@@ -17,6 +19,7 @@ const ChatPanel = () => {
   const maxSteps = useStore((s) => s.maxSteps);
   const elapsedTime = useStore((s) => s.elapsedTime);
   const [inputValue, setInputValue] = useState('');
+  const [configProvider, setConfigProvider] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const isRunning = status === 'running';
@@ -69,6 +72,7 @@ const ChatPanel = () => {
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-border">
         <div className="flex items-center gap-3">
+          <ModelSelector onConfigureProvider={setConfigProvider} />
           <span className="text-sm font-medium text-foreground">
             {task ? task.slice(0, 60) + (task.length > 60 ? '...' : '') : 'New Task'}
           </span>
@@ -205,6 +209,8 @@ const ChatPanel = () => {
           </div>
         </div>
       </div>
+      {/* Provider config modal */}
+      <ProviderConfigModal providerId={configProvider} onClose={() => setConfigProvider(null)} />
     </div>
   );
 };

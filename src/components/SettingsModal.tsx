@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Eye, EyeOff, Calendar, Mail, Database, Globe, User, Puzzle, Plug, Layers, Key, Shield, Camera, Monitor } from 'lucide-react';
 import { useStore } from '@/store/useStore';
-
-const models = ['claude-opus-4-5', 'claude-sonnet-4-6', 'gpt-4o', 'ollama/llama3'];
+import { MODEL_PROVIDERS } from './ModelSelector';
 const intervals = [
   { label: '500ms', value: 500 },
   { label: '1s', value: 1000 },
@@ -52,12 +51,11 @@ const SettingsModal = () => {
   const setCaptureInterval = useStore((s) => s.setCaptureInterval);
 
   const [section, setSection] = useState<Section>('general');
-  const [anthropicKey, setAnthropicKey] = useState('');
-  const [openaiKey, setOpenaiKey] = useState('');
+  const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
+  const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
+  const [baseUrls, setBaseUrls] = useState<Record<string, string>>({});
   const [tavilyKey, setTavilyKey] = useState('');
   const [braveKey, setBraveKey] = useState('');
-  const [showAnthropic, setShowAnthropic] = useState(false);
-  const [showOpenai, setShowOpenai] = useState(false);
   const [showTavily, setShowTavily] = useState(false);
   const [showBrave, setShowBrave] = useState(false);
   const [annotateActions, setAnnotateActions] = useState(true);
@@ -70,8 +68,20 @@ const SettingsModal = () => {
 
   useEffect(() => {
     if (!open) return;
-    setAnthropicKey(localStorage.getItem('ANTHROPIC_API_KEY') || '');
-    setOpenaiKey(localStorage.getItem('OPENAI_API_KEY') || '');
+    // Load all provider API keys
+    const keys: Record<string, string> = {};
+    const urls: Record<string, string> = {};
+    MODEL_PROVIDERS.forEach((p) => {
+      if (p.requiresKey && p.keyName) {
+        keys[p.keyName] = localStorage.getItem(p.keyName) || '';
+      }
+      if (p.baseUrlConfigurable) {
+        urls[p.id] = localStorage.getItem(`${p.id.toUpperCase()}_BASE_URL`) || p.defaultBaseUrl || '';
+      }
+    });
+    setApiKeys(keys);
+    setBaseUrls(urls);
+    setShowKeys({});
     setTavilyKey(localStorage.getItem('TAVILY_API_KEY') || '');
     setBraveKey(localStorage.getItem('BRAVE_API_KEY') || '');
     setPlaywrightHost(localStorage.getItem('PLAYWRIGHT_HOST') || 'http://localhost:9222');
@@ -79,8 +89,12 @@ const SettingsModal = () => {
   }, [open]);
 
   const saveKeys = () => {
-    localStorage.setItem('ANTHROPIC_API_KEY', anthropicKey);
-    localStorage.setItem('OPENAI_API_KEY', openaiKey);
+    Object.entries(apiKeys).forEach(([key, value]) => {
+      localStorage.setItem(key, value);
+    });
+    Object.entries(baseUrls).forEach(([id, url]) => {
+      localStorage.setItem(`${id.toUpperCase()}_BASE_URL`, url);
+    });
     localStorage.setItem('TAVILY_API_KEY', tavilyKey);
     localStorage.setItem('BRAVE_API_KEY', braveKey);
     localStorage.setItem('PLAYWRIGHT_HOST', playwrightHost);
@@ -101,9 +115,11 @@ const SettingsModal = () => {
                 onChange={(e) => setModel(e.target.value)}
                 className="bg-muted border border-border rounded-md px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring w-full"
               >
-                {models.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
+                {MODEL_PROVIDERS.flatMap((p) =>
+                  p.models.map((m) => (
+                    <option key={m.id} value={m.id}>{p.icon} {m.name}</option>
+                  ))
+                )}
               </select>
             </ConfigRow>
             <ConfigRow label="Max steps">
@@ -137,11 +153,15 @@ const SettingsModal = () => {
             <p className="text-xs text-muted-foreground">⚠ Stored in localStorage only — not encrypted.</p>
             <div className="space-y-3">
               <h4 className="text-sm font-medium text-foreground">LLM Providers</h4>
-              {[
-                { label: 'ANTHROPIC_API_KEY', value: anthropicKey, set: setAnthropicKey, show: showAnthropic, toggle: () => setShowAnthropic(!showAnthropic) },
-                { label: 'OPENAI_API_KEY', value: openaiKey, set: setOpenaiKey, show: showOpenai, toggle: () => setShowOpenai(!showOpenai) },
-              ].map((k) => (
-                <KeyInput key={k.label} {...k} />
+              {MODEL_PROVIDERS.filter((p) => p.requiresKey && p.keyName).map((p) => (
+                <KeyInput
+                  key={p.keyName!}
+                  label={p.keyName!}
+                  value={apiKeys[p.keyName!] || ''}
+                  set={(v) => setApiKeys((prev) => ({ ...prev, [p.keyName!]: v }))}
+                  show={showKeys[p.keyName!] || false}
+                  toggle={() => setShowKeys((prev) => ({ ...prev, [p.keyName!]: !prev[p.keyName!] }))}
+                />
               ))}
             </div>
             <div className="space-y-3">
