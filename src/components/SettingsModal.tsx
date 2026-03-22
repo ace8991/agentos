@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Eye, EyeOff, Calendar, Mail, Database, Globe, User, Puzzle, Plug, Layers, Key, Shield, Camera, Monitor } from 'lucide-react';
 import { useStore } from '@/store/useStore';
-
-const models = ['claude-opus-4-5', 'claude-sonnet-4-6', 'gpt-4o', 'ollama/llama3'];
+import { MODEL_PROVIDERS } from './ModelSelector';
 const intervals = [
   { label: '500ms', value: 500 },
   { label: '1s', value: 1000 },
