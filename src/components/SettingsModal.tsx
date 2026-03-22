@@ -89,8 +89,12 @@ const SettingsModal = () => {
   }, [open]);
 
   const saveKeys = () => {
-    localStorage.setItem('ANTHROPIC_API_KEY', anthropicKey);
-    localStorage.setItem('OPENAI_API_KEY', openaiKey);
+    Object.entries(apiKeys).forEach(([key, value]) => {
+      localStorage.setItem(key, value);
+    });
+    Object.entries(baseUrls).forEach(([id, url]) => {
+      localStorage.setItem(`${id.toUpperCase()}_BASE_URL`, url);
+    });
     localStorage.setItem('TAVILY_API_KEY', tavilyKey);
     localStorage.setItem('BRAVE_API_KEY', braveKey);
     localStorage.setItem('PLAYWRIGHT_HOST', playwrightHost);
