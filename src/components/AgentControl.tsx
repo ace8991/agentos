@@ -3,8 +3,9 @@ import { useStore } from '@/store/useStore';
 import HexLogo from './HexLogo';
 import AgentBrainVisualizer from './AgentBrainVisualizer';
 import AgentMemory from './AgentMemory';
+import { MODEL_PROVIDERS } from './ModelSelector';
 
-const models = ['claude-opus-4-5', 'claude-sonnet-4-6', 'gpt-4o', 'ollama/llama3'];
+const allModels = MODEL_PROVIDERS.flatMap((p) => p.models.map((m) => ({ id: m.id, label: `${p.icon} ${m.name}` })));
 const intervals = [
   { label: '500ms', value: 500 },
   { label: '1s', value: 1000 },
