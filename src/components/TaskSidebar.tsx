@@ -1,19 +1,10 @@
 import { useState } from 'react';
 import {
-  Plus, Search, Settings, Calendar, Mail, Database, Globe, User,
-  Puzzle, Plug, Layers, SlidersHorizontal, BookOpen, Bot, FolderPlus,
-  Copy, Share2, ChevronRight
+  Plus, Search, Settings, SlidersHorizontal, BookOpen, Bot, FolderPlus,
+  Share2, ChevronRight, Plug, Globe, PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 import { useStore, type HistoryRun } from '@/store/useStore';
 import HexLogo from './HexLogo';
-
-const statusIcon: Record<string, string> = {
-  done: '✓',
-  error: '✗',
-  running: '⟳',
-  idle: '○',
-  paused: '⏸',
-};
 
 const statusDot: Record<string, string> = {
   done: 'bg-success',
@@ -28,6 +19,7 @@ const TaskSidebar = () => {
   const reset = useStore((s) => s.reset);
   const setSettingsOpen = useStore((s) => s.setSettingsOpen);
   const setViewingHistory = useStore((s) => s.setViewingHistory);
+  const [collapsed, setCollapsed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -43,8 +35,50 @@ const TaskSidebar = () => {
     ? history.filter((r) => r.task.toLowerCase().includes(searchQuery.toLowerCase()))
     : history;
 
+  // Collapsed mini sidebar
+  if (collapsed) {
+    return (
+      <div className="w-14 shrink-0 h-screen bg-card border-r border-border flex flex-col items-center py-3 gap-1 transition-all duration-300">
+        <button
+          onClick={() => setCollapsed(false)}
+          className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95 mb-2"
+          title="Expand sidebar"
+        >
+          <PanelLeftOpen size={18} />
+        </button>
+        <div className="w-6 h-6 flex items-center justify-center mb-2">
+          <HexLogo size={20} />
+        </div>
+        <button onClick={handleNewTask} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="New task">
+          <Plus size={16} />
+        </button>
+        <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Agents">
+          <Bot size={16} />
+        </button>
+        <button onClick={() => { setCollapsed(false); setSearchOpen(true); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Search">
+          <Search size={16} />
+        </button>
+        <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Library">
+          <BookOpen size={16} />
+        </button>
+
+        <div className="flex-1" />
+
+        <button onClick={() => setSettingsOpen(true)} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Settings">
+          <Settings size={16} />
+        </button>
+        <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Connectors">
+          <Plug size={16} />
+        </button>
+        <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Cloud browser">
+          <Globe size={16} />
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="w-[260px] shrink-0 h-screen bg-card border-r border-border flex flex-col">
+    <div className="w-[260px] shrink-0 h-screen bg-card border-r border-border flex flex-col transition-all duration-300">
       {/* Logo header */}
       <div className="flex items-center justify-between px-4 py-4 border-b border-border">
         <div className="flex items-center gap-2.5">
@@ -52,10 +86,11 @@ const TaskSidebar = () => {
           <span className="text-foreground font-medium tracking-tight text-sm">AgentOS</span>
         </div>
         <button
+          onClick={() => setCollapsed(true)}
           className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-surface-elevated active:scale-95"
-          title="Copy"
+          title="Minimize sidebar"
         >
-          <Copy size={15} />
+          <PanelLeftClose size={15} />
         </button>
       </div>
 
@@ -68,9 +103,7 @@ const TaskSidebar = () => {
           <Plus size={16} className="text-muted-foreground" />
           <span>New task</span>
         </button>
-        <button
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.98]"
-        >
+        <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.98]">
           <Bot size={16} />
           <span>Agents</span>
         </button>
@@ -81,28 +114,21 @@ const TaskSidebar = () => {
           <Search size={16} />
           <span>Search</span>
         </button>
-        <button
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.98]"
-        >
+        <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.98]">
           <BookOpen size={16} />
           <span>Library</span>
         </button>
       </div>
 
-      {/* Separator */}
       <div className="border-t border-border mx-3" />
 
-      {/* New project */}
       <div className="px-3 py-2">
-        <button
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.98]"
-        >
+        <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.98]">
           <FolderPlus size={16} />
           <span>New project</span>
         </button>
       </div>
 
-      {/* Search input (collapsible) */}
       {searchOpen && (
         <div className="px-3 pb-2 log-entry-enter">
           <input
@@ -115,7 +141,6 @@ const TaskSidebar = () => {
         </div>
       )}
 
-      {/* Task history header */}
       <div className="px-3 pt-3 pb-1">
         <div className="flex items-center justify-between px-3">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">All tasks</span>
@@ -123,7 +148,6 @@ const TaskSidebar = () => {
         </div>
       </div>
 
-      {/* Task list */}
       <div className="flex-1 overflow-y-auto scrollbar-thin px-3 py-1 space-y-0.5">
         {filteredHistory.length === 0 && (
           <p className="text-xs text-muted-foreground text-center py-6">
@@ -149,7 +173,6 @@ const TaskSidebar = () => {
         ))}
       </div>
 
-      {/* Share / referral banner */}
       <div className="mx-3 mb-2">
         <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary/10 hover:bg-primary/15 transition-colors text-left">
           <Share2 size={16} className="text-primary shrink-0" />
@@ -161,26 +184,15 @@ const TaskSidebar = () => {
         </button>
       </div>
 
-      {/* Bottom icons bar */}
       <div className="border-t border-border px-4 py-2.5 flex items-center justify-between">
         <div className="flex items-center gap-1">
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95"
-            title="Settings"
-          >
+          <button onClick={() => setSettingsOpen(true)} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Settings">
             <Settings size={16} />
           </button>
-          <button
-            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95"
-            title="Connectors"
-          >
+          <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Connectors">
             <Plug size={16} />
           </button>
-          <button
-            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95"
-            title="Cloud browser"
-          >
+          <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Cloud browser">
             <Globe size={16} />
           </button>
         </div>
