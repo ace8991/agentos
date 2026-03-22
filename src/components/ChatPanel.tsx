@@ -1,59 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Plus, Mic, Paperclip, ChevronDown } from 'lucide-react';
-import { useStore, type LogEntry, type LogType } from '@/store/useStore';
-import { Eye, Brain, MousePointer, CheckCircle, AlertTriangle, Globe, Terminal, Search } from 'lucide-react';
-
-const typeConfig: Record<LogType, { icon: typeof Eye; label: string; color: string }> = {
-  perceive: { icon: Eye, label: 'Perceiving', color: 'text-primary' },
-  plan: { icon: Brain, label: 'Planning', color: 'text-secondary' },
-  act: { icon: MousePointer, label: 'Acting', color: 'text-accent' },
-  verify: { icon: CheckCircle, label: 'Verifying', color: 'text-secondary' },
-  done: { icon: CheckCircle, label: 'Completed', color: 'text-success' },
-  error: { icon: AlertTriangle, label: 'Error', color: 'text-destructive' },
-  browser: { icon: Globe, label: 'Browser', color: 'text-secondary' },
-  web: { icon: Search, label: 'Web Search', color: 'text-primary' },
-  shell: { icon: Terminal, label: 'Shell', color: 'text-accent' },
-};
-
-const ChatMessage = ({ entry }: { entry: LogEntry }) => {
-  const [expanded, setExpanded] = useState(false);
-  const config = typeConfig[entry.type] || typeConfig.act;
-  const Icon = config.icon;
-
-  return (
-    <div className="flex gap-3 py-3 log-entry-enter">
-      <div className="w-7 h-7 rounded-lg bg-surface-elevated flex items-center justify-center shrink-0 mt-0.5">
-        <Icon size={14} className={config.color} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <span className={`text-xs font-medium ${config.color}`}>{config.label}</span>
-          <span className="text-xs text-muted-foreground">Step {entry.step}</span>
-        </div>
-        <p className="text-sm text-foreground leading-relaxed break-words">{entry.action}</p>
-        {entry.reasoning && (
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ChevronDown size={12} className={`transition-transform ${expanded ? 'rotate-180' : ''}`} />
-            Reasoning
-          </button>
-        )}
-        {expanded && entry.reasoning && (
-          <pre className="mt-2 text-xs font-mono text-muted-foreground bg-muted p-3 rounded-lg whitespace-pre-wrap max-h-40 overflow-y-auto scrollbar-thin">
-            {entry.reasoning}
-          </pre>
-        )}
-        {entry.tool_result && (
-          <pre className="mt-2 text-xs font-mono text-secondary/80 bg-muted p-3 rounded-lg whitespace-pre-wrap max-h-28 overflow-y-auto scrollbar-thin">
-            {JSON.stringify(entry.tool_result, null, 2)}
-          </pre>
-        )}
-      </div>
-    </div>
-  );
-};
+import { Send, Plus, Mic, Paperclip, CheckCircle, AlertTriangle } from 'lucide-react';
+import { useStore } from '@/store/useStore';
+import ChatMessage from './chat/ChatMessage';
+import ThinkingIndicator from './chat/ThinkingIndicator';
+import TakeoverBanner from './chat/TakeoverBanner';
 
 const ChatPanel = () => {
   const task = useStore((s) => s.task);
@@ -62,15 +12,22 @@ const ChatPanel = () => {
   const entries = useStore((s) => s.entries);
   const startAgent = useStore((s) => s.startAgent);
   const stopAgent = useStore((s) => s.stopAgent);
+  const resolveAsk = useStore((s) => s.resolveAsk);
   const currentStep = useStore((s) => s.currentStep);
   const maxSteps = useStore((s) => s.maxSteps);
+  const elapsedTime = useStore((s) => s.elapsedTime);
   const [inputValue, setInputValue] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const isRunning = status === 'running';
-
-  // Reverse entries for chronological order (store keeps newest first)
+  const isPaused = status === 'paused';
   const chronologicalEntries = [...entries].reverse();
+
+  const formatTime = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  };
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -83,7 +40,6 @@ const ChatPanel = () => {
     if (!text) return;
     setTask(text);
     setInputValue('');
-    // Auto-start if idle
     if (status === 'idle') {
       setTimeout(() => {
         useStore.getState().startAgent();
@@ -98,6 +54,16 @@ const ChatPanel = () => {
     }
   };
 
+  // Determine current phase label for thinking indicator
+  const lastEntry = entries[0];
+  const thinkingLabel = lastEntry?.toolLabel
+    ? `${lastEntry.toolLabel}...`
+    : isRunning
+    ? 'Agent is working...'
+    : isPaused
+    ? 'Waiting for your input...'
+    : 'Processing...';
+
   return (
     <div className="flex-1 flex flex-col h-screen min-w-0">
       {/* Header */}
@@ -106,25 +72,37 @@ const ChatPanel = () => {
           <span className="text-sm font-medium text-foreground">
             {task ? task.slice(0, 60) + (task.length > 60 ? '...' : '') : 'New Task'}
           </span>
-          {isRunning && (
-            <span className="text-xs text-muted-foreground tabular-nums">
-              Step {currentStep}/{maxSteps}
-            </span>
+          {(isRunning || isPaused) && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Step {currentStep}/{maxSteps}
+              </span>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {formatTime(elapsedTime)}
+              </span>
+            </div>
           )}
         </div>
-        {isRunning && (
-          <button
-            onClick={stopAgent}
-            className="text-xs text-destructive border border-destructive/30 px-3 py-1 rounded-md hover:bg-destructive/10 transition-colors active:scale-[0.97]"
-          >
-            Stop
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {isPaused && (
+            <span className="text-xs text-accent bg-accent/10 px-2.5 py-1 rounded-md font-medium">
+              Paused
+            </span>
+          )}
+          {(isRunning || isPaused) && (
+            <button
+              onClick={stopAgent}
+              className="text-xs text-destructive border border-destructive/30 px-3 py-1 rounded-md hover:bg-destructive/10 transition-colors active:scale-[0.97]"
+            >
+              Stop
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Messages area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 py-4">
-        {/* Task message */}
+        {/* User task message */}
         {task && (
           <div className="flex gap-3 py-3 mb-2">
             <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center shrink-0 mt-0.5">
@@ -137,43 +115,32 @@ const ChatPanel = () => {
           </div>
         )}
 
-        {/* Separator */}
         {task && entries.length > 0 && (
           <div className="border-t border-border my-2" />
         )}
 
-        {/* Agent entries as chat messages */}
+        {/* Agent entries */}
         {chronologicalEntries.map((entry) => (
-          <ChatMessage key={entry.id} entry={entry} />
+          <ChatMessage key={entry.id} entry={entry} onAskReply={resolveAsk} />
         ))}
 
+        {/* Takeover banner */}
+        <TakeoverBanner />
+
         {/* Running indicator */}
-        {isRunning && (
-          <div className="flex items-center gap-2 py-3 text-muted-foreground">
-            <div className="flex gap-1">
-              {[0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  className="w-1.5 h-1.5 rounded-full bg-primary"
-                  style={{ animation: `pulse-dot 1.2s ease-in-out ${i * 0.2}s infinite` }}
-                />
-              ))}
-            </div>
-            <span className="text-xs">Agent is working...</span>
-          </div>
-        )}
+        {isRunning && <ThinkingIndicator label={thinkingLabel} />}
 
         {/* Done message */}
         {status === 'done' && (
-          <div className="flex items-center gap-2 py-3 mt-2">
+          <div className="flex items-center gap-2 py-3 mt-2 log-entry-enter">
             <CheckCircle size={14} className="text-success" />
-            <span className="text-sm text-success font-medium">Task completed</span>
+            <span className="text-sm text-success font-medium">Task completed successfully</span>
           </div>
         )}
 
         {/* Error message */}
         {status === 'error' && (
-          <div className="flex items-center gap-2 py-3 mt-2 text-destructive">
+          <div className="flex items-center gap-2 py-3 mt-2 text-destructive log-entry-enter">
             <AlertTriangle size={14} />
             <span className="text-sm font-medium">
               {useStore.getState().errorMessage || 'An error occurred'}
@@ -211,7 +178,7 @@ const ChatPanel = () => {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Send message to AgentOS"
+            placeholder="Send a message..."
             rows={1}
             className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none min-h-[20px] max-h-[120px]"
             style={{ height: 'auto' }}
