@@ -54,8 +54,8 @@ const SettingsModal = () => {
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
   const [baseUrls, setBaseUrls] = useState<Record<string, string>>({});
-  const [showAnthropic, setShowAnthropic] = useState(false);
-  const [showOpenai, setShowOpenai] = useState(false);
+  const [tavilyKey, setTavilyKey] = useState('');
+  const [braveKey, setBraveKey] = useState('');
   const [showTavily, setShowTavily] = useState(false);
   const [showBrave, setShowBrave] = useState(false);
   const [annotateActions, setAnnotateActions] = useState(true);
