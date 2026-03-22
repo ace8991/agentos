@@ -1,4 +1,301 @@
+import { MODEL_PROVIDERS, type ModelProvider } from '@/components/ModelSelector';
+
 const BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+// ─── Provider API helpers ────────────────────────────────────────────
+
+function getProviderConfig(modelId: string): { provider: ModelProvider; apiKey: string; baseUrl: string } | null {
+  const provider = MODEL_PROVIDERS.find((p) => p.models.some((m) => m.id === modelId));
+  if (!provider) return null;
+
+  const apiKey = provider.keyName ? (localStorage.getItem(provider.keyName) || '') : '';
+  const baseUrl = provider.baseUrlConfigurable
+    ? (localStorage.getItem(`${provider.id.toUpperCase()}_BASE_URL`) || provider.defaultBaseUrl || '')
+    : '';
+
+  return { provider, apiKey, baseUrl };
+}
+
+function getProviderEndpoint(provider: ModelProvider, baseUrl: string): string {
+  switch (provider.id) {
+    case 'openai': return 'https://api.openai.com/v1/chat/completions';
+    case 'anthropic': return 'https://api.anthropic.com/v1/messages';
+    case 'deepseek': return 'https://api.deepseek.com/chat/completions';
+    case 'google': return `https://generativelanguage.googleapis.com/v1beta/models/${'{model}'}:streamGenerateContent`;
+    case 'mistral': return 'https://api.mistral.ai/v1/chat/completions';
+    case 'groq': return 'https://api.groq.com/openai/v1/chat/completions';
+    case 'ollama': return `${baseUrl || 'http://localhost:11434'}/api/chat`;
+    case 'lmstudio': return `${baseUrl || 'http://localhost:1234'}/v1/chat/completions`;
+    default: return '';
+  }
+}
+
+// ─── Direct LLM Chat (no backend) ──────────────────────────────────
+
+export async function chatDirect(
+  messages: { role: string; content: string }[],
+  modelId: string,
+  onToken: (t: string) => void,
+  onDone: () => void,
+  onError: (e: string) => void,
+) {
+  const config = getProviderConfig(modelId);
+  if (!config) { onError(`Unknown model: ${modelId}`); return; }
+
+  const { provider, apiKey, baseUrl } = config;
+
+  if (provider.requiresKey && !apiKey) {
+    onError(`No API key configured for ${provider.name}. Go to Settings → API Keys to add your ${provider.keyName}.`);
+    return;
+  }
+
+  try {
+    if (provider.id === 'anthropic') {
+      await streamAnthropic(messages, modelId, apiKey, onToken, onDone, onError);
+    } else if (provider.id === 'ollama') {
+      await streamOllama(messages, modelId, baseUrl, onToken, onDone, onError);
+    } else if (provider.id === 'google') {
+      await streamGoogle(messages, modelId, apiKey, onToken, onDone, onError);
+    } else {
+      // OpenAI-compatible: OpenAI, DeepSeek, Mistral, Groq, LM Studio
+      const endpoint = getProviderEndpoint(provider, baseUrl);
+      await streamOpenAICompatible(messages, modelId, apiKey, endpoint, onToken, onDone, onError);
+    }
+  } catch (err) {
+    onError(err instanceof Error ? err.message : 'Chat request failed');
+  }
+}
+
+async function streamOpenAICompatible(
+  messages: { role: string; content: string }[],
+  model: string,
+  apiKey: string,
+  endpoint: string,
+  onToken: (t: string) => void,
+  onDone: () => void,
+  onError: (e: string) => void,
+) {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+  const r = await fetch(endpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ model, messages, stream: true }),
+  });
+
+  if (!r.ok) {
+    const text = await r.text();
+    onError(`API error ${r.status}: ${text.slice(0, 200)}`);
+    return;
+  }
+
+  if (!r.body) { onError('No response body'); return; }
+  await parseSSEStream(r.body, onToken, onDone, onError);
+}
+
+async function streamAnthropic(
+  messages: { role: string; content: string }[],
+  model: string,
+  apiKey: string,
+  onToken: (t: string) => void,
+  onDone: () => void,
+  onError: (e: string) => void,
+) {
+  const systemMsg = messages.find((m) => m.role === 'system');
+  const userMessages = messages.filter((m) => m.role !== 'system');
+
+  const body: Record<string, unknown> = {
+    model,
+    max_tokens: 4096,
+    messages: userMessages,
+    stream: true,
+  };
+  if (systemMsg) body.system = systemMsg.content;
+
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!r.ok) {
+    const text = await r.text();
+    onError(`Anthropic error ${r.status}: ${text.slice(0, 200)}`);
+    return;
+  }
+
+  if (!r.body) { onError('No response body'); return; }
+  const reader = r.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const json = line.slice(6).trim();
+      if (json === '[DONE]') { onDone(); return; }
+      try {
+        const parsed = JSON.parse(json);
+        if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+          onToken(parsed.delta.text);
+        }
+        if (parsed.type === 'message_stop') { onDone(); return; }
+      } catch { /* skip */ }
+    }
+  }
+  onDone();
+}
+
+async function streamOllama(
+  messages: { role: string; content: string }[],
+  model: string,
+  baseUrl: string,
+  onToken: (t: string) => void,
+  onDone: () => void,
+  onError: (e: string) => void,
+) {
+  const actualModel = model.replace('ollama/', '');
+  const endpoint = `${baseUrl || 'http://localhost:11434'}/api/chat`;
+
+  const r = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: actualModel, messages, stream: true }),
+  });
+
+  if (!r.ok) {
+    const text = await r.text();
+    onError(`Ollama error ${r.status}: ${text.slice(0, 200)}`);
+    return;
+  }
+
+  if (!r.body) { onError('No response body'); return; }
+  const reader = r.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        const parsed = JSON.parse(line);
+        if (parsed.message?.content) onToken(parsed.message.content);
+        if (parsed.done) { onDone(); return; }
+      } catch { /* skip */ }
+    }
+  }
+  onDone();
+}
+
+async function streamGoogle(
+  messages: { role: string; content: string }[],
+  model: string,
+  apiKey: string,
+  onToken: (t: string) => void,
+  onDone: () => void,
+  onError: (e: string) => void,
+) {
+  const contents = messages
+    .filter((m) => m.role !== 'system')
+    .map((m) => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    }));
+
+  const systemInstruction = messages.find((m) => m.role === 'system');
+  const body: Record<string, unknown> = { contents };
+  if (systemInstruction) {
+    body.systemInstruction = { parts: [{ text: systemInstruction.content }] };
+  }
+
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
+
+  const r = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!r.ok) {
+    const text = await r.text();
+    onError(`Google AI error ${r.status}: ${text.slice(0, 200)}`);
+    return;
+  }
+
+  if (!r.body) { onError('No response body'); return; }
+  const reader = r.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      try {
+        const parsed = JSON.parse(line.slice(6));
+        const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) onToken(text);
+      } catch { /* skip */ }
+    }
+  }
+  onDone();
+}
+
+async function parseSSEStream(
+  body: ReadableStream<Uint8Array>,
+  onToken: (t: string) => void,
+  onDone: () => void,
+  onError: (e: string) => void,
+) {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const jsonStr = line.slice(6).trim();
+      if (jsonStr === '[DONE]') { onDone(); return; }
+      try {
+        const parsed = JSON.parse(jsonStr);
+        const content = parsed.choices?.[0]?.delta?.content;
+        if (content) onToken(content);
+      } catch { /* skip partial */ }
+    }
+  }
+  onDone();
+}
+
+// ─── Agent backend API (original) ──────────────────────────────────
 
 export async function startRun(params: {
   task: string;
@@ -96,7 +393,8 @@ export async function chatStream(
   onDone();
 }
 
-// Types
+// ─── Types ─────────────────────────────────────────────────────────
+
 export interface AgentEvent {
   type: 'step' | 'done' | 'error' | 'info' | 'thinking' | 'ask' | 'result' | 'takeover';
   step: number;
