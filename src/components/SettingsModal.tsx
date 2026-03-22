@@ -153,11 +153,15 @@ const SettingsModal = () => {
             <p className="text-xs text-muted-foreground">⚠ Stored in localStorage only — not encrypted.</p>
             <div className="space-y-3">
               <h4 className="text-sm font-medium text-foreground">LLM Providers</h4>
-              {[
-                { label: 'ANTHROPIC_API_KEY', value: anthropicKey, set: setAnthropicKey, show: showAnthropic, toggle: () => setShowAnthropic(!showAnthropic) },
-                { label: 'OPENAI_API_KEY', value: openaiKey, set: setOpenaiKey, show: showOpenai, toggle: () => setShowOpenai(!showOpenai) },
-              ].map((k) => (
-                <KeyInput key={k.label} {...k} />
+              {MODEL_PROVIDERS.filter((p) => p.requiresKey && p.keyName).map((p) => (
+                <KeyInput
+                  key={p.keyName!}
+                  label={p.keyName!}
+                  value={apiKeys[p.keyName!] || ''}
+                  set={(v) => setApiKeys((prev) => ({ ...prev, [p.keyName!]: v }))}
+                  show={showKeys[p.keyName!] || false}
+                  toggle={() => setShowKeys((prev) => ({ ...prev, [p.keyName!]: !prev[p.keyName!] }))}
+                />
               ))}
             </div>
             <div className="space-y-3">
