@@ -9,6 +9,7 @@ import EmptyState from './EmptyState';
 const statusStyles: Record<AgentStatus, { bg: string; dot: string; label: string }> = {
   idle: { bg: 'bg-muted', dot: 'bg-muted-foreground', label: 'Idle' },
   running: { bg: 'bg-primary/15', dot: 'bg-primary status-dot-running', label: 'Running' },
+  paused: { bg: 'bg-accent/15', dot: 'bg-accent', label: 'Paused' },
   done: { bg: 'bg-success/15', dot: 'bg-success', label: 'Done' },
   error: { bg: 'bg-destructive/15', dot: 'bg-destructive', label: 'Error' },
 };
