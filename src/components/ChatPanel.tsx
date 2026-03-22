@@ -209,6 +209,8 @@ const ChatPanel = () => {
           </div>
         </div>
       </div>
+      {/* Provider config modal */}
+      <ProviderConfigModal providerId={configProvider} onClose={() => setConfigProvider(null)} />
     </div>
   );
 };
