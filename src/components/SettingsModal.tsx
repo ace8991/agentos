@@ -115,9 +115,11 @@ const SettingsModal = () => {
                 onChange={(e) => setModel(e.target.value)}
                 className="bg-muted border border-border rounded-md px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring w-full"
               >
-                {models.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
+                {MODEL_PROVIDERS.flatMap((p) =>
+                  p.models.map((m) => (
+                    <option key={m.id} value={m.id}>{p.icon} {m.name}</option>
+                  ))
+                )}
               </select>
             </ConfigRow>
             <ConfigRow label="Max steps">
