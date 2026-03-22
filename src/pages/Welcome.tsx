@@ -1,10 +1,20 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PlayCircle, Mic, Plus, User } from 'lucide-react';
-import HexLogo from '@/components/HexLogo';
+import {
+  Send, Plus, Mic, Paperclip, Bell, Sparkles, User,
+  FileText, Globe as GlobeIcon, Monitor, Wand2, MoreHorizontal
+} from 'lucide-react';
+import TaskSidebar from '@/components/TaskSidebar';
+import SettingsModal from '@/components/SettingsModal';
 import { useStore } from '@/store/useStore';
 
-const navItems = ['Home', 'Features', 'Pricing', 'Docs', 'Contact'];
+const suggestions = [
+  { icon: FileText, label: 'Create slides' },
+  { icon: GlobeIcon, label: 'Build website' },
+  { icon: Monitor, label: 'Develop apps' },
+  { icon: Wand2, label: 'Design' },
+  { icon: MoreHorizontal, label: 'More' },
+];
 
 const Welcome = () => {
   const [taskInput, setTaskInput] = useState('');
@@ -18,105 +28,162 @@ const Welcome = () => {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') handleStart();
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleStart();
+    }
+  };
+
+  const handleSuggestion = (label: string) => {
+    setTaskInput(label);
   };
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden">
-      {/* Background image */}
-      <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: 'url(/images/hero-bg.png)' }}
-      />
-      {/* Dark overlay for readability */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/60" />
+    <div className="flex h-screen w-full overflow-hidden">
+      {/* Sidebar */}
+      <TaskSidebar />
 
-      {/* Content */}
-      <div className="relative z-10 flex flex-col min-h-screen">
-        {/* Navbar */}
-        <nav className="flex items-center justify-between px-10 py-5">
-          <div className="flex items-center gap-2.5">
-            <HexLogo size={28} />
-            <span className="text-xl font-medium tracking-tight text-white">AgentOS</span>
+      {/* Main content area */}
+      <div className="flex-1 flex flex-col h-screen min-w-0 relative">
+        {/* Background image */}
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: 'url(/images/hero-bg.png)' }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/60 to-background/90" />
+
+        {/* Top bar */}
+        <div className="relative z-10 flex items-center justify-between px-6 py-3 border-b border-border/30">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-foreground font-medium">AgentOS 1.0</span>
+            <svg width="10" height="10" viewBox="0 0 10 10" className="text-muted-foreground mt-0.5">
+              <path d="M2 4L5 7L8 4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </div>
-          <div className="flex items-center gap-8">
-            {navItems.map((item) => (
-              <a
-                key={item}
-                href="#"
-                className="text-sm text-white/80 hover:text-white transition-colors font-medium"
-              >
-                {item}
-              </a>
-            ))}
-            <button className="w-9 h-9 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white/80 hover:text-white hover:bg-white/20 transition-all active:scale-95">
-              <User size={16} />
+          <div className="flex items-center gap-3">
+            <button className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-md hover:bg-surface-elevated/50 active:scale-95">
+              <Bell size={17} />
+            </button>
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Sparkles size={15} className="text-accent" />
+              <span className="text-xs tabular-nums font-medium">164</span>
+            </div>
+            <button className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-accent-foreground text-xs font-bold active:scale-95">
+              A
             </button>
           </div>
-        </nav>
+        </div>
 
-        {/* Hero */}
-        <div className="flex-1 flex flex-col items-center justify-center px-8 -mt-12">
+        {/* Plan banner */}
+        <div className="relative z-10 flex justify-center pt-8">
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-muted-foreground">Free plan</span>
+            <span className="text-muted-foreground/40">|</span>
+            <button className="text-accent hover:text-accent/80 transition-colors font-medium">
+              Start free trial
+            </button>
+          </div>
+        </div>
+
+        {/* Centered content */}
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-8 -mt-8">
           <h1
-            className="text-5xl font-medium text-white text-center leading-tight mb-4"
-            style={{ textShadow: '0 2px 20px rgba(0,0,0,0.5)' }}
+            className="text-4xl font-medium text-foreground text-center leading-tight mb-10"
+            style={{ fontFamily: "'Inter', system-ui, sans-serif" }}
           >
-            Automate everything.
-            <br />
-            Your agent handles the rest.
+            What can I do for you?
           </h1>
-          <p
-            className="text-lg text-white/70 text-center mb-12"
-            style={{ textShadow: '0 1px 8px rgba(0,0,0,0.4)' }}
-          >
-            AI agent that automates tasks on your computer.
-          </p>
 
-          {/* Task input bar */}
-          <div className="w-full max-w-2xl relative group">
-            {/* Glow border */}
-            <div className="absolute -inset-[1px] rounded-xl bg-gradient-to-r from-secondary via-primary/40 to-primary opacity-60 group-focus-within:opacity-100 transition-opacity blur-[1px]" />
-            <div className="relative flex items-center bg-[#12121A]/90 backdrop-blur-md rounded-xl border border-white/10 px-4 py-3 gap-3">
-              <button className="shrink-0 w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white/50 hover:text-white/80 hover:bg-white/15 transition-all active:scale-95">
-                <Plus size={16} />
-              </button>
-              <input
-                type="text"
-                value={taskInput}
-                onChange={(e) => setTaskInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Describe what the agent should do..."
-                className="flex-1 bg-transparent text-white placeholder:text-white/40 text-sm focus:outline-none"
-              />
-              <button className="shrink-0 text-white/40 hover:text-white/70 transition-colors p-1.5">
-                <Mic size={18} />
-              </button>
-              <button
-                onClick={handleStart}
-                disabled={!taskInput.trim()}
-                className="shrink-0 flex items-center gap-2 bg-primary hover:bg-primary/90 text-white text-sm font-medium px-5 py-2 rounded-lg transition-all active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none"
-              >
-                Start Agent
-              </button>
-            </div>
-            {/* Animated dots under input */}
-            <div className="flex justify-center gap-2 mt-3">
-              {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-                <div
-                  key={i}
-                  className="w-1.5 h-1.5 rounded-full bg-secondary/60"
-                  style={{
-                    animation: `pulse-dot 2s ease-in-out ${i * 0.2}s infinite`,
+          {/* Chat input */}
+          <div className="w-full max-w-2xl">
+            <div className="bg-card/80 backdrop-blur-md border border-border rounded-2xl overflow-hidden">
+              {/* Text area */}
+              <div className="px-5 pt-4 pb-2">
+                <textarea
+                  value={taskInput}
+                  onChange={(e) => setTaskInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Assign a task or ask anything"
+                  rows={2}
+                  className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none leading-relaxed"
+                  style={{ minHeight: '48px', maxHeight: '120px' }}
+                  onInput={(e) => {
+                    const target = e.target as HTMLTextAreaElement;
+                    target.style.height = 'auto';
+                    target.style.height = Math.min(target.scrollHeight, 120) + 'px';
                   }}
                 />
-              ))}
+              </div>
+
+              {/* Bottom bar */}
+              <div className="flex items-center justify-between px-4 pb-3">
+                <div className="flex items-center gap-1">
+                  <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated/50 transition-colors active:scale-95">
+                    <Plus size={18} />
+                  </button>
+                  <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated/50 transition-colors active:scale-95">
+                    <Paperclip size={16} />
+                  </button>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated/50 transition-colors active:scale-95">
+                    <Paperclip size={16} />
+                  </button>
+                  <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated/50 transition-colors active:scale-95">
+                    <Mic size={16} />
+                  </button>
+                  <button
+                    onClick={handleStart}
+                    disabled={!taskInput.trim()}
+                    className="ml-1 w-8 h-8 rounded-full bg-accent flex items-center justify-center text-accent-foreground hover:opacity-90 transition-opacity disabled:opacity-30 active:scale-95"
+                  >
+                    <Send size={14} />
+                  </button>
+                </div>
+              </div>
             </div>
+
+            {/* Connect tools row */}
+            <div className="flex items-center justify-between mt-2 px-2">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Paperclip size={13} />
+                <span>Connect your tools to AgentOS</span>
+              </div>
+              <div className="flex items-center gap-1">
+                {['🟢', '📧', '📊', '💬', '📝'].map((emoji, i) => (
+                  <span key={i} className="w-5 h-5 flex items-center justify-center text-xs opacity-60 hover:opacity-100 cursor-pointer transition-opacity">
+                    {emoji}
+                  </span>
+                ))}
+                <button className="text-muted-foreground hover:text-foreground transition-colors ml-1">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M11 7.5L3 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Suggestion chips */}
+          <div className="flex items-center gap-2.5 mt-8">
+            {suggestions.map(({ icon: Icon, label }) => (
+              <button
+                key={label}
+                onClick={() => handleSuggestion(label)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border/60 bg-card/40 backdrop-blur-sm text-sm text-muted-foreground hover:text-foreground hover:bg-card/70 hover:border-border transition-all active:scale-[0.97]"
+              >
+                <Icon size={15} />
+                <span>{label}</span>
+              </button>
+            ))}
           </div>
         </div>
 
         {/* Bottom spacer */}
-        <div className="h-16" />
+        <div className="h-8" />
       </div>
+
+      <SettingsModal />
     </div>
   );
 };
