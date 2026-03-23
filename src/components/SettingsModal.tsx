@@ -715,29 +715,31 @@ const SettingsModal = () => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setOpen(false)}>
       <div
-        className="glass-modal rounded-lg border border-border w-full max-w-3xl mx-4 max-h-[85vh] flex overflow-hidden"
+        className="glass-modal rounded-lg border border-border w-full max-w-3xl mx-3 md:mx-4 max-h-[90vh] md:max-h-[85vh] flex flex-col md:flex-row overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Sidebar */}
-        <div className="w-[200px] shrink-0 border-r border-border bg-card/50 overflow-y-auto scrollbar-thin py-2">
-          {sidebarSections.map((s) => (
-            <button
-              key={s.key}
-              onClick={() => setSection(s.key)}
-              className={`w-full flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
-                section === s.key
-                  ? 'bg-surface-elevated text-foreground font-medium'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated/50'
-              }`}
-            >
-              <s.icon size={14} />
-              {s.label}
-            </button>
-          ))}
+        {/* Sidebar — horizontal scroll on mobile, vertical on desktop */}
+        <div className="md:w-[200px] shrink-0 border-b md:border-b-0 md:border-r border-border bg-card/50 overflow-x-auto md:overflow-x-visible md:overflow-y-auto scrollbar-thin py-2 md:py-2">
+          <div className="flex md:flex-col gap-0.5 px-2 md:px-0 min-w-max md:min-w-0">
+            {sidebarSections.map((s) => (
+              <button
+                key={s.key}
+                onClick={() => setSection(s.key)}
+                className={`flex items-center gap-2 md:gap-2.5 px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm rounded-md md:rounded-none whitespace-nowrap transition-colors ${
+                  section === s.key
+                    ? 'bg-surface-elevated text-foreground font-medium'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated/50'
+                }`}
+              >
+                <s.icon size={14} />
+                {s.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin p-6">
+        <div className="flex-1 overflow-y-auto scrollbar-thin p-4 md:p-6 min-h-0">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-medium text-foreground">Settings</h2>
             <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors">
