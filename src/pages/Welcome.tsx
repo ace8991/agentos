@@ -7,6 +7,7 @@ import {
 import TaskSidebar from '@/components/TaskSidebar';
 import SettingsModal from '@/components/SettingsModal';
 import { useStore } from '@/store/useStore';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const suggestions = [
   { icon: FileText, label: 'Create slides' },
@@ -20,6 +21,7 @@ const Welcome = () => {
   const [taskInput, setTaskInput] = useState('');
   const setTask = useStore((s) => s.setTask);
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   const handleStart = () => {
     if (!taskInput.trim()) return;
@@ -53,14 +55,16 @@ const Welcome = () => {
         <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/60 to-background/90" />
 
         {/* Top bar */}
-        <div className="relative z-10 flex items-center justify-between px-6 py-3 border-b border-border/30">
+        <div className="relative z-10 flex items-center justify-between px-4 md:px-6 py-3 border-b border-border/30">
           <div className="flex items-center gap-2">
+            {/* On mobile, leave space for hamburger */}
+            {isMobile && <div className="w-10" />}
             <span className="text-sm text-foreground font-medium">AgentOS 1.0</span>
             <svg width="10" height="10" viewBox="0 0 10 10" className="text-muted-foreground mt-0.5">
               <path d="M2 4L5 7L8 4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
             <button className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-md hover:bg-surface-elevated/50 active:scale-95">
               <Bell size={17} />
             </button>
@@ -75,7 +79,7 @@ const Welcome = () => {
         </div>
 
         {/* Plan banner */}
-        <div className="relative z-10 flex justify-center pt-8">
+        <div className="relative z-10 flex justify-center pt-6 md:pt-8">
           <div className="flex items-center gap-2 text-xs">
             <span className="text-muted-foreground">Free plan</span>
             <span className="text-muted-foreground/40">|</span>
@@ -86,10 +90,10 @@ const Welcome = () => {
         </div>
 
         {/* Centered content */}
-        <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-8 -mt-8">
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 md:px-8 -mt-4 md:-mt-8">
           <h1
-            className="text-4xl font-medium text-foreground text-center leading-tight mb-10"
-            style={{ fontFamily: "'Inter', system-ui, sans-serif" }}
+            className="text-2xl md:text-4xl font-medium text-foreground text-center leading-tight mb-6 md:mb-10"
+            style={{ fontFamily: "'Inter', system-ui, sans-serif", textWrap: 'balance' }}
           >
             What can I do for you?
           </h1>
@@ -98,7 +102,7 @@ const Welcome = () => {
           <div className="w-full max-w-2xl">
             <div className="bg-card/80 backdrop-blur-md border border-border rounded-2xl overflow-hidden">
               {/* Text area */}
-              <div className="px-5 pt-4 pb-2">
+              <div className="px-4 md:px-5 pt-4 pb-2">
                 <textarea
                   value={taskInput}
                   onChange={(e) => setTaskInput(e.target.value)}
@@ -116,8 +120,8 @@ const Welcome = () => {
               </div>
 
               {/* Bottom bar */}
-              <div className="flex items-center justify-between px-4 pb-3">
-                <div className="flex items-center gap-1">
+              <div className="flex items-center justify-between px-3 md:px-4 pb-3">
+                <div className="flex items-center gap-0.5">
                   <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated/50 transition-colors active:scale-95">
                     <Plus size={18} />
                   </button>
@@ -125,10 +129,7 @@ const Welcome = () => {
                     <Paperclip size={16} />
                   </button>
                 </div>
-                <div className="flex items-center gap-1">
-                  <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated/50 transition-colors active:scale-95">
-                    <Paperclip size={16} />
-                  </button>
+                <div className="flex items-center gap-0.5">
                   <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated/50 transition-colors active:scale-95">
                     <Mic size={16} />
                   </button>
@@ -144,10 +145,11 @@ const Welcome = () => {
             </div>
 
             {/* Connect tools row */}
-            <div className="flex items-center justify-between mt-2 px-2">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center justify-between mt-2 px-1 md:px-2">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Paperclip size={13} />
-                <span>Connect your tools to AgentOS</span>
+                <span className="hidden sm:inline">Connect your tools to AgentOS</span>
+                <span className="sm:hidden">Connect tools</span>
               </div>
               <div className="flex items-center gap-1">
                 {['🟢', '📧', '📊', '💬', '📝'].map((emoji, i) => (
@@ -155,32 +157,29 @@ const Welcome = () => {
                     {emoji}
                   </span>
                 ))}
-                <button className="text-muted-foreground hover:text-foreground transition-colors ml-1">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                    <path d="M11 7.5L3 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                  </svg>
-                </button>
               </div>
             </div>
           </div>
 
-          {/* Suggestion chips */}
-          <div className="flex items-center gap-2.5 mt-8">
-            {suggestions.map(({ icon: Icon, label }) => (
-              <button
-                key={label}
-                onClick={() => handleSuggestion(label)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border/60 bg-card/40 backdrop-blur-sm text-sm text-muted-foreground hover:text-foreground hover:bg-card/70 hover:border-border transition-all active:scale-[0.97]"
-              >
-                <Icon size={15} />
-                <span>{label}</span>
-              </button>
-            ))}
+          {/* Suggestion chips — horizontal scroll on mobile */}
+          <div className="w-full max-w-2xl mt-6 md:mt-8">
+            <div className="flex items-center gap-2 md:gap-2.5 overflow-x-auto scrollbar-thin pb-2 md:justify-center">
+              {suggestions.map(({ icon: Icon, label }) => (
+                <button
+                  key={label}
+                  onClick={() => handleSuggestion(label)}
+                  className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 rounded-xl border border-border/60 bg-card/40 backdrop-blur-sm text-xs md:text-sm text-muted-foreground hover:text-foreground hover:bg-card/70 hover:border-border transition-all active:scale-[0.97] shrink-0"
+                >
+                  <Icon size={15} />
+                  <span className="whitespace-nowrap">{label}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* Bottom spacer */}
-        <div className="h-8" />
+        <div className="h-4 md:h-8" />
       </div>
 
       <SettingsModal />
