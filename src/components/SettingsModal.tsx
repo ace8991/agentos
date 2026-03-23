@@ -771,9 +771,9 @@ const SettingsModal = () => {
 };
 
 const ConfigRow = ({ label, children }: { label: string; children: React.ReactNode }) => (
-  <div className="flex items-center justify-between gap-3">
+  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-3">
     <label className="text-sm text-muted-foreground shrink-0">{label}</label>
-    <div className="flex-1 max-w-[240px]">{children}</div>
+    <div className="flex-1 sm:max-w-[240px]">{children}</div>
   </div>
 );
 
