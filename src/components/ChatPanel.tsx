@@ -214,7 +214,7 @@ const ChatPanel = () => {
       </div>
 
       {/* Messages area */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 py-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin px-3 md:px-5 py-3 md:py-4">
         {/* User task message (agent mode) */}
         {mode === 'agent' && task && (
           <div className="flex gap-3 py-3 mb-2">
