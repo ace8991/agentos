@@ -315,8 +315,8 @@ const ChatPanel = () => {
       )}
 
       {/* Input bar */}
-      <div className="px-5 pb-4 pt-2">
-        <div className="relative flex items-end bg-muted border border-border rounded-xl px-4 py-3 gap-3 focus-within:glow-purple transition-shadow">
+      <div className="px-3 md:px-5 pb-3 md:pb-4 pt-2">
+        <div className="relative flex items-end bg-muted border border-border rounded-xl px-3 md:px-4 py-2.5 md:py-3 gap-2 md:gap-3 focus-within:glow-purple transition-shadow">
           <button
             onClick={() => fileInputRef.current?.click()}
             className="shrink-0 text-muted-foreground hover:text-foreground transition-colors p-0.5 mb-0.5 active:scale-95"
