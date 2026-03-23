@@ -153,7 +153,7 @@ const ModelSelector = ({ onConfigureProvider }: ModelSelectorProps) => {
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute top-full left-0 mt-2 w-[320px] bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden max-h-[70vh] overflow-y-auto scrollbar-thin">
+          <div className="absolute top-full left-0 mt-2 w-[280px] md:w-[320px] bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden max-h-[60vh] md:max-h-[70vh] overflow-y-auto scrollbar-thin right-0 md:right-auto">
             {MODEL_PROVIDERS.map((provider) => {
               const configured = hasApiKey(provider);
               return (

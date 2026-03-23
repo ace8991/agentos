@@ -167,12 +167,13 @@ const ChatPanel = () => {
     : 'Processing...';
 
   return (
-    <div className="flex-1 flex flex-col h-screen min-w-0">
+    <div className="flex-1 flex flex-col h-screen md:h-screen min-w-0 min-h-0">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-3 md:px-5 py-3 border-b border-border">
+        <div className="flex items-center gap-2 md:gap-3 min-w-0">
+          <div className="w-10 md:w-0 shrink-0 md:hidden" />
           <ModelSelector onConfigureProvider={setConfigProvider} />
-          <span className="text-sm font-medium text-foreground">
+          <span className="text-sm font-medium text-foreground truncate hidden md:inline">
             {task ? task.slice(0, 50) + (task.length > 50 ? '...' : '') : mode === 'chat' ? 'Chat' : 'New Task'}
           </span>
           {(isRunning || isPaused) && (
@@ -213,7 +214,7 @@ const ChatPanel = () => {
       </div>
 
       {/* Messages area */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 py-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin px-3 md:px-5 py-3 md:py-4">
         {/* User task message (agent mode) */}
         {mode === 'agent' && task && (
           <div className="flex gap-3 py-3 mb-2">
@@ -314,8 +315,8 @@ const ChatPanel = () => {
       )}
 
       {/* Input bar */}
-      <div className="px-5 pb-4 pt-2">
-        <div className="relative flex items-end bg-muted border border-border rounded-xl px-4 py-3 gap-3 focus-within:glow-purple transition-shadow">
+      <div className="px-3 md:px-5 pb-3 md:pb-4 pt-2">
+        <div className="relative flex items-end bg-muted border border-border rounded-xl px-3 md:px-4 py-2.5 md:py-3 gap-2 md:gap-3 focus-within:glow-purple transition-shadow">
           <button
             onClick={() => fileInputRef.current?.click()}
             className="shrink-0 text-muted-foreground hover:text-foreground transition-colors p-0.5 mb-0.5 active:scale-95"

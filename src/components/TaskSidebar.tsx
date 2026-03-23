@@ -3,12 +3,14 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Plus, Search, Settings, SlidersHorizontal, BookOpen, Bot, FolderPlus,
   Share2, ChevronRight, Plug, Globe, PanelLeftClose, PanelLeftOpen,
-  BarChart3, Clock, Trash2
+  BarChart3, Clock, Trash2, Menu, X
 } from 'lucide-react';
 import { useStore, type HistoryRun } from '@/store/useStore';
 import HexLogo from './HexLogo';
 import SidebarModeSwitch from './sidebar/SidebarModeSwitch';
 import SidebarToolStatus from './sidebar/SidebarToolStatus';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 
 const statusDot: Record<string, string> = {
   done: 'bg-success',
@@ -29,16 +31,20 @@ const TaskSidebar = () => {
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [agentsOpen, setAgentsOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const isMobile = useIsMobile();
 
   const handleNewTask = () => {
     reset();
+    setMobileOpen(false);
     navigate('/');
   };
 
   const handleTaskClick = (run: HistoryRun) => {
     setViewingHistory(run);
+    setMobileOpen(false);
     navigate('/dashboard');
   };
 
@@ -50,63 +56,30 @@ const TaskSidebar = () => {
     .filter((r) => !searchQuery || r.task.toLowerCase().includes(searchQuery.toLowerCase()))
     .filter((r) => !filterStatus || r.status === filterStatus);
 
-  // Collapsed mini sidebar
-  if (collapsed) {
-    return (
-      <div className="w-14 shrink-0 h-screen bg-card border-r border-border flex flex-col items-center py-3 gap-1 transition-all duration-300">
-        <button
-          onClick={() => setCollapsed(false)}
-          className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95 mb-2"
-          title="Expand sidebar"
-        >
-          <PanelLeftOpen size={18} />
-        </button>
-        <div className="w-6 h-6 flex items-center justify-center mb-2">
-          <HexLogo size={20} />
-        </div>
-        <button onClick={handleNewTask} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="New task">
-          <Plus size={16} />
-        </button>
-        <button onClick={() => { setCollapsed(false); setAgentsOpen(true); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Agents">
-          <Bot size={16} />
-        </button>
-        <button onClick={() => { setCollapsed(false); setSearchOpen(true); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Search">
-          <Search size={16} />
-        </button>
-        <button onClick={() => { setCollapsed(false); setLibraryOpen(true); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Library">
-          <BookOpen size={16} />
-        </button>
-
-        <div className="flex-1" />
-
-        <button onClick={() => setSettingsOpen(true)} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Settings">
-          <Settings size={16} />
-        </button>
-        <button onClick={() => { setCollapsed(false); setSettingsOpen(true); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Connectors">
-          <Plug size={16} />
-        </button>
-        <button onClick={() => { setCollapsed(false); setSettingsOpen(true); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Cloud browser">
-          <Globe size={16} />
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="w-[260px] shrink-0 h-screen bg-card border-r border-border flex flex-col transition-all duration-300">
+  const sidebarContent = (
+    <div className="flex flex-col h-full">
       {/* Logo header */}
       <div className="flex items-center justify-between px-4 py-4 border-b border-border">
-        <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => navigate('/')}>
+        <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => { navigate('/'); setMobileOpen(false); }}>
           <HexLogo size={24} />
           <span className="text-foreground font-medium tracking-tight text-sm">AgentOS</span>
         </div>
-        <button
-          onClick={() => setCollapsed(true)}
-          className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-surface-elevated active:scale-95"
-          title="Minimize sidebar"
-        >
-          <PanelLeftClose size={15} />
-        </button>
+        {isMobile ? (
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-surface-elevated active:scale-95"
+          >
+            <X size={18} />
+          </button>
+        ) : (
+          <button
+            onClick={() => setCollapsed(true)}
+            className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-surface-elevated active:scale-95"
+            title="Minimize sidebar"
+          >
+            <PanelLeftClose size={15} />
+          </button>
+        )}
       </div>
 
       {/* Mode switcher */}
@@ -159,6 +132,7 @@ const TaskSidebar = () => {
                 onClick={() => {
                   useStore.getState().setTask(`Act as a ${agent.name}: `);
                   setAgentsOpen(false);
+                  setMobileOpen(false);
                   navigate('/dashboard');
                 }}
                 className="w-full text-left px-2.5 py-2 rounded-md hover:bg-surface-elevated transition-colors"
@@ -183,6 +157,7 @@ const TaskSidebar = () => {
                   onClick={() => {
                     useStore.getState().setTask(run.task);
                     setLibraryOpen(false);
+                    setMobileOpen(false);
                     navigate('/dashboard');
                   }}
                   className="w-full text-left px-2.5 py-1.5 rounded-md hover:bg-surface-elevated transition-colors"
@@ -302,23 +277,18 @@ const TaskSidebar = () => {
 
       <div className="border-t border-border px-4 py-2.5 flex items-center justify-between">
         <div className="flex items-center gap-1">
-          <button onClick={() => setSettingsOpen(true)} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Settings">
+          <button onClick={() => { setSettingsOpen(true); setMobileOpen(false); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Settings">
             <Settings size={16} />
           </button>
           <button
-            onClick={() => {
-              setSettingsOpen(true);
-              // Will open on connectors section
-            }}
+            onClick={() => { setSettingsOpen(true); setMobileOpen(false); }}
             className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95"
             title="Connectors"
           >
             <Plug size={16} />
           </button>
           <button
-            onClick={() => {
-              setSettingsOpen(true);
-            }}
+            onClick={() => { setSettingsOpen(true); setMobileOpen(false); }}
             className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95"
             title="Cloud browser"
           >
@@ -326,6 +296,76 @@ const TaskSidebar = () => {
           </button>
         </div>
       </div>
+    </div>
+  );
+
+  // Mobile: render hamburger button + sheet drawer
+  if (isMobile) {
+    return (
+      <>
+        <button
+          onClick={() => setMobileOpen(true)}
+          className="fixed top-3 left-3 z-50 p-2 rounded-lg bg-card/90 backdrop-blur-sm border border-border text-muted-foreground hover:text-foreground transition-colors active:scale-95"
+          aria-label="Open menu"
+        >
+          <Menu size={20} />
+        </button>
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetContent side="left" className="w-[280px] p-0 bg-card border-r border-border">
+            <SheetTitle className="sr-only">Navigation</SheetTitle>
+            {sidebarContent}
+          </SheetContent>
+        </Sheet>
+      </>
+    );
+  }
+
+  // Desktop collapsed
+  if (collapsed) {
+    return (
+      <div className="w-14 shrink-0 h-screen bg-card border-r border-border flex flex-col items-center py-3 gap-1 transition-all duration-300">
+        <button
+          onClick={() => setCollapsed(false)}
+          className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95 mb-2"
+          title="Expand sidebar"
+        >
+          <PanelLeftOpen size={18} />
+        </button>
+        <div className="w-6 h-6 flex items-center justify-center mb-2">
+          <HexLogo size={20} />
+        </div>
+        <button onClick={handleNewTask} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="New task">
+          <Plus size={16} />
+        </button>
+        <button onClick={() => { setCollapsed(false); setAgentsOpen(true); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Agents">
+          <Bot size={16} />
+        </button>
+        <button onClick={() => { setCollapsed(false); setSearchOpen(true); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Search">
+          <Search size={16} />
+        </button>
+        <button onClick={() => { setCollapsed(false); setLibraryOpen(true); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Library">
+          <BookOpen size={16} />
+        </button>
+
+        <div className="flex-1" />
+
+        <button onClick={() => setSettingsOpen(true)} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Settings">
+          <Settings size={16} />
+        </button>
+        <button onClick={() => { setCollapsed(false); setSettingsOpen(true); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Connectors">
+          <Plug size={16} />
+        </button>
+        <button onClick={() => { setCollapsed(false); setSettingsOpen(true); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Cloud browser">
+          <Globe size={16} />
+        </button>
+      </div>
+    );
+  }
+
+  // Desktop expanded
+  return (
+    <div className="w-[260px] shrink-0 h-screen bg-card border-r border-border flex flex-col transition-all duration-300">
+      {sidebarContent}
     </div>
   );
 };
