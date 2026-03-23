@@ -169,10 +169,11 @@ const ChatPanel = () => {
   return (
     <div className="flex-1 flex flex-col h-screen md:h-screen min-w-0 min-h-0">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-3 md:px-5 py-3 border-b border-border">
+        <div className="flex items-center gap-2 md:gap-3 min-w-0">
+          <div className="w-10 md:w-0 shrink-0 md:hidden" />
           <ModelSelector onConfigureProvider={setConfigProvider} />
-          <span className="text-sm font-medium text-foreground">
+          <span className="text-sm font-medium text-foreground truncate hidden md:inline">
             {task ? task.slice(0, 50) + (task.length > 50 ? '...' : '') : mode === 'chat' ? 'Chat' : 'New Task'}
           </span>
           {(isRunning || isPaused) && (
