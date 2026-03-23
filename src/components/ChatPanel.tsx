@@ -167,7 +167,7 @@ const ChatPanel = () => {
     : 'Processing...';
 
   return (
-    <div className="flex-1 flex flex-col h-screen min-w-0">
+    <div className="flex-1 flex flex-col h-screen md:h-screen min-w-0 min-h-0">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-border">
         <div className="flex items-center gap-3">
