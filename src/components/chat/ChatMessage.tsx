@@ -5,6 +5,7 @@ import {
   Download, Paperclip
 } from 'lucide-react';
 import { type LogEntry, type LogType } from '@/store/useStore';
+import ArtifactCard, { parseArtifacts } from './ArtifactCard';
 
 const typeConfig: Record<LogType, { icon: typeof Eye; label: string; color: string }> = {
   perceive: { icon: Eye, label: 'Perceiving', color: 'text-primary' },
@@ -38,8 +39,35 @@ const ChatMessage = ({ entry, onAskReply }: ChatMessageProps) => {
   const isResult = entry.type === 'result';
   const isInfo = entry.type === 'info';
 
+  // Parse artifacts from result messages
+  const { text: displayText, artifacts } = isResult
+    ? parseArtifacts(entry.action)
+    : { text: entry.action, artifacts: [] };
+
+  // Render markdown-like formatting for result messages
+  const renderFormattedText = (text: string) => {
+    if (!text.trim()) return null;
+    
+    // Simple markdown rendering: bold, inline code, links
+    const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g);
+    
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={i} className="font-semibold">{part.slice(2, -2)}</strong>;
+      }
+      if (part.startsWith('`') && part.endsWith('`')) {
+        return <code key={i} className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono text-foreground">{part.slice(1, -1)}</code>;
+      }
+      const linkMatch = part.match(/\[([^\]]+)\]\(([^)]+)\)/);
+      if (linkMatch) {
+        return <a key={i} href={linkMatch[2]} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{linkMatch[1]}</a>;
+      }
+      return part;
+    });
+  };
+
   return (
-    <div className={`flex gap-3 py-3 log-entry-enter ${isResult ? 'bg-success/5 -mx-5 px-5 rounded-lg' : ''}`}>
+    <div className={`flex gap-3 py-3 log-entry-enter ${isResult ? 'bg-success/5 -mx-3 md:-mx-5 px-3 md:px-5 rounded-lg' : ''}`}>
       <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
         isResult ? 'bg-success/15' : isAsk ? 'bg-accent/15' : isInfo ? 'bg-muted' : 'bg-surface-elevated'
       }`}>
@@ -60,8 +88,21 @@ const ChatMessage = ({ entry, onAskReply }: ChatMessageProps) => {
           )}
         </div>
 
-        {/* Main content */}
-        <p className="text-sm text-foreground leading-relaxed break-words whitespace-pre-wrap">{entry.action}</p>
+        {/* Main content - with markdown rendering for results */}
+        {displayText && (
+          <p className="text-sm text-foreground leading-relaxed break-words whitespace-pre-wrap">
+            {isResult ? renderFormattedText(displayText) : displayText}
+          </p>
+        )}
+
+        {/* Artifacts */}
+        {artifacts.length > 0 && (
+          <div className="space-y-2">
+            {artifacts.map((artifact) => (
+              <ArtifactCard key={artifact.id} artifact={artifact} />
+            ))}
+          </div>
+        )}
 
         {/* Attachments */}
         {entry.attachments && entry.attachments.length > 0 && (

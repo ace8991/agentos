@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Eye, EyeOff, Calendar, Mail, Database, Globe, User, Puzzle, Plug, Layers, Key, Shield, Camera, Monitor, Plus, Trash2, Check, ExternalLink } from 'lucide-react';
+import { X, Eye, EyeOff, Calendar, Mail, Database, Globe, User, Puzzle, Plug, Layers, Key, Shield, Camera, Monitor, Plus, Trash2, Check, ExternalLink, Settings } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { MODEL_PROVIDERS } from './ModelSelector';
+import ConnectorConfigModal from './chat/ConnectorConfigModal';
 
 const intervals = [
   { label: '500ms', value: 500 },
@@ -149,6 +150,7 @@ const SettingsModal = () => {
 
   // Connectors
   const [connectors, setConnectors] = useState<Connector[]>(defaultConnectors);
+  const [configConnectorId, setConfigConnectorId] = useState<string | null>(null);
 
   // Integrations
   const [webhookUrl, setWebhookUrl] = useState('');
@@ -635,7 +637,7 @@ const SettingsModal = () => {
         return (
           <div className="space-y-4">
             <h3 className="text-base font-medium text-foreground">Connectors</h3>
-            <p className="text-xs text-muted-foreground">Connect external services to extend agent capabilities.</p>
+            <p className="text-xs text-muted-foreground">Connect external services to extend agent capabilities. Click Configure to set up credentials.</p>
             <div className="space-y-1">
               {connectors.map((conn) => (
                 <div key={conn.id} className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-surface-elevated/50 transition-colors">
@@ -646,19 +648,35 @@ const SettingsModal = () => {
                       <p className="text-xs text-muted-foreground capitalize">{conn.type}</p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => toggleConnector(conn.id)}
-                    className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors active:scale-[0.97] ${
-                      conn.connected
-                        ? 'bg-success/15 text-success hover:bg-success/25'
-                        : 'bg-surface-elevated text-muted-foreground hover:text-foreground hover:bg-muted'
-                    }`}
-                  >
-                    {conn.connected ? '✓ Connected' : 'Connect'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setConfigConnectorId(conn.id)}
+                      className="text-xs px-2.5 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.97]"
+                    >
+                      <Settings size={13} />
+                    </button>
+                    <button
+                      onClick={() => setConfigConnectorId(conn.id)}
+                      className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors active:scale-[0.97] ${
+                        conn.connected
+                          ? 'bg-success/15 text-success hover:bg-success/25'
+                          : 'bg-surface-elevated text-muted-foreground hover:text-foreground hover:bg-muted'
+                      }`}
+                    >
+                      {conn.connected ? '✓ Connected' : 'Configure'}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
+            <ConnectorConfigModal
+              connectorId={configConnectorId}
+              onClose={() => setConfigConnectorId(null)}
+              onSave={(id, connected) => {
+                setConnectors((prev) => prev.map((c) => c.id === id ? { ...c, connected } : c));
+                setConfigConnectorId(null);
+              }}
+            />
           </div>
         );
 
