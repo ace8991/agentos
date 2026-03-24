@@ -150,6 +150,7 @@ const SettingsModal = () => {
 
   // Connectors
   const [connectors, setConnectors] = useState<Connector[]>(defaultConnectors);
+  const [configConnectorId, setConfigConnectorId] = useState<string | null>(null);
 
   // Integrations
   const [webhookUrl, setWebhookUrl] = useState('');
