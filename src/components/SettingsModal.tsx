@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Eye, EyeOff, Calendar, Mail, Database, Globe, User, Puzzle, Plug, Layers, Key, Shield, Camera, Monitor, Plus, Trash2, Check, ExternalLink } from 'lucide-react';
+import { X, Eye, EyeOff, Calendar, Mail, Database, Globe, User, Puzzle, Plug, Layers, Key, Shield, Camera, Monitor, Plus, Trash2, Check, ExternalLink, Settings } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { MODEL_PROVIDERS } from './ModelSelector';
+import ConnectorConfigModal from './chat/ConnectorConfigModal';
 
 const intervals = [
   { label: '500ms', value: 500 },
