@@ -12,7 +12,11 @@ export interface ConnectorDefinition {
   name: string;
   badge: string;
   type: string;
+  category: string;
   description: string;
+  shortAction: string;
+  popularityRank?: number;
+  providerLabel?: string;
   docsUrl?: string;
   fields: ConnectorField[];
 }
@@ -41,7 +45,10 @@ export const CONNECTOR_DEFINITIONS: ConnectorDefinition[] = [
     name: 'GitHub',
     badge: 'GH',
     type: 'dev',
+    category: 'Engineering',
     description: 'Connect repositories, issues, pull requests, and code workflows.',
+    shortAction: 'Manage repos, issues, and pull requests from AgentOS.',
+    popularityRank: 4,
     docsUrl: 'https://github.com/settings/personal-access-tokens',
     fields: [
       { key: 'GITHUB_TOKEN', label: 'Personal Access Token', placeholder: 'github_pat_...', type: 'password' },
@@ -53,7 +60,10 @@ export const CONNECTOR_DEFINITIONS: ConnectorDefinition[] = [
     name: 'Canva',
     badge: 'CV',
     type: 'design',
+    category: 'Design',
     description: 'Connect Canva assets and design workflows for creative tasks.',
+    shortAction: 'Search, create, autofill, and export Canva designs.',
+    popularityRank: 5,
     docsUrl: 'https://www.canva.com/developers/',
     fields: [
       { key: 'CANVA_ACCESS_TOKEN', label: 'Access Token', placeholder: 'canva_access_token', type: 'password' },
@@ -65,7 +75,10 @@ export const CONNECTOR_DEFINITIONS: ConnectorDefinition[] = [
     name: 'Slack',
     badge: 'SL',
     type: 'messaging',
+    category: 'Communication',
     description: 'Send messages and receive notifications in Slack channels.',
+    shortAction: 'Send messages, share updates, and fetch Slack context.',
+    popularityRank: 9,
     docsUrl: 'https://api.slack.com/apps',
     fields: [
       { key: 'SLACK_BOT_TOKEN', label: 'Bot Token', placeholder: 'xoxb-...', type: 'password' },
@@ -77,7 +90,10 @@ export const CONNECTOR_DEFINITIONS: ConnectorDefinition[] = [
     name: 'Google Drive',
     badge: 'GD',
     type: 'storage',
+    category: 'Files',
     description: 'Read and write files in shared drives and personal folders.',
+    shortAction: 'Search, read, and organize files from Drive.',
+    popularityRank: 3,
     docsUrl: 'https://console.cloud.google.com/apis/credentials',
     fields: [
       { key: 'GOOGLE_CLIENT_ID', label: 'Client ID', placeholder: 'xxx.apps.googleusercontent.com' },
@@ -89,7 +105,10 @@ export const CONNECTOR_DEFINITIONS: ConnectorDefinition[] = [
     name: 'Notion',
     badge: 'NT',
     type: 'docs',
+    category: 'Knowledge',
     description: 'Read and write Notion pages, tasks, and databases.',
+    shortAction: 'Connect your Notion workspace for docs and databases.',
+    popularityRank: 6,
     docsUrl: 'https://www.notion.so/my-integrations',
     fields: [
       { key: 'NOTION_API_KEY', label: 'Integration Token', placeholder: 'secret_...', type: 'password' },
@@ -101,7 +120,10 @@ export const CONNECTOR_DEFINITIONS: ConnectorDefinition[] = [
     name: 'Discord',
     badge: 'DC',
     type: 'messaging',
+    category: 'Communication',
     description: 'Post updates and coordinate work inside Discord servers.',
+    shortAction: 'Post updates and interact with your Discord communities.',
+    popularityRank: 11,
     docsUrl: 'https://discord.com/developers/applications',
     fields: [
       { key: 'DISCORD_BOT_TOKEN', label: 'Bot Token', placeholder: 'MTk...', type: 'password' },
@@ -113,7 +135,11 @@ export const CONNECTOR_DEFINITIONS: ConnectorDefinition[] = [
     name: 'Jira',
     badge: 'JR',
     type: 'project',
+    category: 'Project Management',
     description: 'Create issues, update tickets, and track project delivery.',
+    shortAction: 'Access Jira projects, tickets, and delivery workflows.',
+    popularityRank: 8,
+    providerLabel: 'Atlassian',
     docsUrl: 'https://id.atlassian.com/manage-profile/security/api-tokens',
     fields: [
       { key: 'JIRA_EMAIL', label: 'Email', placeholder: 'you@company.com' },
@@ -126,7 +152,10 @@ export const CONNECTOR_DEFINITIONS: ConnectorDefinition[] = [
     name: 'Linear',
     badge: 'LN',
     type: 'project',
+    category: 'Project Management',
     description: 'Manage product work, issues, and team planning in Linear.',
+    shortAction: 'Manage issues, projects, and team workflows in Linear.',
+    popularityRank: 10,
     docsUrl: 'https://linear.app/settings/api',
     fields: [
       { key: 'LINEAR_API_KEY', label: 'API Key', placeholder: 'lin_api_...', type: 'password' },
@@ -137,7 +166,10 @@ export const CONNECTOR_DEFINITIONS: ConnectorDefinition[] = [
     name: 'Zapier',
     badge: 'ZP',
     type: 'automation',
+    category: 'Automation',
     description: 'Trigger automation workflows with Zapier webhooks.',
+    shortAction: 'Trigger no-code workflows and chained automations.',
+    popularityRank: 12,
     docsUrl: 'https://zapier.com/app/developer',
     fields: [
       { key: 'ZAPIER_WEBHOOK_URL', label: 'Webhook URL', placeholder: 'https://hooks.zapier.com/...', type: 'url' },

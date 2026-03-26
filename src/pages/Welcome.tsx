@@ -7,6 +7,7 @@ import {
 import TaskSidebar from '@/components/TaskSidebar';
 import SettingsModal from '@/components/SettingsModal';
 import ConnectorConfigModal from '@/components/chat/ConnectorConfigModal';
+import ConnectorsDirectoryModal from '@/components/chat/ConnectorsDirectoryModal';
 import ConnectorQuickAccess from '@/components/chat/ConnectorQuickAccess';
 import { useStore } from '@/store/useStore';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -28,6 +29,7 @@ const suggestions = [
 const Welcome = () => {
   const [taskInput, setTaskInput] = useState('');
   const [connectors, setConnectors] = useState<ConnectorState[]>([]);
+  const [directoryOpen, setDirectoryOpen] = useState(false);
   const [configConnectorId, setConfigConnectorId] = useState<string | null>(null);
   const setTask = useStore((s) => s.setTask);
   const setSettingsOpen = useStore((s) => s.setSettingsOpen);
@@ -170,6 +172,7 @@ const Welcome = () => {
               <ConnectorQuickAccess
                 connectors={connectors}
                 onSelect={setConfigConnectorId}
+                onOpenDirectory={() => setDirectoryOpen(true)}
                 onOpenSettings={() => setSettingsOpen(true)}
               />
             </div>
@@ -197,6 +200,16 @@ const Welcome = () => {
       </div>
 
       <SettingsModal />
+      <ConnectorsDirectoryModal
+        open={directoryOpen}
+        connectors={connectors}
+        onClose={() => setDirectoryOpen(false)}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onSelectConnector={(id) => {
+          setDirectoryOpen(false);
+          setConfigConnectorId(id);
+        }}
+      />
       <ConnectorConfigModal
         connectorId={configConnectorId}
         onClose={() => setConfigConnectorId(null)}

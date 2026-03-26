@@ -4,6 +4,7 @@ import type { ConnectorState } from '@/lib/connectors';
 interface ConnectorQuickAccessProps {
   connectors: ConnectorState[];
   onSelect: (connectorId: string) => void;
+  onOpenDirectory?: () => void;
   onOpenSettings?: () => void;
   compact?: boolean;
 }
@@ -11,6 +12,7 @@ interface ConnectorQuickAccessProps {
 const ConnectorQuickAccess = ({
   connectors,
   onSelect,
+  onOpenDirectory,
   onOpenSettings,
   compact = false,
 }: ConnectorQuickAccessProps) => {
@@ -21,8 +23,8 @@ const ConnectorQuickAccess = ({
     <div className="flex items-center justify-between gap-3 px-1 md:px-2">
       <button
         onClick={() => {
-          if (onOpenSettings) {
-            onOpenSettings();
+          if (onOpenDirectory) {
+            onOpenDirectory();
             return;
           }
           const firstConnector = visibleConnectors[0];

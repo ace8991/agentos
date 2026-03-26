@@ -7,6 +7,7 @@ import TakeoverBanner from './chat/TakeoverBanner';
 import ModelSelector from './ModelSelector';
 import ProviderConfigModal from './ProviderConfigModal';
 import ConnectorConfigModal from './chat/ConnectorConfigModal';
+import ConnectorsDirectoryModal from './chat/ConnectorsDirectoryModal';
 import ConnectorQuickAccess from './chat/ConnectorQuickAccess';
 import { chatDirect } from '@/lib/api';
 import {
@@ -34,6 +35,7 @@ const ChatPanel = () => {
 
   const [inputValue, setInputValue] = useState('');
   const [configProvider, setConfigProvider] = useState<string | null>(null);
+  const [directoryOpen, setDirectoryOpen] = useState(false);
   const [configConnectorId, setConfigConnectorId] = useState<string | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
@@ -393,6 +395,7 @@ const ChatPanel = () => {
           <ConnectorQuickAccess
             connectors={connectors}
             onSelect={setConfigConnectorId}
+            onOpenDirectory={() => setDirectoryOpen(true)}
             onOpenSettings={() => setSettingsOpen(true)}
             compact
           />
@@ -401,6 +404,16 @@ const ChatPanel = () => {
 
       {/* Provider config modal */}
       <ProviderConfigModal providerId={configProvider} onClose={() => setConfigProvider(null)} />
+      <ConnectorsDirectoryModal
+        open={directoryOpen}
+        connectors={connectors}
+        onClose={() => setDirectoryOpen(false)}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onSelectConnector={(id) => {
+          setDirectoryOpen(false);
+          setConfigConnectorId(id);
+        }}
+      />
       <ConnectorConfigModal
         connectorId={configConnectorId}
         onClose={() => setConfigConnectorId(null)}
