@@ -11,6 +11,7 @@ import SidebarModeSwitch from './sidebar/SidebarModeSwitch';
 import SidebarToolStatus from './sidebar/SidebarToolStatus';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { toast } from '@/components/ui/sonner';
 
 const statusDot: Record<string, string> = {
   done: 'bg-success',
@@ -24,6 +25,7 @@ const TaskSidebar = () => {
   const history = useStore((s) => s.history);
   const reset = useStore((s) => s.reset);
   const setSettingsOpen = useStore((s) => s.setSettingsOpen);
+  const openSettingsFor = useStore((s) => s.openSettingsFor);
   const setViewingHistory = useStore((s) => s.setViewingHistory);
   const [collapsed, setCollapsed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -49,7 +51,28 @@ const TaskSidebar = () => {
   };
 
   const handleClearHistory = () => {
+    if (!window.confirm('Clear the local task history in this browser?')) {
+      return;
+    }
     useStore.setState({ history: [] });
+    toast.success('Task history cleared');
+  };
+
+  const handleShare = async () => {
+    const shareText = 'Try AgentOS for autonomous workflows and AI-powered task execution.';
+    const shareUrl = window.location.origin;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'AgentOS', text: shareText, url: shareUrl });
+        return;
+      } catch {
+        // Fall back to clipboard below if share is cancelled or unavailable.
+      }
+    }
+
+    await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
+    toast.success('Share link copied to clipboard');
   };
 
   const filteredHistory = history
@@ -265,7 +288,10 @@ const TaskSidebar = () => {
 
       {/* Referral */}
       <div className="mx-3 mb-2">
-        <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary/10 hover:bg-primary/15 transition-colors text-left active:scale-[0.98]">
+        <button
+          onClick={handleShare}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary/10 hover:bg-primary/15 transition-colors text-left active:scale-[0.98]"
+        >
           <Share2 size={16} className="text-primary shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-foreground">Share AgentOS with a friend</p>
@@ -277,18 +303,18 @@ const TaskSidebar = () => {
 
       <div className="border-t border-border px-4 py-2.5 flex items-center justify-between">
         <div className="flex items-center gap-1">
-          <button onClick={() => { setSettingsOpen(true); setMobileOpen(false); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Settings">
+          <button onClick={() => { openSettingsFor('general'); setMobileOpen(false); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Settings">
             <Settings size={16} />
           </button>
           <button
-            onClick={() => { setSettingsOpen(true); setMobileOpen(false); }}
+            onClick={() => { openSettingsFor('connectors'); setMobileOpen(false); }}
             className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95"
             title="Connectors"
           >
             <Plug size={16} />
           </button>
           <button
-            onClick={() => { setSettingsOpen(true); setMobileOpen(false); }}
+            onClick={() => { openSettingsFor('cloud-browser'); setMobileOpen(false); }}
             className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95"
             title="Cloud browser"
           >
@@ -349,13 +375,13 @@ const TaskSidebar = () => {
 
         <div className="flex-1" />
 
-        <button onClick={() => setSettingsOpen(true)} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Settings">
+        <button onClick={() => openSettingsFor('general')} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Settings">
           <Settings size={16} />
         </button>
-        <button onClick={() => { setCollapsed(false); setSettingsOpen(true); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Connectors">
+        <button onClick={() => { setCollapsed(false); openSettingsFor('connectors'); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Connectors">
           <Plug size={16} />
         </button>
-        <button onClick={() => { setCollapsed(false); setSettingsOpen(true); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Cloud browser">
+        <button onClick={() => { setCollapsed(false); openSettingsFor('cloud-browser'); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Cloud browser">
           <Globe size={16} />
         </button>
       </div>

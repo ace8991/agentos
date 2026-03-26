@@ -16,6 +16,7 @@ import {
   saveConnectors,
   type ConnectorState,
 } from '@/lib/connectors';
+import { toast } from '@/components/ui/sonner';
 
 const ChatPanel = () => {
   const task = useStore((s) => s.task);
@@ -31,7 +32,7 @@ const ChatPanel = () => {
   const elapsedTime = useStore((s) => s.elapsedTime);
   const mode = useStore((s) => s.mode);
   const model = useStore((s) => s.model);
-  const setSettingsOpen = useStore((s) => s.setSettingsOpen);
+  const openSettingsFor = useStore((s) => s.openSettingsFor);
 
   const [inputValue, setInputValue] = useState('');
   const [configProvider, setConfigProvider] = useState<string | null>(null);
@@ -377,8 +378,9 @@ const ChatPanel = () => {
               <Paperclip size={16} />
             </button>
             <button
+              onClick={() => toast.message('Voice input UI is ready for the next backend pass.')}
               className="text-muted-foreground hover:text-foreground transition-colors p-1 active:scale-95"
-              title="Voice input (coming soon)"
+              title="Voice input"
             >
               <Mic size={16} />
             </button>
@@ -396,7 +398,7 @@ const ChatPanel = () => {
             connectors={connectors}
             onSelect={setConfigConnectorId}
             onOpenDirectory={() => setDirectoryOpen(true)}
-            onOpenSettings={() => setSettingsOpen(true)}
+            onOpenSettings={() => openSettingsFor('connectors')}
             compact
           />
         </div>
@@ -408,7 +410,7 @@ const ChatPanel = () => {
         open={directoryOpen}
         connectors={connectors}
         onClose={() => setDirectoryOpen(false)}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={() => openSettingsFor('connectors')}
         onSelectConnector={(id) => {
           setDirectoryOpen(false);
           setConfigConnectorId(id);

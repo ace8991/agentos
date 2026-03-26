@@ -50,6 +50,21 @@ export interface HistoryRun {
   entries: LogEntry[];
 }
 
+export type SettingsSection =
+  | 'general'
+  | 'api-keys'
+  | 'browser-system'
+  | 'capture'
+  | 'safety'
+  | 'scheduled'
+  | 'mail'
+  | 'data'
+  | 'cloud-browser'
+  | 'personalization'
+  | 'skills'
+  | 'connectors'
+  | 'integrations';
+
 interface AppState {
   // Mode
   mode: AgentMode;
@@ -82,6 +97,7 @@ interface AppState {
 
   // Settings
   settingsOpen: boolean;
+  settingsSection: SettingsSection;
   historyOpen: boolean;
 
   // Human takeover
@@ -99,6 +115,8 @@ interface AppState {
   setCaptureInterval: (ms: number) => void;
   setBackendOnline: (online: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
+  setSettingsSection: (section: SettingsSection) => void;
+  openSettingsFor: (section: SettingsSection) => void;
   setHistoryOpen: (open: boolean) => void;
 
   startAgent: () => Promise<void>;
@@ -152,6 +170,7 @@ export const useStore = create<AppState>((set, get) => ({
   history: [],
   viewingHistory: null,
   settingsOpen: false,
+  settingsSection: 'general',
   historyOpen: false,
   takeoverRequested: false,
   takeoverReason: null,
@@ -169,6 +188,8 @@ export const useStore = create<AppState>((set, get) => ({
   setCaptureInterval: (ms) => set({ captureInterval: ms }),
   setBackendOnline: (online) => set({ backendOnline: online }),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
+  setSettingsSection: (section) => set({ settingsSection: section }),
+  openSettingsFor: (section) => set({ settingsOpen: true, settingsSection: section }),
   setHistoryOpen: (open) => set({ historyOpen: open }),
 
   startTimer: () => {

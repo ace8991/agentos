@@ -4,7 +4,8 @@ import { useStore } from '@/store/useStore';
 import { MODEL_PROVIDERS } from './ModelSelector';
 import ConnectorConfigModal from './chat/ConnectorConfigModal';
 import { buildDefaultConnectors, loadConnectors, saveConnectors, type ConnectorState } from '@/lib/connectors';
-
+import { API_BASE_URL } from '@/lib/api';
+import { toast } from '@/components/ui/sonner';
 const intervals = [
   { label: '500ms', value: 500 },
   { label: '1s', value: 1000 },
@@ -12,20 +13,7 @@ const intervals = [
   { label: '5s', value: 5000 },
 ];
 
-type Section =
-  | 'general'
-  | 'api-keys'
-  | 'browser-system'
-  | 'capture'
-  | 'safety'
-  | 'scheduled'
-  | 'mail'
-  | 'data'
-  | 'cloud-browser'
-  | 'personalization'
-  | 'skills'
-  | 'connectors'
-  | 'integrations';
+type Section = ReturnType<typeof useStore.getState>['settingsSection'];
 
 const sidebarSections: { label: string; key: Section; icon: typeof Key }[] = [
   { label: 'General', key: 'general', icon: Monitor },
@@ -73,6 +61,8 @@ const defaultSkills: Skill[] = [
 const SettingsModal = () => {
   const open = useStore((s) => s.settingsOpen);
   const setOpen = useStore((s) => s.setSettingsOpen);
+  const section = useStore((s) => s.settingsSection);
+  const setSection = useStore((s) => s.setSettingsSection);
   const model = useStore((s) => s.model);
   const setModel = useStore((s) => s.setModel);
   const maxSteps = useStore((s) => s.maxSteps);
@@ -80,7 +70,6 @@ const SettingsModal = () => {
   const captureInterval = useStore((s) => s.captureInterval);
   const setCaptureInterval = useStore((s) => s.setCaptureInterval);
 
-  const [section, setSection] = useState<Section>('general');
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
   const [baseUrls, setBaseUrls] = useState<Record<string, string>>({});
@@ -251,7 +240,78 @@ const SettingsModal = () => {
     localStorage.setItem('WEBHOOK_EVENTS', JSON.stringify(webhookEvents));
 
     setSaved(true);
+    toast.success('Settings saved');
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  const exportAllData = () => {
+    const snapshot = {
+      exported_at: new Date().toISOString(),
+      settings: {
+        apiKeys,
+        baseUrls,
+        tavilyKey,
+        braveKey,
+        annotateActions,
+        saveScreenshots,
+        savePath,
+        maxErrors,
+        playwrightHost,
+        pyautoguiEnabled,
+        confirmClick,
+        scheduledTasks,
+        mailEnabled,
+        smtpHost,
+        smtpPort,
+        smtpUser,
+        mailFrom,
+        retentionDays,
+        autoDeleteScreenshots,
+        collectAnalytics,
+        cloudBrowserEnabled,
+        cloudBrowserUrl,
+        cloudBrowserTimeout,
+        agentName,
+        language,
+        responseStyle,
+        systemPrompt,
+        skills,
+        connectors,
+        webhookUrl,
+        webhookEvents,
+      },
+      history: useStore.getState().history,
+      memory: useStore.getState().memory,
+    };
+
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `agentos-export-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success('AgentOS data exported');
+  };
+
+  const clearAllData = () => {
+    if (!window.confirm('Clear local history, settings, saved connectors, and cached state on this browser?')) {
+      return;
+    }
+
+    localStorage.clear();
+    useStore.setState({
+      history: [],
+      memory: [],
+      entries: [],
+      task: '',
+      currentScreenshot: null,
+      annotations: [],
+      viewingHistory: null,
+    });
+    setOpen(false);
+    toast.success('Local AgentOS data cleared');
+    window.location.reload();
   };
 
   const addScheduledTask = () => {
@@ -522,10 +582,16 @@ const SettingsModal = () => {
             <Toggle label="Auto-delete screenshots after retention period" checked={autoDeleteScreenshots} onChange={setAutoDeleteScreenshots} />
             <Toggle label="Collect anonymous usage analytics" checked={collectAnalytics} onChange={setCollectAnalytics} />
             <div className="border-t border-border pt-3 space-y-2">
-              <button className="w-full text-sm text-foreground bg-surface-elevated px-3 py-2 rounded-md hover:bg-muted transition-colors active:scale-[0.98]">
+              <button
+                onClick={exportAllData}
+                className="w-full text-sm text-foreground bg-surface-elevated px-3 py-2 rounded-md hover:bg-muted transition-colors active:scale-[0.98]"
+              >
                 Export all data
               </button>
-              <button className="w-full text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md hover:bg-destructive/20 transition-colors active:scale-[0.98]">
+              <button
+                onClick={clearAllData}
+                className="w-full text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md hover:bg-destructive/20 transition-colors active:scale-[0.98]"
+              >
                 Clear all data
               </button>
             </div>
@@ -699,7 +765,12 @@ const SettingsModal = () => {
                 <p className="text-xs text-muted-foreground mb-1">Base URL</p>
                 <code className="text-xs text-foreground font-mono">http://localhost:8000</code>
                 <div className="mt-2 flex gap-2">
-                  <a href="/api-docs" target="_blank" className="text-xs text-primary hover:underline flex items-center gap-1">
+                  <a
+                    href={`${API_BASE_URL}/docs`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                  >
                     <ExternalLink size={11} /> API Docs
                   </a>
                 </div>

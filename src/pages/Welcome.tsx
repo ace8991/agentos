@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Send, Plus, Mic, Paperclip, Bell, Sparkles, User,
+  Send, Plus, Mic, Paperclip, Bell, Sparkles, User, X,
   FileText, Globe as GlobeIcon, Monitor, Wand2, MoreHorizontal
 } from 'lucide-react';
 import TaskSidebar from '@/components/TaskSidebar';
@@ -17,6 +17,7 @@ import {
   saveConnectors,
   type ConnectorState,
 } from '@/lib/connectors';
+import { toast } from '@/components/ui/sonner';
 
 const suggestions = [
   { icon: FileText, label: 'Create slides' },
@@ -31,10 +32,12 @@ const Welcome = () => {
   const [connectors, setConnectors] = useState<ConnectorState[]>([]);
   const [directoryOpen, setDirectoryOpen] = useState(false);
   const [configConnectorId, setConfigConnectorId] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<File[]>([]);
   const setTask = useStore((s) => s.setTask);
-  const setSettingsOpen = useStore((s) => s.setSettingsOpen);
+  const openSettingsFor = useStore((s) => s.openSettingsFor);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const syncConnectors = () => setConnectors(loadConnectors());
@@ -50,6 +53,17 @@ const Welcome = () => {
     if (!taskInput.trim()) return;
     setTask(taskInput.trim());
     navigate('/dashboard');
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+    setAttachments((previous) => [...previous, ...Array.from(files)]);
+    toast.success(`${files.length} file${files.length > 1 ? 's' : ''} attached`);
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments((previous) => previous.filter((_, itemIndex) => itemIndex !== index));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -88,14 +102,20 @@ const Welcome = () => {
             </svg>
           </div>
           <div className="flex items-center gap-2 md:gap-3">
-            <button className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-md hover:bg-surface-elevated/50 active:scale-95">
+            <button
+              onClick={() => openSettingsFor('integrations')}
+              className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-md hover:bg-surface-elevated/50 active:scale-95"
+            >
               <Bell size={17} />
             </button>
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <Sparkles size={15} className="text-accent" />
               <span className="text-xs tabular-nums font-medium">164</span>
             </div>
-            <button className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-accent-foreground text-xs font-bold active:scale-95">
+            <button
+              onClick={() => openSettingsFor('personalization')}
+              className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-accent-foreground text-xs font-bold active:scale-95"
+            >
               A
             </button>
           </div>
@@ -106,7 +126,10 @@ const Welcome = () => {
           <div className="flex items-center gap-2 text-xs">
             <span className="text-muted-foreground">Free plan</span>
             <span className="text-muted-foreground/40">|</span>
-            <button className="text-accent hover:text-accent/80 transition-colors font-medium">
+            <button
+              onClick={() => openSettingsFor('integrations')}
+              className="text-accent hover:text-accent/80 transition-colors font-medium"
+            >
               Start free trial
             </button>
           </div>
@@ -126,6 +149,13 @@ const Welcome = () => {
             <div className="bg-card/80 backdrop-blur-md border border-border rounded-2xl overflow-hidden">
               {/* Text area */}
               <div className="px-4 md:px-5 pt-4 pb-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
                 <textarea
                   value={taskInput}
                   onChange={(e) => setTaskInput(e.target.value)}
@@ -142,18 +172,41 @@ const Welcome = () => {
                 />
               </div>
 
+              {attachments.length > 0 && (
+                <div className="px-4 md:px-5 pb-2 flex items-center gap-2 flex-wrap">
+                  {attachments.map((file, index) => (
+                    <div key={`${file.name}-${index}`} className="flex items-center gap-1.5 bg-muted border border-border rounded-lg px-2.5 py-1 text-xs text-foreground">
+                      <Paperclip size={11} className="text-muted-foreground" />
+                      <span className="truncate max-w-[140px]">{file.name}</span>
+                      <button onClick={() => removeAttachment(index)} className="text-muted-foreground hover:text-foreground">
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* Bottom bar */}
               <div className="flex items-center justify-between px-3 md:px-4 pb-3">
                 <div className="flex items-center gap-0.5">
-                  <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated/50 transition-colors active:scale-95">
+                  <button
+                    onClick={() => setDirectoryOpen(true)}
+                    className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated/50 transition-colors active:scale-95"
+                  >
                     <Plus size={18} />
                   </button>
-                  <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated/50 transition-colors active:scale-95">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated/50 transition-colors active:scale-95"
+                  >
                     <Paperclip size={16} />
                   </button>
                 </div>
                 <div className="flex items-center gap-0.5">
-                  <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated/50 transition-colors active:scale-95">
+                  <button
+                    onClick={() => toast.message('Voice input is the next UI layer to wire into the backend.')}
+                    className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated/50 transition-colors active:scale-95"
+                  >
                     <Mic size={16} />
                   </button>
                   <button
@@ -173,7 +226,7 @@ const Welcome = () => {
                 connectors={connectors}
                 onSelect={setConfigConnectorId}
                 onOpenDirectory={() => setDirectoryOpen(true)}
-                onOpenSettings={() => setSettingsOpen(true)}
+                onOpenSettings={() => openSettingsFor('connectors')}
               />
             </div>
           </div>
