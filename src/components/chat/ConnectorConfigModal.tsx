@@ -7,6 +7,7 @@ import {
   loadConnectorValues,
   saveConnectorValues,
 } from '@/lib/connectors';
+import ConnectorLogo from './ConnectorLogo';
 
 interface ConnectorConfigModalProps {
   connectorId: string | null;
@@ -78,9 +79,7 @@ const ConnectorConfigModal = ({ connectorId, onClose, onSave }: ConnectorConfigM
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-lg border border-border bg-surface-elevated text-foreground text-xs font-semibold flex items-center justify-center">
-              {config.badge}
-            </div>
+            <ConnectorLogo connectorId={config.id} name={config.name} badge={config.badge} size="md" />
             <div>
               <h2 className="text-base font-medium text-foreground">{config.name}</h2>
               <p className="text-xs text-muted-foreground capitalize">{config.type}</p>

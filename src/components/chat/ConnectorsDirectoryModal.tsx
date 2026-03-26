@@ -5,6 +5,7 @@ import {
   getConnectorDefinition,
   type ConnectorState,
 } from '@/lib/connectors';
+import ConnectorLogo from './ConnectorLogo';
 
 interface ConnectorsDirectoryModalProps {
   open: boolean;
@@ -90,11 +91,14 @@ const ConnectorsDirectoryModal = ({
   return (
     <div className="fixed inset-0 z-[58] flex items-center justify-center bg-black/55 px-3 py-4" onClick={onClose}>
       <div
-        className="w-full max-w-6xl max-h-[92vh] rounded-[28px] border border-border bg-[#2b2924]/95 text-foreground shadow-2xl backdrop-blur-xl overflow-hidden"
+        className="w-full max-w-6xl max-h-[92vh] rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_left,#38362f_0%,#2b2924_42%,#211f1b_100%)] text-foreground shadow-2xl backdrop-blur-xl overflow-hidden"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 px-6 md:px-8 pt-6 md:pt-8 pb-4 border-b border-white/10">
+        <div className="flex items-start justify-between gap-4 px-6 md:px-8 pt-6 md:pt-8 pb-5 border-b border-white/10">
           <div className="max-w-3xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-stone-300">
+              Verified Connectors
+            </div>
             <h2 className="text-3xl md:text-[40px] leading-none font-semibold tracking-tight text-stone-100">
               Connecteurs
             </h2>
@@ -102,6 +106,11 @@ const ConnectorsDirectoryModal = ({
               Connectez AgentOS a vos applications, fichiers et services. Choisissez un connecteur,
               puis configurez ses credentials dans l&apos;etape suivante.
             </p>
+            <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-stone-400">
+              <span>{connectors.filter((connector) => connector.connected).length} connectes</span>
+              <span>{CONNECTOR_DEFINITIONS.length} integrations disponibles</span>
+              <span>Optimise mobile et desktop</span>
+            </div>
           </div>
           <button
             onClick={onClose}
@@ -139,7 +148,7 @@ const ConnectorsDirectoryModal = ({
           </div>
         </div>
 
-        <div className="overflow-y-auto max-h-[calc(92vh-210px)] px-6 md:px-8 py-6">
+        <div className="overflow-y-auto max-h-[calc(92vh-228px)] px-6 md:px-8 py-6">
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             {visibleConnectors.map((connector) => {
               const state = connectorStateMap.get(connector.id);
@@ -150,15 +159,13 @@ const ConnectorsDirectoryModal = ({
                 <button
                   key={connector.id}
                   onClick={() => onSelectConnector(connector.id)}
-                  className="w-full text-left rounded-[26px] border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] transition-colors p-5 flex items-start gap-4 group"
+                  className="w-full text-left rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.025))] hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.04))] transition-all duration-200 p-5 md:p-6 flex items-start gap-4 group shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
                 >
-                  <div className="h-14 w-14 rounded-2xl border border-white/10 bg-black/15 flex items-center justify-center text-lg font-semibold text-stone-100 shrink-0">
-                    {connector.badge}
-                  </div>
+                  <ConnectorLogo connectorId={connector.id} name={connector.name} badge={connector.badge} size="lg" className="bg-black/15" />
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-2xl leading-none font-semibold text-stone-100">{connector.name}</h3>
+                      <h3 className="text-xl md:text-2xl leading-none font-semibold text-stone-100">{connector.name}</h3>
                       {connector.popularityRank && (
                         <span className="text-sm text-stone-400">#{connector.popularityRank} populaire</span>
                       )}
@@ -166,7 +173,7 @@ const ConnectorsDirectoryModal = ({
                         <span className="text-sm text-stone-400">{connector.providerLabel}</span>
                       )}
                     </div>
-                    <p className="mt-2 text-[15px] leading-6 text-stone-300">
+                    <p className="mt-2 text-sm md:text-[15px] leading-6 text-stone-300">
                       {config?.shortAction ?? connector.name}
                     </p>
                     <div className="mt-3 flex items-center gap-2 flex-wrap">
@@ -183,7 +190,7 @@ const ConnectorsDirectoryModal = ({
 
                   <div className="shrink-0">
                     {isConnected ? (
-                      <div className="h-11 w-11 rounded-2xl border border-success/25 bg-success/10 text-success flex items-center justify-center">
+                      <div className="h-11 w-11 rounded-2xl border border-success/25 bg-success/10 text-success flex items-center justify-center shadow-[0_0_0_1px_rgba(74,222,128,0.08)]">
                         <Check size={18} />
                       </div>
                     ) : (

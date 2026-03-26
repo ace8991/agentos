@@ -1,5 +1,6 @@
 import { Link2, Settings2 } from 'lucide-react';
 import type { ConnectorState } from '@/lib/connectors';
+import ConnectorLogo from './ConnectorLogo';
 
 interface ConnectorQuickAccessProps {
   connectors: ConnectorState[];
@@ -43,14 +44,20 @@ const ConnectorQuickAccess = ({
           <button
             key={connector.id}
             onClick={() => onSelect(connector.id)}
-            className={`h-7 min-w-7 px-2 rounded-lg border text-[11px] font-medium transition-colors ${
+            className={`h-8 w-8 rounded-xl border flex items-center justify-center transition-colors overflow-hidden ${
               connector.connected
-                ? 'border-success/30 bg-success/10 text-success hover:bg-success/15'
-                : 'border-border bg-card/60 text-muted-foreground hover:bg-surface-elevated hover:text-foreground'
+                ? 'border-success/30 bg-success/10 hover:bg-success/15'
+                : 'border-border bg-card/60 hover:bg-surface-elevated'
             }`}
             title={connector.connected ? `${connector.name} connected` : `Connect ${connector.name}`}
           >
-            {connector.badge}
+            <ConnectorLogo
+              connectorId={connector.id}
+              name={connector.name}
+              badge={connector.badge}
+              size="sm"
+              className="h-full w-full rounded-[10px] border-0 bg-transparent"
+            />
           </button>
         ))}
         {onOpenSettings && (

@@ -3,6 +3,7 @@ import { X, Eye, EyeOff, Calendar, Mail, Database, Globe, User, Puzzle, Plug, La
 import { useStore } from '@/store/useStore';
 import { MODEL_PROVIDERS } from './ModelSelector';
 import ConnectorConfigModal from './chat/ConnectorConfigModal';
+import ConnectorLogo from './chat/ConnectorLogo';
 import { buildDefaultConnectors, loadConnectors, saveConnectors, type ConnectorState } from '@/lib/connectors';
 import { API_BASE_URL } from '@/lib/api';
 import { toast } from '@/components/ui/sonner';
@@ -685,9 +686,13 @@ const SettingsModal = () => {
               {connectors.map((conn) => (
                 <div key={conn.id} className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-surface-elevated/50 transition-colors">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-8 w-8 rounded-lg border border-border bg-surface-elevated text-foreground text-[11px] font-semibold flex items-center justify-center">
-                      {conn.badge}
-                    </div>
+                    <ConnectorLogo
+                      connectorId={conn.id}
+                      name={conn.name}
+                      badge={conn.badge}
+                      size="sm"
+                      className="border-border bg-surface-elevated"
+                    />
                     <div>
                       <p className="text-sm text-foreground">{conn.name}</p>
                       <p className="text-xs text-muted-foreground capitalize">{conn.type}</p>
