@@ -1,6 +1,7 @@
 import { MODEL_PROVIDERS, type ModelProvider } from '@/components/ModelSelector';
 
-const BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
+const BASE = API_BASE_URL;
 
 // ─── Provider API helpers ────────────────────────────────────────────
 
@@ -45,8 +46,13 @@ export async function chatDirect(
   const { provider, apiKey, baseUrl } = config;
 
   if (provider.requiresKey && !apiKey) {
-    onError(`No API key configured for ${provider.name}. Go to Settings → API Keys to add your ${provider.keyName}.`);
-    return;
+    try {
+      await chatStream(messages, modelId, false, onToken, onDone, onError);
+      return;
+    } catch {
+      onError(`No API key configured for ${provider.name}. Go to Settings → API Keys to add your ${provider.keyName}, or configure the backend server keys.`);
+      return;
+    }
   }
 
   try {
@@ -351,11 +357,13 @@ export function createEventStream(
 
 export async function checkHealth(): Promise<HealthResponse> {
   const r = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(3000) });
+  if (!r.ok) throw new Error(`Health check failed: ${r.status}`);
   return r.json();
 }
 
 export async function getModels(): Promise<{ models: ModelInfo[] }> {
   const r = await fetch(`${BASE}/models/all`);
+  if (!r.ok) throw new Error(`Model fetch failed: ${r.status}`);
   return r.json();
 }
 

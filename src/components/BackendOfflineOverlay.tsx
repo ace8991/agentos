@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useStore } from '@/store/useStore';
 import { Loader2 } from 'lucide-react';
 import HexLogo from './HexLogo';
+import { API_BASE_URL } from '@/lib/api';
 
 const BackendOfflineOverlay = () => {
   const backendOnline = useStore((s) => s.backendOnline);
@@ -11,7 +12,7 @@ const BackendOfflineOverlay = () => {
     if (backendOnline) return;
     const check = setInterval(async () => {
       try {
-        const res = await fetch('http://localhost:8000/health');
+        const res = await fetch(`${API_BASE_URL}/health`);
         if (res.ok) setBackendOnline(true);
       } catch {}
     }, 3000);
