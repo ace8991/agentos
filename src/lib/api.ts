@@ -314,7 +314,20 @@ export async function startRun(params: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
   });
-  if (!r.ok) throw new Error(`Start failed: ${r.status}`);
+  if (!r.ok) {
+    let detail = `Start failed: ${r.status}`;
+    try {
+      const body = await r.json();
+      if (body?.detail) detail = String(body.detail);
+    } catch {
+      try {
+        detail = await r.text();
+      } catch {
+        // Keep the status-based message if the body cannot be parsed.
+      }
+    }
+    throw new Error(detail);
+  }
   return r.json();
 }
 

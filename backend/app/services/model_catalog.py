@@ -32,3 +32,19 @@ def list_models() -> list[ModelInfo]:
 
 def get_model(model_id: str) -> ModelInfo | None:
     return next((model for model in _MODELS if model.id == model_id), None)
+
+
+_AGENT_MODEL_IDS = {
+    "claude-opus-4-5",
+    "claude-sonnet-4-6",
+    "gpt-4o",
+    "gpt-4o-mini",
+}
+
+
+def is_agent_model_supported(model_id: str) -> bool:
+    return model_id in _AGENT_MODEL_IDS
+
+
+def list_agent_models() -> list[ModelInfo]:
+    return [model for model in _MODELS if model.id in _AGENT_MODEL_IDS]

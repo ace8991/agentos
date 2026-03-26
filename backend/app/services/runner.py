@@ -1,5 +1,11 @@
-import asyncio, json, logging, uuid
+import asyncio
+import json
+import logging
+import time
+import uuid
+from dataclasses import dataclass
 from typing import AsyncGenerator, Optional
+
 from app.services.capture import capture_screenshot
 from app.services.brain import think_and_act, extract_memory_updates
 from app.services.executor import execute
@@ -8,36 +14,85 @@ from app.models.schemas import AgentAction, ActionType
 
 logger = logging.getLogger(__name__)
 
-_active_runs: dict[str, asyncio.Event] = {}
+STALE_RUN_TTL_SECONDS = 600
 
 
-def create_run() -> str:
+@dataclass
+class RunState:
+    stop_event: asyncio.Event
+    task: str
+    model: str
+    max_steps: int
+    capture_interval_ms: int
+    created_at: float
+    started: bool = False
+
+
+_active_runs: dict[str, RunState] = {}
+
+
+def cleanup_stale_runs() -> None:
+    now = time.monotonic()
+    stale_run_ids = [
+        run_id
+        for run_id, state in _active_runs.items()
+        if not state.started and (state.stop_event.is_set() or now - state.created_at > STALE_RUN_TTL_SECONDS)
+    ]
+    for run_id in stale_run_ids:
+        _active_runs.pop(run_id, None)
+
+
+def create_run(task: str, model: str, max_steps: int, capture_interval_ms: int) -> str:
+    cleanup_stale_runs()
     run_id = str(uuid.uuid4())
-    _active_runs[run_id] = asyncio.Event()
+    _active_runs[run_id] = RunState(
+        stop_event=asyncio.Event(),
+        task=task,
+        model=model,
+        max_steps=max_steps,
+        capture_interval_ms=capture_interval_ms,
+        created_at=time.monotonic(),
+    )
     return run_id
 
 
 def stop_run(run_id: str) -> bool:
-    if run_id in _active_runs:
-        _active_runs[run_id].set()
+    state = _active_runs.get(run_id)
+    if state:
+        state.stop_event.set()
         return True
     return False
 
 
 def is_run_active(run_id: str) -> bool:
-    return run_id in _active_runs and not _active_runs[run_id].is_set()
+    cleanup_stale_runs()
+    state = _active_runs.get(run_id)
+    return state is not None and not state.stop_event.is_set()
+
+
+def get_run(run_id: str) -> RunState | None:
+    cleanup_stale_runs()
+    return _active_runs.get(run_id)
 
 
 async def run_agent(
     run_id: str,
-    task: str,
-    model: str,
-    max_steps: int,
-    capture_interval_ms: int,
+    task: str | None = None,
+    model: str | None = None,
+    max_steps: int | None = None,
+    capture_interval_ms: int | None = None,
 ) -> AsyncGenerator[str, None]:
-    stop_event = _active_runs.get(run_id)
-    if not stop_event:
-        yield _err("Run not found"); return
+    state = _active_runs.get(run_id)
+    if not state:
+        yield _err("Run not found")
+        return
+
+    state.started = True
+    stop_event = state.stop_event
+    task = task or state.task
+    model = model or state.model
+    max_steps = max_steps or state.max_steps
+    capture_interval_ms = capture_interval_ms or state.capture_interval_ms
 
     history: list[dict] = []
     memory: dict = {}

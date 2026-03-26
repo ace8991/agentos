@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from app.models.schemas import StartRequest, StopRequest
+from app.services.model_catalog import is_agent_model_supported
 from app.services import runner
 
 router = APIRouter()
@@ -13,8 +14,15 @@ async def start_agent(req: StartRequest):
         raise HTTPException(400, "max_steps must be between 1 and 100")
     if req.capture_interval_ms < 100:
         raise HTTPException(400, "capture_interval_ms must be >= 100")
+    if not is_agent_model_supported(req.model):
+        raise HTTPException(400, f"Agent mode does not support model '{req.model}'")
 
-    run_id = runner.create_run()
+    run_id = runner.create_run(
+        task=req.task,
+        model=req.model,
+        max_steps=req.max_steps,
+        capture_interval_ms=req.capture_interval_ms,
+    )
     return {"run_id": run_id}
 
 
@@ -30,26 +38,35 @@ async def stop_agent(req: StopRequest):
 @router.get("/stream/{run_id}")
 async def stream_agent(
     run_id: str,
-    task: str,
-    model: str = "claude-sonnet-4-6",
-    max_steps: int = 20,
-    capture_interval_ms: int = 1000,
+    task: str | None = None,
+    model: str | None = None,
+    max_steps: int | None = None,
+    capture_interval_ms: int | None = None,
 ):
     """
     SSE stream for a given run_id.
     Connect after calling /agent/start.
     Streams: { type, step, action, reasoning, screenshot_b64, memory, parsed_action }
     """
-    if not runner.is_run_active(run_id):
+    state = runner.get_run(run_id)
+    if not state or not runner.is_run_active(run_id):
         raise HTTPException(404, f"Run {run_id} not found")
+    if task is not None and task != state.task:
+        raise HTTPException(400, "task must match the values used in /agent/start")
+    if model is not None and model != state.model:
+        raise HTTPException(400, "model must match the values used in /agent/start")
+    if max_steps is not None and max_steps != state.max_steps:
+        raise HTTPException(400, "max_steps must match the values used in /agent/start")
+    if capture_interval_ms is not None and capture_interval_ms != state.capture_interval_ms:
+        raise HTTPException(400, "capture_interval_ms must match the values used in /agent/start")
 
     return StreamingResponse(
         runner.run_agent(
             run_id=run_id,
-            task=task,
-            model=model,
-            max_steps=max_steps,
-            capture_interval_ms=capture_interval_ms,
+            task=state.task,
+            model=state.model,
+            max_steps=state.max_steps,
+            capture_interval_ms=state.capture_interval_ms,
         ),
         media_type="text/event-stream",
         headers={

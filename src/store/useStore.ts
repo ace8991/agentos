@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { startRun, stopRun, createEventStream, type AgentEvent } from '@/lib/api';
+import { isAgentModelSupported } from '@/components/ModelSelector';
 
 export type AgentMode = 'chat' | 'agent';
 export type AgentStatus = 'idle' | 'running' | 'done' | 'error' | 'paused';
@@ -156,9 +157,14 @@ export const useStore = create<AppState>((set, get) => ({
   takeoverReason: null,
   timerInterval: null,
 
-  setMode: (mode) => set({ mode }),
+  setMode: (mode) => set((state) => ({
+    mode,
+    model: mode === 'agent' && !isAgentModelSupported(state.model) ? 'claude-sonnet-4-6' : state.model,
+  })),
   setTask: (task) => set({ task }),
-  setModel: (model) => set({ model }),
+  setModel: (model) => set((state) => ({
+    model: state.mode === 'agent' && !isAgentModelSupported(model) ? 'claude-sonnet-4-6' : model,
+  })),
   setMaxSteps: (n) => set({ maxSteps: Math.max(1, Math.min(100, n)) }),
   setCaptureInterval: (ms) => set({ captureInterval: ms }),
   setBackendOnline: (online) => set({ backendOnline: online }),
@@ -247,8 +253,15 @@ export const useStore = create<AppState>((set, get) => ({
           }
         },
       );
-    } catch {
-      set({ backendOnline: false, status: 'idle', entries: [] });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to start agent';
+      const isNetworkFailure = err instanceof TypeError;
+      set({
+        backendOnline: !isNetworkFailure,
+        status: isNetworkFailure ? 'idle' : 'error',
+        entries: isNetworkFailure ? [] : get().entries,
+        errorMessage: isNetworkFailure ? null : message,
+      });
       get().stopTimer();
     }
   },

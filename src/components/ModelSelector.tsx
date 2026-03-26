@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronDown, Settings, Check, Server, Cpu } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 
@@ -111,6 +111,17 @@ export const MODEL_PROVIDERS: ModelProvider[] = [
   },
 ];
 
+const AGENT_SUPPORTED_MODELS = new Set([
+  'claude-opus-4-5',
+  'claude-sonnet-4-6',
+  'gpt-4o',
+  'gpt-4o-mini',
+]);
+
+export function isAgentModelSupported(modelId: string) {
+  return AGENT_SUPPORTED_MODELS.has(modelId);
+}
+
 export function getProviderForModel(modelId: string): ModelProvider | undefined {
   return MODEL_PROVIDERS.find((p) => p.models.some((m) => m.id === modelId));
 }
@@ -128,6 +139,7 @@ interface ModelSelectorProps {
 }
 
 const ModelSelector = ({ onConfigureProvider }: ModelSelectorProps) => {
+  const mode = useStore((s) => s.mode);
   const model = useStore((s) => s.model);
   const setModel = useStore((s) => s.setModel);
   const [open, setOpen] = useState(false);
@@ -138,6 +150,21 @@ const ModelSelector = ({ onConfigureProvider }: ModelSelectorProps) => {
     if (!provider.requiresKey) return true;
     return !!localStorage.getItem(provider.keyName || '');
   };
+
+  useEffect(() => {
+    if (mode === 'agent' && !isAgentModelSupported(model)) {
+      setModel('claude-sonnet-4-6');
+    }
+  }, [mode, model, setModel]);
+
+  const visibleProviders = MODEL_PROVIDERS
+    .map((provider) => ({
+      ...provider,
+      models: mode === 'agent'
+        ? provider.models.filter((candidate) => isAgentModelSupported(candidate.id))
+        : provider.models,
+    }))
+    .filter((provider) => provider.models.length > 0);
 
   return (
     <div className="relative">
@@ -154,7 +181,7 @@ const ModelSelector = ({ onConfigureProvider }: ModelSelectorProps) => {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute top-full left-0 mt-2 w-[280px] md:w-[320px] bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden max-h-[60vh] md:max-h-[70vh] overflow-y-auto scrollbar-thin right-0 md:right-auto">
-            {MODEL_PROVIDERS.map((provider) => {
+            {visibleProviders.map((provider) => {
               const configured = hasApiKey(provider);
               return (
                 <div key={provider.id}>
@@ -173,6 +200,11 @@ const ModelSelector = ({ onConfigureProvider }: ModelSelectorProps) => {
                       {provider.requiresKey && !configured && (
                         <span className="text-[10px] text-accent bg-accent/10 px-1.5 py-0.5 rounded-full">
                           No key
+                        </span>
+                      )}
+                      {mode === 'agent' && (
+                        <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+                          Agent
                         </span>
                       )}
                       {(provider.requiresKey || provider.baseUrlConfigurable) && (
