@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Send, Plus, Mic, Paperclip, Bell, Sparkles, User,
@@ -6,8 +6,16 @@ import {
 } from 'lucide-react';
 import TaskSidebar from '@/components/TaskSidebar';
 import SettingsModal from '@/components/SettingsModal';
+import ConnectorConfigModal from '@/components/chat/ConnectorConfigModal';
+import ConnectorQuickAccess from '@/components/chat/ConnectorQuickAccess';
 import { useStore } from '@/store/useStore';
 import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  CONNECTORS_UPDATED_EVENT,
+  loadConnectors,
+  saveConnectors,
+  type ConnectorState,
+} from '@/lib/connectors';
 
 const suggestions = [
   { icon: FileText, label: 'Create slides' },
@@ -19,9 +27,22 @@ const suggestions = [
 
 const Welcome = () => {
   const [taskInput, setTaskInput] = useState('');
+  const [connectors, setConnectors] = useState<ConnectorState[]>([]);
+  const [configConnectorId, setConfigConnectorId] = useState<string | null>(null);
   const setTask = useStore((s) => s.setTask);
+  const setSettingsOpen = useStore((s) => s.setSettingsOpen);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    const syncConnectors = () => setConnectors(loadConnectors());
+    syncConnectors();
+    window.addEventListener(CONNECTORS_UPDATED_EVENT, syncConnectors);
+
+    return () => {
+      window.removeEventListener(CONNECTORS_UPDATED_EVENT, syncConnectors);
+    };
+  }, []);
 
   const handleStart = () => {
     if (!taskInput.trim()) return;
@@ -145,35 +166,12 @@ const Welcome = () => {
             </div>
 
             {/* Connect tools row */}
-            <div className="flex items-center justify-between mt-2 px-1 md:px-2">
-              <button
-                onClick={() => {
-                  useStore.getState().setSettingsOpen(true);
-                }}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Paperclip size={13} />
-                <span className="hidden sm:inline">Connect your tools to AgentOS</span>
-                <span className="sm:hidden">Connect tools</span>
-              </button>
-              <div className="flex items-center gap-1">
-                {[
-                  { emoji: '💬', name: 'Slack' },
-                  { emoji: '🐙', name: 'GitHub' },
-                  { emoji: '📁', name: 'Drive' },
-                  { emoji: '📝', name: 'Notion' },
-                  { emoji: '⚡', name: 'Zapier' },
-                ].map((tool, i) => (
-                  <button
-                    key={i}
-                    onClick={() => useStore.getState().setSettingsOpen(true)}
-                    className="w-6 h-6 flex items-center justify-center text-xs opacity-60 hover:opacity-100 cursor-pointer transition-opacity"
-                    title={`Connect ${tool.name}`}
-                  >
-                    {tool.emoji}
-                  </button>
-                ))}
-              </div>
+            <div className="mt-2">
+              <ConnectorQuickAccess
+                connectors={connectors}
+                onSelect={setConfigConnectorId}
+                onOpenSettings={() => setSettingsOpen(true)}
+              />
             </div>
           </div>
 
@@ -199,6 +197,20 @@ const Welcome = () => {
       </div>
 
       <SettingsModal />
+      <ConnectorConfigModal
+        connectorId={configConnectorId}
+        onClose={() => setConfigConnectorId(null)}
+        onSave={(id, connected) => {
+          setConnectors((previous) => {
+            const next = previous.map((connector) =>
+              connector.id === id ? { ...connector, connected } : connector,
+            );
+            saveConnectors(next);
+            return next;
+          });
+          setConfigConnectorId(null);
+        }}
+      />
     </div>
   );
 };

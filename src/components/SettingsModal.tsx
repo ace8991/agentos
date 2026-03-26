@@ -3,6 +3,7 @@ import { X, Eye, EyeOff, Calendar, Mail, Database, Globe, User, Puzzle, Plug, La
 import { useStore } from '@/store/useStore';
 import { MODEL_PROVIDERS } from './ModelSelector';
 import ConnectorConfigModal from './chat/ConnectorConfigModal';
+import { buildDefaultConnectors, loadConnectors, saveConnectors, type ConnectorState } from '@/lib/connectors';
 
 const intervals = [
   { label: '500ms', value: 500 },
@@ -51,31 +52,12 @@ interface ScheduledTask {
   enabled: boolean;
 }
 
-interface Connector {
-  id: string;
-  name: string;
-  type: string;
-  connected: boolean;
-  icon: string;
-}
-
 interface Skill {
   id: string;
   name: string;
   description: string;
   enabled: boolean;
 }
-
-const defaultConnectors: Connector[] = [
-  { id: 'slack', name: 'Slack', type: 'messaging', connected: false, icon: '💬' },
-  { id: 'github', name: 'GitHub', type: 'dev', connected: false, icon: '🐙' },
-  { id: 'google-drive', name: 'Google Drive', type: 'storage', connected: false, icon: '📁' },
-  { id: 'notion', name: 'Notion', type: 'docs', connected: false, icon: '📝' },
-  { id: 'discord', name: 'Discord', type: 'messaging', connected: false, icon: '🎮' },
-  { id: 'jira', name: 'Jira', type: 'project', connected: false, icon: '📊' },
-  { id: 'linear', name: 'Linear', type: 'project', connected: false, icon: '📐' },
-  { id: 'zapier', name: 'Zapier', type: 'automation', connected: false, icon: '⚡' },
-];
 
 const defaultSkills: Skill[] = [
   { id: 'web-browsing', name: 'Web Browsing', description: 'Navigate and interact with websites', enabled: true },
@@ -149,7 +131,7 @@ const SettingsModal = () => {
   const [skills, setSkills] = useState<Skill[]>(defaultSkills);
 
   // Connectors
-  const [connectors, setConnectors] = useState<Connector[]>(defaultConnectors);
+  const [connectors, setConnectors] = useState<ConnectorState[]>(buildDefaultConnectors());
   const [configConnectorId, setConfigConnectorId] = useState<string | null>(null);
 
   // Integrations
@@ -221,9 +203,8 @@ const SettingsModal = () => {
 
     // Connectors
     try {
-      const saved = JSON.parse(localStorage.getItem('CONNECTORS') || '');
-      if (Array.isArray(saved)) setConnectors(saved);
-    } catch { setConnectors(defaultConnectors); }
+      setConnectors(loadConnectors());
+    } catch { setConnectors(buildDefaultConnectors()); }
 
     // Integrations
     setWebhookUrl(localStorage.getItem('WEBHOOK_URL') || '');
@@ -265,7 +246,7 @@ const SettingsModal = () => {
     localStorage.setItem('RESPONSE_STYLE', responseStyle);
     localStorage.setItem('SYSTEM_PROMPT', systemPrompt);
     localStorage.setItem('SKILLS', JSON.stringify(skills));
-    localStorage.setItem('CONNECTORS', JSON.stringify(connectors));
+    saveConnectors(connectors);
     localStorage.setItem('WEBHOOK_URL', webhookUrl);
     localStorage.setItem('WEBHOOK_EVENTS', JSON.stringify(webhookEvents));
 
@@ -294,10 +275,6 @@ const SettingsModal = () => {
 
   const toggleSkill = (id: string) => {
     setSkills((prev) => prev.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s)));
-  };
-
-  const toggleConnector = (id: string) => {
-    setConnectors((prev) => prev.map((c) => (c.id === id ? { ...c, connected: !c.connected } : c)));
   };
 
   const toggleWebhookEvent = (event: string) => {
@@ -642,7 +619,9 @@ const SettingsModal = () => {
               {connectors.map((conn) => (
                 <div key={conn.id} className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-surface-elevated/50 transition-colors">
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-lg">{conn.icon}</span>
+                    <div className="h-8 w-8 rounded-lg border border-border bg-surface-elevated text-foreground text-[11px] font-semibold flex items-center justify-center">
+                      {conn.badge}
+                    </div>
                     <div>
                       <p className="text-sm text-foreground">{conn.name}</p>
                       <p className="text-xs text-muted-foreground capitalize">{conn.type}</p>
@@ -673,7 +652,11 @@ const SettingsModal = () => {
               connectorId={configConnectorId}
               onClose={() => setConfigConnectorId(null)}
               onSave={(id, connected) => {
-                setConnectors((prev) => prev.map((c) => c.id === id ? { ...c, connected } : c));
+                setConnectors((prev) => {
+                  const next = prev.map((c) => (c.id === id ? { ...c, connected } : c));
+                  saveConnectors(next);
+                  return next;
+                });
                 setConfigConnectorId(null);
               }}
             />

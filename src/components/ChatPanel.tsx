@@ -6,7 +6,15 @@ import ThinkingIndicator from './chat/ThinkingIndicator';
 import TakeoverBanner from './chat/TakeoverBanner';
 import ModelSelector from './ModelSelector';
 import ProviderConfigModal from './ProviderConfigModal';
+import ConnectorConfigModal from './chat/ConnectorConfigModal';
+import ConnectorQuickAccess from './chat/ConnectorQuickAccess';
 import { chatDirect } from '@/lib/api';
+import {
+  CONNECTORS_UPDATED_EVENT,
+  loadConnectors,
+  saveConnectors,
+  type ConnectorState,
+} from '@/lib/connectors';
 
 const ChatPanel = () => {
   const task = useStore((s) => s.task);
@@ -22,11 +30,14 @@ const ChatPanel = () => {
   const elapsedTime = useStore((s) => s.elapsedTime);
   const mode = useStore((s) => s.mode);
   const model = useStore((s) => s.model);
+  const setSettingsOpen = useStore((s) => s.setSettingsOpen);
 
   const [inputValue, setInputValue] = useState('');
   const [configProvider, setConfigProvider] = useState<string | null>(null);
+  const [configConnectorId, setConfigConnectorId] = useState<string | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [connectors, setConnectors] = useState<ConnectorState[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const assistantBufferRef = useRef('');
@@ -46,6 +57,16 @@ const ChatPanel = () => {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [entries.length]);
+
+  useEffect(() => {
+    const syncConnectors = () => setConnectors(loadConnectors());
+    syncConnectors();
+    window.addEventListener(CONNECTORS_UPDATED_EVENT, syncConnectors);
+
+    return () => {
+      window.removeEventListener(CONNECTORS_UPDATED_EVENT, syncConnectors);
+    };
+  }, []);
 
   const handleSend = () => {
     const text = inputValue.trim();
@@ -368,10 +389,32 @@ const ChatPanel = () => {
             </button>
           </div>
         </div>
+        <div className="mt-2">
+          <ConnectorQuickAccess
+            connectors={connectors}
+            onSelect={setConfigConnectorId}
+            onOpenSettings={() => setSettingsOpen(true)}
+            compact
+          />
+        </div>
       </div>
 
       {/* Provider config modal */}
       <ProviderConfigModal providerId={configProvider} onClose={() => setConfigProvider(null)} />
+      <ConnectorConfigModal
+        connectorId={configConnectorId}
+        onClose={() => setConfigConnectorId(null)}
+        onSave={(id, connected) => {
+          setConnectors((previous) => {
+            const next = previous.map((connector) =>
+              connector.id === id ? { ...connector, connected } : connector,
+            );
+            saveConnectors(next);
+            return next;
+          });
+          setConfigConnectorId(null);
+        }}
+      />
     </div>
   );
 };
