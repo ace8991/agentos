@@ -7,7 +7,23 @@ export interface AppSkill {
   builtin?: boolean;
 }
 
+export interface ComposerPreferences {
+  webResearch: boolean;
+  useStyle: boolean;
+}
+
 const SKILLS_STORAGE_KEY = 'SKILLS';
+const RESPONSE_STYLE_LABELS: Record<string, string> = {
+  concise: 'Concise',
+  balanced: 'Balanced',
+  detailed: 'Detailed',
+  creative: 'Creative',
+};
+
+export const defaultComposerPreferences: ComposerPreferences = {
+  webResearch: false,
+  useStyle: false,
+};
 
 const builtinSkills: AppSkill[] = [
   {
@@ -143,11 +159,38 @@ export const getBehaviorInstructions = () => {
   return sections.join('\n\n').trim();
 };
 
-export const buildAgentTask = (task: string) => {
-  const instructions = getBehaviorInstructions();
-  if (!instructions) {
+export const getSavedResponseStyleLabel = () => {
+  const responseStyle = localStorage.getItem('RESPONSE_STYLE') || 'balanced';
+  return RESPONSE_STYLE_LABELS[responseStyle] || 'Saved style';
+};
+
+export const getComposerInstructions = (
+  preferences: Partial<ComposerPreferences> = defaultComposerPreferences,
+) => {
+  const merged = { ...defaultComposerPreferences, ...preferences };
+  const sections: string[] = [];
+
+  if (merged.webResearch) {
+    sections.push('Use web research to verify unstable, recent, or uncertain information before finalizing the answer.');
+  }
+
+  if (merged.useStyle) {
+    const responseStyle = getSavedResponseStyleLabel();
+    sections.push(`Match the saved response style preference: ${responseStyle}.`);
+  }
+
+  return sections.join('\n').trim();
+};
+
+export const buildAgentTask = (
+  task: string,
+  preferences: Partial<ComposerPreferences> = defaultComposerPreferences,
+) => {
+  const sections = [getBehaviorInstructions(), getComposerInstructions(preferences)].filter(Boolean);
+
+  if (sections.length === 0) {
     return task;
   }
 
-  return `Follow these additional operating instructions:\n${instructions}\n\nPrimary task:\n${task}`;
+  return `Follow these additional operating instructions:\n${sections.join('\n\n')}\n\nPrimary task:\n${task}`;
 };

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { startRun, stopRun, createEventStream, type AgentEvent } from '@/lib/api';
 import { isAgentModelSupported } from '@/components/ModelSelector';
-import { buildAgentTask } from '@/lib/user-config';
+import { buildAgentTask, defaultComposerPreferences, type ComposerPreferences } from '@/lib/user-config';
 
 export type AgentMode = 'chat' | 'agent';
 export type AgentStatus = 'idle' | 'running' | 'done' | 'error' | 'paused';
@@ -100,6 +100,7 @@ interface AppState {
   settingsOpen: boolean;
   settingsSection: SettingsSection;
   historyOpen: boolean;
+  composerPreferences: ComposerPreferences;
 
   // Human takeover
   takeoverRequested: boolean;
@@ -119,6 +120,8 @@ interface AppState {
   setSettingsSection: (section: SettingsSection) => void;
   openSettingsFor: (section: SettingsSection) => void;
   setHistoryOpen: (open: boolean) => void;
+  setComposerPreferences: (preferences: Partial<ComposerPreferences>) => void;
+  resetComposerPreferences: () => void;
 
   startAgent: () => Promise<void>;
   stopAgent: () => Promise<void>;
@@ -173,6 +176,7 @@ export const useStore = create<AppState>((set, get) => ({
   settingsOpen: false,
   settingsSection: 'general',
   historyOpen: false,
+  composerPreferences: defaultComposerPreferences,
   takeoverRequested: false,
   takeoverReason: null,
   timerInterval: null,
@@ -192,6 +196,11 @@ export const useStore = create<AppState>((set, get) => ({
   setSettingsSection: (section) => set({ settingsSection: section }),
   openSettingsFor: (section) => set({ settingsOpen: true, settingsSection: section }),
   setHistoryOpen: (open) => set({ historyOpen: open }),
+  setComposerPreferences: (preferences) =>
+    set((state) => ({
+      composerPreferences: { ...state.composerPreferences, ...preferences },
+    })),
+  resetComposerPreferences: () => set({ composerPreferences: defaultComposerPreferences }),
 
   startTimer: () => {
     const interval = setInterval(() => {
@@ -226,8 +235,8 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   startAgent: async () => {
-    const { task, model, maxSteps, captureInterval } = get();
-    const effectiveTask = buildAgentTask(task);
+    const { task, model, maxSteps, captureInterval, composerPreferences } = get();
+    const effectiveTask = buildAgentTask(task, composerPreferences);
 
     const infoEntry: LogEntry = {
       id: crypto.randomUUID(),

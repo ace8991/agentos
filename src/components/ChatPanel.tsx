@@ -7,6 +7,7 @@ import TakeoverBanner from './chat/TakeoverBanner';
 import ModelSelector from './ModelSelector';
 import ProviderConfigModal from './ProviderConfigModal';
 import ConnectorConfigModal from './chat/ConnectorConfigModal';
+import ComposerInsertMenu from './chat/ComposerInsertMenu';
 import ConnectorsDirectoryModal from './chat/ConnectorsDirectoryModal';
 import ConnectorQuickAccess from './chat/ConnectorQuickAccess';
 import ArtifactWorkspaceModal from './chat/ArtifactWorkspaceModal';
@@ -18,7 +19,7 @@ import {
   type ConnectorState,
 } from '@/lib/connectors';
 import { toast } from '@/components/ui/sonner';
-import { getBehaviorInstructions } from '@/lib/user-config';
+import { getBehaviorInstructions, getComposerInstructions, getSavedResponseStyleLabel } from '@/lib/user-config';
 import { collectArtifactsFromEntries } from './chat/ArtifactCard';
 
 const ChatPanel = () => {
@@ -36,6 +37,8 @@ const ChatPanel = () => {
   const mode = useStore((s) => s.mode);
   const model = useStore((s) => s.model);
   const openSettingsFor = useStore((s) => s.openSettingsFor);
+  const composerPreferences = useStore((s) => s.composerPreferences);
+  const setComposerPreferences = useStore((s) => s.setComposerPreferences);
 
   const [inputValue, setInputValue] = useState('');
   const [configProvider, setConfigProvider] = useState<string | null>(null);
@@ -45,9 +48,14 @@ const ChatPanel = () => {
   const [chatLoading, setChatLoading] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [connectors, setConnectors] = useState<ConnectorState[]>([]);
+  const [composerMenuOpen, setComposerMenuOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const composerMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const composerMenuPanelRef = useRef<HTMLDivElement>(null);
   const assistantBufferRef = useRef('');
+  const responseStyleLabel = getSavedResponseStyleLabel();
 
   const isRunning = status === 'running';
   const isPaused = status === 'paused';
@@ -76,9 +84,37 @@ const ChatPanel = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (
+        composerMenuButtonRef.current &&
+        !composerMenuButtonRef.current.contains(target) &&
+        !composerMenuPanelRef.current?.contains(target)
+      ) {
+        setComposerMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setComposerMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, []);
+
   const handleSend = () => {
     const text = inputValue.trim();
     if (!text) return;
+    setComposerMenuOpen(false);
 
     if (mode === 'chat') {
       handleChatSend(text);
@@ -112,7 +148,9 @@ const ChatPanel = () => {
 
     // Build messages from history
     const messages: { role: string; content: string }[] = [];
-    const behaviorInstructions = getBehaviorInstructions();
+    const behaviorInstructions = [getBehaviorInstructions(), getComposerInstructions(composerPreferences)]
+      .filter(Boolean)
+      .join('\n\n');
     if (behaviorInstructions) {
       messages.push({ role: 'system', content: behaviorInstructions });
     }
@@ -180,11 +218,27 @@ const ChatPanel = () => {
     const files = e.target.files;
     if (files) {
       setAttachments((prev) => [...prev, ...Array.from(files)]);
+      toast.success(`${files.length} file${files.length > 1 ? 's' : ''} attached`);
+      e.target.value = '';
+    }
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      setAttachments((prev) => [...prev, ...Array.from(files)]);
+      toast.success(`${files.length} image${files.length > 1 ? 's' : ''} attached`);
+      e.target.value = '';
     }
   };
 
   const removeAttachment = (index: number) => {
     setAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleToggleComposerPreference = (key: 'webResearch' | 'useStyle') => {
+    setComposerPreferences({ [key]: !composerPreferences[key] });
+    setComposerMenuOpen(false);
   };
 
   // Determine current phase label for thinking indicator
@@ -347,6 +401,11 @@ const ChatPanel = () => {
           {attachments.map((file, i) => (
             <div key={i} className="flex items-center gap-1.5 bg-muted border border-border rounded-lg px-2.5 py-1 text-xs text-foreground">
               <Paperclip size={11} className="text-muted-foreground" />
+              {file.type.startsWith('image/') && (
+                <span className="rounded-full border border-sky-300/20 bg-sky-400/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-100">
+                  Image
+                </span>
+              )}
               <span className="truncate max-w-[120px]">{file.name}</span>
               <button onClick={() => removeAttachment(i)} className="text-muted-foreground hover:text-foreground">
                 <X size={12} />
@@ -356,21 +415,88 @@ const ChatPanel = () => {
         </div>
       )}
 
+      {(composerPreferences.webResearch || composerPreferences.useStyle) && (
+        <div className="px-5 pt-2 flex items-center gap-2 flex-wrap">
+          {composerPreferences.webResearch && (
+            <button
+              onClick={() => setComposerPreferences({ webResearch: false })}
+              className="inline-flex items-center gap-1.5 rounded-full border border-sky-300/16 bg-sky-400/10 px-2.5 py-1 text-[11px] font-medium text-sky-100"
+            >
+              Web research
+              <X size={11} />
+            </button>
+          )}
+          {composerPreferences.useStyle && (
+            <button
+              onClick={() => setComposerPreferences({ useStyle: false })}
+              className="inline-flex items-center gap-1.5 rounded-full border border-fuchsia-300/16 bg-fuchsia-400/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-100"
+            >
+              {responseStyleLabel}
+              <X size={11} />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Input bar */}
       <div className="px-3 md:px-5 pb-3 md:pb-4 pt-2">
         <div className="relative flex items-end bg-muted border border-border rounded-xl px-3 md:px-4 py-2.5 md:py-3 gap-2 md:gap-3 focus-within:glow-purple transition-shadow">
           <button
-            onClick={() => fileInputRef.current?.click()}
+            ref={composerMenuButtonRef}
+            onClick={() => setComposerMenuOpen((open) => !open)}
             className="shrink-0 text-muted-foreground hover:text-foreground transition-colors p-0.5 mb-0.5 active:scale-95"
-            title="Add file"
+            title="Insert"
           >
             <Plus size={18} />
           </button>
+          <ComposerInsertMenu
+            open={composerMenuOpen}
+            anchorRef={composerMenuButtonRef}
+            panelRef={composerMenuPanelRef}
+            connectedCount={connectors.filter((connector) => connector.connected).length}
+            responseStyleLabel={responseStyleLabel}
+            webSearchEnabled={composerPreferences.webResearch}
+            useStyleEnabled={composerPreferences.useStyle}
+            onAddFiles={() => {
+              setComposerMenuOpen(false);
+              fileInputRef.current?.click();
+            }}
+            onAddImages={() => {
+              setComposerMenuOpen(false);
+              imageInputRef.current?.click();
+            }}
+            onOpenGoogleDrive={() => {
+              setComposerMenuOpen(false);
+              setConfigConnectorId('google-drive');
+            }}
+            onOpenGitHub={() => {
+              setComposerMenuOpen(false);
+              setConfigConnectorId('github');
+            }}
+            onOpenSkills={() => {
+              setComposerMenuOpen(false);
+              openSettingsFor('skills');
+            }}
+            onOpenConnectors={() => {
+              setComposerMenuOpen(false);
+              setDirectoryOpen(true);
+            }}
+            onToggleWebSearch={() => handleToggleComposerPreference('webResearch')}
+            onToggleUseStyle={() => handleToggleComposerPreference('useStyle')}
+          />
           <input
             ref={fileInputRef}
             type="file"
             multiple
             onChange={handleFileSelect}
+            className="hidden"
+          />
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleImageSelect}
             className="hidden"
           />
           <textarea

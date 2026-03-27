@@ -24,6 +24,7 @@ import {
 import TaskSidebar from '@/components/TaskSidebar';
 import SettingsModal from '@/components/SettingsModal';
 import ConnectorConfigModal from '@/components/chat/ConnectorConfigModal';
+import ComposerInsertMenu from '@/components/chat/ComposerInsertMenu';
 import ConnectorsDirectoryModal from '@/components/chat/ConnectorsDirectoryModal';
 import ConnectorQuickAccess from '@/components/chat/ConnectorQuickAccess';
 import { useStore } from '@/store/useStore';
@@ -35,6 +36,7 @@ import {
   type ConnectorState,
 } from '@/lib/connectors';
 import { toast } from '@/components/ui/sonner';
+import { getSavedResponseStyleLabel } from '@/lib/user-config';
 
 const suggestions = [
   { icon: FileText, label: 'Create slides' },
@@ -61,18 +63,25 @@ const Welcome = () => {
   const [directoryOpen, setDirectoryOpen] = useState(false);
   const [configConnectorId, setConfigConnectorId] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [composerMenuOpen, setComposerMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
   const setTask = useStore((s) => s.setTask);
   const openSettingsFor = useStore((s) => s.openSettingsFor);
+  const composerPreferences = useStore((s) => s.composerPreferences);
+  const setComposerPreferences = useStore((s) => s.setComposerPreferences);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const composerMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const composerMenuPanelRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
   const notificationsPanelRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   const profilePanelRef = useRef<HTMLDivElement>(null);
+  const responseStyleLabel = getSavedResponseStyleLabel();
 
   useEffect(() => {
     const syncConnectors = () => setConnectors(loadConnectors());
@@ -96,12 +105,16 @@ const Welcome = () => {
       if (!isTargetInside(target, [profileRef, profilePanelRef])) {
         setProfileOpen(false);
       }
+      if (!isTargetInside(target, [composerMenuButtonRef, composerMenuPanelRef])) {
+        setComposerMenuOpen(false);
+      }
     };
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setNotificationsOpen(false);
         setProfileOpen(false);
+        setComposerMenuOpen(false);
       }
     };
 
@@ -153,14 +166,30 @@ const Welcome = () => {
   const handleStart = () => {
     if (!taskInput.trim()) return;
     setTask(taskInput.trim());
+    setComposerMenuOpen(false);
     navigate('/dashboard');
+  };
+
+  const addAttachments = (files: FileList | File[], kind: 'file' | 'image') => {
+    const nextFiles = Array.from(files);
+    if (nextFiles.length === 0) return;
+
+    setAttachments((previous) => [...previous, ...nextFiles]);
+    toast.success(`${nextFiles.length} ${kind}${nextFiles.length > 1 ? 's' : ''} attached`);
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
-    setAttachments((previous) => [...previous, ...Array.from(files)]);
-    toast.success(`${files.length} file${files.length > 1 ? 's' : ''} attached`);
+    addAttachments(files, 'file');
+    event.target.value = '';
+  };
+
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+    addAttachments(files, 'image');
+    event.target.value = '';
   };
 
   const removeAttachment = (index: number) => {
@@ -183,6 +212,7 @@ const Welcome = () => {
       const next = !open;
       if (next) {
         setProfileOpen(false);
+        setComposerMenuOpen(false);
         setReadNotificationIds((current) => Array.from(new Set([...current, ...notifications.map((item) => item.id)])));
       }
       return next;
@@ -201,6 +231,16 @@ const Welcome = () => {
   const handleProfileAction = (section: ReturnType<typeof useStore.getState>['settingsSection']) => {
     setProfileOpen(false);
     openSettingsFor(section);
+  };
+
+  const handleComposerConnector = (connectorId: string) => {
+    setComposerMenuOpen(false);
+    setConfigConnectorId(connectorId);
+  };
+
+  const handleToggleComposerPreference = (key: 'webResearch' | 'useStyle') => {
+    setComposerPreferences({ [key]: !composerPreferences[key] });
+    setComposerMenuOpen(false);
   };
 
   return (
@@ -304,6 +344,7 @@ const Welcome = () => {
                 onClick={() => {
                   setProfileOpen((open) => !open);
                   setNotificationsOpen(false);
+                  setComposerMenuOpen(false);
                 }}
                 className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.08] pl-1 pr-2 py-1 hover:bg-white/[0.12] transition-colors active:scale-95"
                 aria-label="Profile"
@@ -411,6 +452,14 @@ const Welcome = () => {
                   onChange={handleFileSelect}
                   className="hidden"
                 />
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageSelect}
+                  className="hidden"
+                />
                 <textarea
                   value={taskInput}
                   onChange={(event) => setTaskInput(event.target.value)}
@@ -432,6 +481,11 @@ const Welcome = () => {
                   {attachments.map((file, index) => (
                     <div key={`${file.name}-${index}`} className="flex items-center gap-1.5 bg-white/[0.08] border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white">
                       <Paperclip size={11} className="text-white/65" />
+                      {file.type.startsWith('image/') && (
+                        <span className="rounded-full border border-sky-300/20 bg-sky-400/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-100">
+                          Image
+                        </span>
+                      )}
                       <span className="truncate max-w-[150px]">{file.name}</span>
                       <button onClick={() => removeAttachment(index)} className="text-white/55 hover:text-white">
                         <X size={12} />
@@ -441,15 +495,74 @@ const Welcome = () => {
                 </div>
               )}
 
+              {(composerPreferences.webResearch || composerPreferences.useStyle) && (
+                <div className="px-4 md:px-5 pb-2 flex items-center gap-2 flex-wrap">
+                  {composerPreferences.webResearch && (
+                    <button
+                      onClick={() => setComposerPreferences({ webResearch: false })}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-sky-300/16 bg-sky-400/10 px-2.5 py-1 text-[11px] font-medium text-sky-100"
+                    >
+                      <GlobeIcon size={12} />
+                      Web research
+                      <X size={11} />
+                    </button>
+                  )}
+                  {composerPreferences.useStyle && (
+                    <button
+                      onClick={() => setComposerPreferences({ useStyle: false })}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-fuchsia-300/16 bg-fuchsia-400/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-100"
+                    >
+                      <Wand2 size={12} />
+                      {responseStyleLabel}
+                      <X size={11} />
+                    </button>
+                  )}
+                </div>
+              )}
+
               <div className="flex items-center justify-between px-3 md:px-4 pb-3 md:pb-4">
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={() => setDirectoryOpen(true)}
+                    ref={composerMenuButtonRef}
+                    onClick={() => {
+                      setComposerMenuOpen((open) => !open);
+                      setNotificationsOpen(false);
+                      setProfileOpen(false);
+                    }}
                     className="p-2 rounded-xl text-white/55 hover:text-white hover:bg-white/10 transition-colors active:scale-95"
-                    title="Open tools"
+                    title="Insert"
                   >
                     <Plus size={18} />
                   </button>
+                  <ComposerInsertMenu
+                    open={composerMenuOpen}
+                    anchorRef={composerMenuButtonRef}
+                    panelRef={composerMenuPanelRef}
+                    connectedCount={connectedCount}
+                    responseStyleLabel={responseStyleLabel}
+                    webSearchEnabled={composerPreferences.webResearch}
+                    useStyleEnabled={composerPreferences.useStyle}
+                    onAddFiles={() => {
+                      setComposerMenuOpen(false);
+                      fileInputRef.current?.click();
+                    }}
+                    onAddImages={() => {
+                      setComposerMenuOpen(false);
+                      imageInputRef.current?.click();
+                    }}
+                    onOpenGoogleDrive={() => handleComposerConnector('google-drive')}
+                    onOpenGitHub={() => handleComposerConnector('github')}
+                    onOpenSkills={() => {
+                      setComposerMenuOpen(false);
+                      openSettingsFor('skills');
+                    }}
+                    onOpenConnectors={() => {
+                      setComposerMenuOpen(false);
+                      setDirectoryOpen(true);
+                    }}
+                    onToggleWebSearch={() => handleToggleComposerPreference('webResearch')}
+                    onToggleUseStyle={() => handleToggleComposerPreference('useStyle')}
+                  />
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     className="p-2 rounded-xl text-white/55 hover:text-white hover:bg-white/10 transition-colors active:scale-95"
