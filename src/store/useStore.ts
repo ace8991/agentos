@@ -1,11 +1,12 @@
 import { create } from 'zustand';
-import { startRun, stopRun, createEventStream, type AgentEvent } from '@/lib/api';
+import { startRun, stopRun, createEventStream, checkHealth, type AgentEvent, type HealthResponse } from '@/lib/api';
 import { isAgentModelSupported } from '@/components/ModelSelector';
 import { buildAgentTask, defaultComposerPreferences, type ComposerPreferences } from '@/lib/user-config';
 
-export type AgentMode = 'chat' | 'agent';
+export type AgentMode = 'smart' | 'chat' | 'agent';
 export type AgentStatus = 'idle' | 'running' | 'done' | 'error' | 'paused';
 export type LogType = 'perceive' | 'plan' | 'act' | 'verify' | 'done' | 'error' | 'browser' | 'web' | 'shell' | 'info' | 'thinking' | 'ask' | 'result';
+export type ActiveThread = 'chat' | 'agent' | null;
 
 export interface LogEntry {
   id: string;
@@ -80,7 +81,9 @@ interface AppState {
   captureInterval: number;
   runId: string | null;
   backendOnline: boolean;
+  backendHealth: HealthResponse | null;
   errorMessage: string | null;
+  activeThread: ActiveThread;
 
   // Log
   entries: LogEntry[];
@@ -90,6 +93,9 @@ interface AppState {
 
   // Screenshot
   currentScreenshot: string | null;
+  browserUrl: string | null;
+  browserTitle: string | null;
+  lastSurface: 'browser' | 'terminal' | null;
   annotations: Annotation[];
 
   // History
@@ -116,6 +122,9 @@ interface AppState {
   setMaxSteps: (n: number) => void;
   setCaptureInterval: (ms: number) => void;
   setBackendOnline: (online: boolean) => void;
+  setBackendHealth: (health: HealthResponse | null) => void;
+  syncBackendHealth: () => Promise<void>;
+  setActiveThread: (thread: ActiveThread) => void;
   setSettingsOpen: (open: boolean) => void;
   setSettingsSection: (section: SettingsSection) => void;
   openSettingsFor: (section: SettingsSection) => void;
@@ -142,21 +151,34 @@ interface AppState {
 
 // Map action types to human-readable labels
 const toolLabels: Record<string, string> = {
-  browser_navigate: 'Navigating the web',
+  browser_open: 'Opening a website',
   browser_click: 'Clicking an element',
-  browser_type: 'Typing text',
-  browser_scroll: 'Scrolling page',
-  browser_screenshot: 'Capturing screenshot',
+  browser_type: 'Typing into the page',
+  browser_select: 'Selecting an option',
+  browser_scroll: 'Scrolling the page',
+  browser_wait: 'Waiting for the page',
+  browser_snapshot: 'Refreshing live browser view',
+  browser_eval: 'Reading page data',
+  browser_back: 'Going back',
+  browser_close: 'Closing browser session',
   web_search: 'Searching the web',
   web_extract: 'Extracting web content',
+  web_qna: 'Answering from web results',
+  web_crawl: 'Crawling a website',
   shell: 'Running terminal command',
+  click: 'Clicking on screen',
+  type: 'Typing on screen',
+  scroll: 'Scrolling on screen',
+  key: 'Pressing keys',
+  wait: 'Waiting',
+  computer_use: 'Using desktop controls',
   file_read: 'Reading a file',
   file_write: 'Writing a file',
   code_execute: 'Executing code',
 };
 
 export const useStore = create<AppState>((set, get) => ({
-  mode: 'agent',
+  mode: 'smart',
   task: '',
   status: 'idle',
   currentStep: 0,
@@ -166,10 +188,15 @@ export const useStore = create<AppState>((set, get) => ({
   captureInterval: 1000,
   runId: null,
   backendOnline: true,
+  backendHealth: null,
   errorMessage: null,
+  activeThread: null,
   entries: [],
   memory: [],
   currentScreenshot: null,
+  browserUrl: null,
+  browserTitle: null,
+  lastSurface: null,
   annotations: [],
   history: [],
   viewingHistory: null,
@@ -192,6 +219,16 @@ export const useStore = create<AppState>((set, get) => ({
   setMaxSteps: (n) => set({ maxSteps: Math.max(1, Math.min(100, n)) }),
   setCaptureInterval: (ms) => set({ captureInterval: ms }),
   setBackendOnline: (online) => set({ backendOnline: online }),
+  setBackendHealth: (health) => set({ backendHealth: health, backendOnline: !!health }),
+  syncBackendHealth: async () => {
+    try {
+      const health = await checkHealth();
+      set({ backendHealth: health, backendOnline: true });
+    } catch {
+      set({ backendHealth: null, backendOnline: false });
+    }
+  },
+  setActiveThread: (thread) => set({ activeThread: thread }),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
   setSettingsSection: (section) => set({ settingsSection: section }),
   openSettingsFor: (section) => set({ settingsOpen: true, settingsSection: section }),
@@ -249,11 +286,15 @@ export const useStore = create<AppState>((set, get) => ({
 
     set({
       status: 'running',
+      activeThread: 'agent',
       currentStep: 0,
       elapsedTime: 0,
       entries: [infoEntry],
       memory: [],
       currentScreenshot: null,
+      browserUrl: null,
+      browserTitle: null,
+      lastSurface: null,
       annotations: [],
       errorMessage: null,
       takeoverRequested: false,
@@ -290,6 +331,7 @@ export const useStore = create<AppState>((set, get) => ({
       const isNetworkFailure = err instanceof TypeError;
       set({
         backendOnline: !isNetworkFailure,
+        backendHealth: isNetworkFailure ? null : get().backendHealth,
         status: isNetworkFailure ? 'idle' : 'error',
         entries: isNetworkFailure ? [] : get().entries,
         errorMessage: isNetworkFailure ? null : message,
@@ -326,6 +368,11 @@ export const useStore = create<AppState>((set, get) => ({
       else if (actionType === 'shell') logType = 'shell';
     }
 
+    const toolResult =
+      event.tool_result && typeof event.tool_result === 'object' && !Array.isArray(event.tool_result)
+        ? (event.tool_result as Record<string, unknown>)
+        : undefined;
+
     const entry: LogEntry = {
       id: crypto.randomUUID(),
       step: event.step,
@@ -334,7 +381,7 @@ export const useStore = create<AppState>((set, get) => ({
       action: event.action || '',
       reasoning: event.reasoning || '',
       screenshot_b64: event.screenshot_b64,
-      tool_result: event.tool_result as Record<string, unknown>,
+      tool_result: toolResult,
       actionType,
       toolLabel: toolLabels[actionType] || (actionType ? actionType.replace(/_/g, ' ') : undefined),
       attachments: event.attachments as FileAttachment[],
@@ -353,7 +400,9 @@ export const useStore = create<AppState>((set, get) => ({
       }
     }
 
-    let screenshotB64 = event.screenshot_b64 || null;
+    let screenshotB64 =
+      event.screenshot_b64 ||
+      (typeof toolResult?.screenshot_b64 === 'string' ? toolResult.screenshot_b64 : null);
     if (screenshotB64?.startsWith('data:')) {
       screenshotB64 = screenshotB64.replace(/^data:image\/[a-z]+;base64,/, '');
     }
@@ -370,10 +419,18 @@ export const useStore = create<AppState>((set, get) => ({
       }
     }
 
+    const browserUrl = typeof toolResult?.url === 'string' ? toolResult.url : null;
+    const browserTitle = typeof toolResult?.title === 'string' ? toolResult.title : null;
+    const nextSurface =
+      logType === 'browser' ? 'browser' : logType === 'shell' ? 'terminal' : null;
+
     set((s) => ({
       entries: [entry, ...s.entries],
       currentStep: event.step,
       currentScreenshot: screenshotB64 || s.currentScreenshot,
+      browserUrl: browserUrl || s.browserUrl,
+      browserTitle: browserTitle || s.browserTitle,
+      lastSurface: nextSurface || s.lastSurface,
       memory: memoryItems || s.memory,
       annotations: newAnnotations.length > 0 ? newAnnotations : s.annotations,
     }));
@@ -405,15 +462,20 @@ export const useStore = create<AppState>((set, get) => ({
   reset: () => {
     get().stopTimer();
     set({
+      task: '',
       status: 'idle',
       currentStep: 0,
       elapsedTime: 0,
       entries: [],
       memory: [],
       currentScreenshot: null,
+      browserUrl: null,
+      browserTitle: null,
+      lastSurface: null,
       annotations: [],
       errorMessage: null,
       runId: null,
+      activeThread: null,
       takeoverRequested: false,
       takeoverReason: null,
     });

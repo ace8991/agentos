@@ -108,7 +108,11 @@ async def run_agent(
 
         # ── PERCEIVE: screenshot ──────────────────────────────────────────
         try:
-            screenshot_b64 = await asyncio.to_thread(capture_screenshot)
+            browser_state = await browser_svc.browser_live_state(run_id)
+            if browser_state and browser_state.get("screenshot_b64"):
+                screenshot_b64 = browser_state["screenshot_b64"]
+            else:
+                screenshot_b64 = await asyncio.to_thread(capture_screenshot)
         except Exception as e:
             consecutive_errors += 1
             if consecutive_errors >= MAX_ERRORS:
@@ -145,8 +149,7 @@ async def run_agent(
             last_tool_result = result
             result_desc = result.get("description", "")
 
-            # If browser_snapshot returned a screenshot, use it as the current frame
-            if action.type == ActionType.BROWSER_SNAPSHOT and result.get("screenshot_b64"):
+            if result.get("screenshot_b64"):
                 screenshot_b64 = result["screenshot_b64"]
 
             if result.get("success"):

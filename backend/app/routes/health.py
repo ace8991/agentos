@@ -26,6 +26,8 @@ async def health():
             "anthropic_key": bool(os.getenv("ANTHROPIC_API_KEY")),
             "tavily_key":    bool(os.getenv("TAVILY_API_KEY")),
             "openai_key":    bool(os.getenv("OPENAI_API_KEY")),
+            "deepseek_key":  bool(os.getenv("DEEPSEEK_API_KEY")),
+            "google_key":    bool(os.getenv("GOOGLE_API_KEY")),
         },
     }
     if IS_LOCAL and pyautogui_available:

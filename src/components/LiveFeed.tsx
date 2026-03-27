@@ -93,7 +93,7 @@ const LiveFeed = () => {
               {currentScreenshot ? (
                 <>
                   <img
-                    src={`data:image/png;base64,${currentScreenshot}`}
+                    src={`data:image/jpeg;base64,${currentScreenshot}`}
                     alt="Agent screenshot"
                     className="w-full h-full object-contain"
                   />

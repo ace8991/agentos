@@ -439,7 +439,17 @@ export interface HealthResponse {
     pyautogui: boolean;
     computer_use: boolean;
   };
-  system: { os: string; screen?: string };
+  system: {
+    os: string;
+    screen?: string;
+    monitors?: number;
+    anthropic_key?: boolean;
+    tavily_key?: boolean;
+    openai_key?: boolean;
+    deepseek_key?: boolean;
+    google_key?: boolean;
+    screen_error?: string;
+  };
 }
 
 export interface ModelInfo {

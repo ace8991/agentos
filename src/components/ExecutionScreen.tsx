@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Monitor, Terminal, Globe, Maximize2, Minimize2, Hand, ExternalLink } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Globe, Hand, Maximize2, Minimize2, Monitor, Terminal } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import ActionAnnotationOverlay from './ActionAnnotationOverlay';
 import StepProgressBar from './StepProgressBar';
@@ -13,6 +13,8 @@ interface ExecutionScreenProps {
 const ExecutionScreen = ({ forceMobile }: ExecutionScreenProps) => {
   const status = useStore((s) => s.status);
   const currentScreenshot = useStore((s) => s.currentScreenshot);
+  const browserUrl = useStore((s) => s.browserUrl);
+  const browserTitle = useStore((s) => s.browserTitle);
   const annotations = useStore((s) => s.annotations);
   const entries = useStore((s) => s.entries);
   const currentStep = useStore((s) => s.currentStep);
@@ -20,26 +22,52 @@ const ExecutionScreen = ({ forceMobile }: ExecutionScreenProps) => {
   const elapsedTime = useStore((s) => s.elapsedTime);
   const takeoverRequested = useStore((s) => s.takeoverRequested);
   const releaseTakeover = useStore((s) => s.releaseTakeover);
+  const lastSurface = useStore((s) => s.lastSurface);
   const [activeTab, setActiveTab] = useState<Tab>('browser');
   const [expanded, setExpanded] = useState(false);
 
   const isRunning = status === 'running';
   const isPaused = status === 'paused';
-  const hasScreenshot = !!currentScreenshot;
-  const terminalEntries = entries.filter((e) => e.type === 'shell');
+  const isLive = isRunning || isPaused;
+  const browserEntries = useMemo(() => entries.filter((entry) => entry.type === 'browser'), [entries]);
+  const terminalEntries = useMemo(() => entries.filter((entry) => entry.type === 'shell'), [entries]);
+  const hasBrowserActivity = isLive && (browserEntries.length > 0 || !!browserUrl || !!browserTitle);
+  const hasTerminalActivity = isLive && terminalEntries.length > 0;
+  const visibleTabs = [
+    hasBrowserActivity ? 'browser' : null,
+    hasTerminalActivity ? 'terminal' : null,
+  ].filter(Boolean) as Tab[];
 
-  const latestEntry = entries[0];
-  const currentAction = latestEntry?.toolLabel || (isRunning ? 'Processing...' : '');
+  useEffect(() => {
+    if (lastSurface === 'terminal' && hasTerminalActivity) {
+      setActiveTab('terminal');
+      return;
+    }
+    if (lastSurface === 'browser' && hasBrowserActivity) {
+      setActiveTab('browser');
+      return;
+    }
+    if (!hasBrowserActivity && hasTerminalActivity) {
+      setActiveTab('terminal');
+      return;
+    }
+    if (hasBrowserActivity) {
+      setActiveTab('browser');
+    }
+  }, [hasBrowserActivity, hasTerminalActivity, lastSurface]);
 
-  const formatTime = (s: number) => {
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
-  if (!forceMobile && !hasScreenshot && !isRunning && !isPaused && entries.length === 0) {
+  if (!hasBrowserActivity && !hasTerminalActivity) {
     return null;
   }
+
+  const latestRelevantEntry = activeTab === 'terminal' ? terminalEntries[0] : browserEntries[0];
+  const currentAction = latestRelevantEntry?.toolLabel || (isRunning ? 'Processing...' : '');
 
   const containerClass = forceMobile
     ? 'flex-1 flex flex-col min-h-0 bg-card'
@@ -49,36 +77,40 @@ const ExecutionScreen = ({ forceMobile }: ExecutionScreenProps) => {
     <div className={containerClass}>
       <StepProgressBar />
 
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 md:px-4 py-2.5 border-b border-border">
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setActiveTab('browser')}
-            className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              activeTab === 'browser' ? 'bg-surface-elevated text-foreground' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Globe size={13} />
-            Browser
-          </button>
-          <button
-            onClick={() => setActiveTab('terminal')}
-            className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              activeTab === 'terminal' ? 'bg-surface-elevated text-foreground' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Terminal size={13} />
-            Terminal
-          </button>
-        </div>
+      <div className="flex items-center justify-between border-b border-border px-3 py-2.5 md:px-4">
+        {visibleTabs.length > 1 ? (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setActiveTab('browser')}
+              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                activeTab === 'browser' ? 'bg-surface-elevated text-foreground' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Globe size={13} />
+              Browser
+            </button>
+            <button
+              onClick={() => setActiveTab('terminal')}
+              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                activeTab === 'terminal' ? 'bg-surface-elevated text-foreground' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Terminal size={13} />
+              Terminal
+            </button>
+          </div>
+        ) : (
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-elevated px-3 py-1.5 text-xs text-foreground">
+            {hasBrowserActivity ? <Globe size={13} /> : <Terminal size={13} />}
+            {hasBrowserActivity ? 'Browser live' : 'Terminal live'}
+          </div>
+        )}
         <div className="flex items-center gap-2 md:gap-3">
-          {(isRunning || isPaused) && (
-            <span className="text-xs text-muted-foreground tabular-nums">{formatTime(elapsedTime)}</span>
-          )}
+          {isLive && <span className="text-xs tabular-nums text-muted-foreground">{formatTime(elapsedTime)}</span>}
           {!forceMobile && (
             <button
               onClick={() => setExpanded(!expanded)}
-              className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-surface-elevated active:scale-95"
+              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-surface-elevated hover:text-foreground active:scale-95"
             >
               {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
             </button>
@@ -86,51 +118,57 @@ const ExecutionScreen = ({ forceMobile }: ExecutionScreenProps) => {
         </div>
       </div>
 
-      {/* Current action label */}
-      {currentAction && (isRunning || isPaused) && (
-        <div className="px-3 md:px-4 py-2 border-b border-border flex items-center gap-2">
-          {isRunning && (
+      {currentAction && isLive && (
+        <div className="flex items-center gap-2 border-b border-border px-3 py-2 md:px-4">
+          {isRunning ? (
             <div className="flex gap-0.5">
-              {[0, 1, 2].map((i) => (
+              {[0, 1, 2].map((index) => (
                 <div
-                  key={i}
-                  className="w-1 h-1 rounded-full bg-primary"
-                  style={{ animation: `pulse-dot 1.2s ease-in-out ${i * 0.15}s infinite` }}
+                  key={index}
+                  className="h-1 w-1 rounded-full bg-primary"
+                  style={{ animation: `pulse-dot 1.2s ease-in-out ${index * 0.15}s infinite` }}
                 />
               ))}
             </div>
+          ) : (
+            <Hand size={12} className="text-accent" />
           )}
-          {isPaused && <Hand size={12} className="text-accent" />}
-          <span className="text-xs text-muted-foreground truncate">{currentAction}</span>
+          <span className="truncate text-xs text-muted-foreground">{currentAction}</span>
         </div>
       )}
 
-      {/* Content */}
-      <div className="flex-1 overflow-hidden relative min-h-0">
-        {activeTab === 'browser' ? (
-          <div className="w-full h-full relative flex items-center justify-center bg-muted">
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        {activeTab === 'browser' && hasBrowserActivity ? (
+          <div className="relative flex h-full w-full items-center justify-center bg-muted">
             {currentScreenshot ? (
               <>
                 <img
-                  src={`data:image/png;base64,${currentScreenshot}`}
+                  src={`data:image/jpeg;base64,${currentScreenshot}`}
                   alt="Agent browser view"
-                  className="w-full h-full object-contain"
+                  className="h-full w-full object-contain"
                 />
                 <ActionAnnotationOverlay annotations={annotations} />
 
+                {(browserTitle || browserUrl) && (
+                  <div className="absolute left-3 top-3 right-3 rounded-xl border border-white/10 bg-background/70 px-3 py-2 backdrop-blur-md">
+                    {browserTitle && <p className="truncate text-xs font-medium text-foreground">{browserTitle}</p>}
+                    {browserUrl && <p className="truncate text-[11px] text-muted-foreground">{browserUrl}</p>}
+                  </div>
+                )}
+
                 {takeoverRequested && (
-                  <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center z-10 p-4">
-                    <div className="bg-card border border-accent/30 rounded-xl p-5 md:p-6 max-w-xs text-center shadow-lg w-full">
-                      <div className="w-10 h-10 rounded-xl bg-accent/15 flex items-center justify-center mx-auto mb-3">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 p-4 backdrop-blur-sm">
+                    <div className="w-full max-w-xs rounded-xl border border-accent/30 bg-card p-5 text-center shadow-lg md:p-6">
+                      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15">
                         <Hand size={20} className="text-accent" />
                       </div>
-                      <h3 className="text-sm font-medium text-foreground mb-1">Your turn</h3>
-                      <p className="text-xs text-muted-foreground mb-4">
+                      <h3 className="mb-1 text-sm font-medium text-foreground">Your turn</h3>
+                      <p className="mb-4 text-xs text-muted-foreground">
                         Complete the required action in the browser, then click below.
                       </p>
                       <button
                         onClick={releaseTakeover}
-                        className="w-full text-xs bg-accent text-accent-foreground px-4 py-2 rounded-lg hover:opacity-90 transition-opacity active:scale-[0.97] font-medium"
+                        className="w-full rounded-lg bg-accent px-4 py-2 text-xs font-medium text-accent-foreground transition-opacity hover:opacity-90 active:scale-[0.97]"
                       >
                         Done, resume agent
                       </button>
@@ -141,24 +179,24 @@ const ExecutionScreen = ({ forceMobile }: ExecutionScreenProps) => {
             ) : (
               <div className="flex flex-col items-center gap-3 text-muted-foreground">
                 <Monitor size={28} strokeWidth={1.5} />
-                <span className="text-xs">Waiting for browser capture...</span>
+                <span className="text-xs">Waiting for live browser capture...</span>
               </div>
             )}
           </div>
         ) : (
-          <div className="w-full h-full overflow-y-auto scrollbar-thin p-3 md:p-4 font-mono text-xs space-y-1 bg-[hsl(240_33%_3%)]">
+          <div className="h-full w-full overflow-y-auto bg-[hsl(240_33%_3%)] p-3 font-mono text-xs md:p-4">
             {terminalEntries.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
+              <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
                 <Terminal size={24} strokeWidth={1.5} />
                 <span className="text-xs">No terminal output yet</span>
               </div>
             ) : (
               [...terminalEntries].reverse().map((entry) => (
-                <div key={entry.id} className="log-entry-enter">
+                <div key={entry.id} className="log-entry-enter mb-2 rounded-lg border border-white/6 bg-white/[0.02] p-2">
                   <span className="text-secondary">$ </span>
-                  <span className="text-foreground break-all">{entry.action}</span>
+                  <span className="break-all text-foreground">{entry.action}</span>
                   {entry.tool_result && (
-                    <pre className="text-muted-foreground mt-0.5 whitespace-pre-wrap break-all">
+                    <pre className="mt-1 whitespace-pre-wrap break-all text-muted-foreground">
                       {JSON.stringify(entry.tool_result, null, 2)}
                     </pre>
                   )}
@@ -169,8 +207,7 @@ const ExecutionScreen = ({ forceMobile }: ExecutionScreenProps) => {
         )}
       </div>
 
-      {/* Status bar */}
-      <div className="flex items-center justify-between px-3 md:px-4 py-2 border-t border-border text-xs text-muted-foreground">
+      <div className="flex items-center justify-between border-t border-border px-3 py-2 text-xs text-muted-foreground md:px-4">
         <div className="flex items-center gap-2">
           {isRunning && (
             <>
@@ -184,9 +221,7 @@ const ExecutionScreen = ({ forceMobile }: ExecutionScreenProps) => {
               <span>Paused</span>
             </>
           )}
-          {status === 'done' && <span className="text-success">✓ Completed</span>}
-          {status === 'error' && <span className="text-destructive">✗ Error</span>}
-          {status === 'idle' && <span>Ready</span>}
+          {!isLive && <span>Standby</span>}
         </div>
         <span className="tabular-nums">{formatTime(elapsedTime)}</span>
       </div>
