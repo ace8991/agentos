@@ -44,7 +44,7 @@ const ConnectorQuickAccess = ({
           <button
             key={connector.id}
             onClick={() => onSelect(connector.id)}
-            className={`h-8 w-8 rounded-xl border flex items-center justify-center transition-colors overflow-hidden ${
+            className={`h-7 w-7 rounded-[10px] border flex items-center justify-center transition-colors overflow-hidden ${
               connector.connected
                 ? 'border-success/30 bg-success/10 hover:bg-success/15'
                 : 'border-border bg-card/60 hover:bg-surface-elevated'
@@ -56,7 +56,7 @@ const ConnectorQuickAccess = ({
               name={connector.name}
               badge={connector.badge}
               size="sm"
-              className="h-full w-full rounded-[10px] border-0 bg-transparent"
+              className="h-full w-full rounded-[8px] border-0 bg-transparent"
             />
           </button>
         ))}

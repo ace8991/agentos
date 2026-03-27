@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { startRun, stopRun, createEventStream, type AgentEvent } from '@/lib/api';
 import { isAgentModelSupported } from '@/components/ModelSelector';
+import { buildAgentTask } from '@/lib/user-config';
 
 export type AgentMode = 'chat' | 'agent';
 export type AgentStatus = 'idle' | 'running' | 'done' | 'error' | 'paused';
@@ -226,6 +227,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   startAgent: async () => {
     const { task, model, maxSteps, captureInterval } = get();
+    const effectiveTask = buildAgentTask(task);
 
     const infoEntry: LogEntry = {
       id: crypto.randomUUID(),
@@ -252,7 +254,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     try {
       const { run_id } = await startRun({
-        task,
+        task: effectiveTask,
         model,
         max_steps: maxSteps,
         capture_interval_ms: captureInterval,
@@ -261,7 +263,7 @@ export const useStore = create<AppState>((set, get) => ({
 
       createEventStream(
         run_id,
-        { task, model, max_steps: maxSteps, capture_interval_ms: captureInterval },
+        { task: effectiveTask, model, max_steps: maxSteps, capture_interval_ms: captureInterval },
         (event) => get().processEvent(event),
         () => {
           // done handled in processEvent

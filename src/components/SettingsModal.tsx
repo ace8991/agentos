@@ -7,6 +7,7 @@ import ConnectorLogo from './chat/ConnectorLogo';
 import { buildDefaultConnectors, loadConnectors, saveConnectors, type ConnectorState } from '@/lib/connectors';
 import { API_BASE_URL } from '@/lib/api';
 import { toast } from '@/components/ui/sonner';
+import { loadSkills, saveSkills, type AppSkill } from '@/lib/user-config';
 const intervals = [
   { label: '500ms', value: 500 },
   { label: '1s', value: 1000 },
@@ -40,24 +41,6 @@ interface ScheduledTask {
   task: string;
   enabled: boolean;
 }
-
-interface Skill {
-  id: string;
-  name: string;
-  description: string;
-  enabled: boolean;
-}
-
-const defaultSkills: Skill[] = [
-  { id: 'web-browsing', name: 'Web Browsing', description: 'Navigate and interact with websites', enabled: true },
-  { id: 'code-execution', name: 'Code Execution', description: 'Write and execute code in sandbox', enabled: true },
-  { id: 'file-management', name: 'File Management', description: 'Read, write, and manage files', enabled: true },
-  { id: 'web-search', name: 'Web Search', description: 'Search the internet for information', enabled: true },
-  { id: 'data-analysis', name: 'Data Analysis', description: 'Analyze data and create visualizations', enabled: false },
-  { id: 'image-generation', name: 'Image Generation', description: 'Generate images from text prompts', enabled: false },
-  { id: 'email-sending', name: 'Email Sending', description: 'Compose and send emails', enabled: false },
-  { id: 'calendar-access', name: 'Calendar Access', description: 'Read and create calendar events', enabled: false },
-];
 
 const SettingsModal = () => {
   const open = useStore((s) => s.settingsOpen);
@@ -118,7 +101,10 @@ const SettingsModal = () => {
   const [systemPrompt, setSystemPrompt] = useState('');
 
   // Skills
-  const [skills, setSkills] = useState<Skill[]>(defaultSkills);
+  const [skills, setSkills] = useState<AppSkill[]>([]);
+  const [newSkillName, setNewSkillName] = useState('');
+  const [newSkillDescription, setNewSkillDescription] = useState('');
+  const [newSkillPrompt, setNewSkillPrompt] = useState('');
 
   // Connectors
   const [connectors, setConnectors] = useState<ConnectorState[]>(buildDefaultConnectors());
@@ -187,9 +173,8 @@ const SettingsModal = () => {
 
     // Skills
     try {
-      const saved = JSON.parse(localStorage.getItem('SKILLS') || '');
-      if (Array.isArray(saved)) setSkills(saved);
-    } catch { setSkills(defaultSkills); }
+      setSkills(loadSkills());
+    } catch { setSkills(loadSkills()); }
 
     // Connectors
     try {
@@ -235,7 +220,7 @@ const SettingsModal = () => {
     localStorage.setItem('AGENT_LANGUAGE', language);
     localStorage.setItem('RESPONSE_STYLE', responseStyle);
     localStorage.setItem('SYSTEM_PROMPT', systemPrompt);
-    localStorage.setItem('SKILLS', JSON.stringify(skills));
+    saveSkills(skills);
     saveConnectors(connectors);
     localStorage.setItem('WEBHOOK_URL', webhookUrl);
     localStorage.setItem('WEBHOOK_EVENTS', JSON.stringify(webhookEvents));
@@ -336,6 +321,38 @@ const SettingsModal = () => {
 
   const toggleSkill = (id: string) => {
     setSkills((prev) => prev.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s)));
+  };
+
+  const addCustomSkill = () => {
+    if (!newSkillName.trim() || !newSkillPrompt.trim()) {
+      return;
+    }
+
+    const next = [
+      ...skills,
+      {
+        id: crypto.randomUUID(),
+        name: newSkillName.trim(),
+        description: newSkillDescription.trim() || 'Custom user-defined skill',
+        prompt: newSkillPrompt.trim(),
+        enabled: true,
+        builtin: false,
+      },
+    ];
+
+    setSkills(next);
+    saveSkills(next);
+    setNewSkillName('');
+    setNewSkillDescription('');
+    setNewSkillPrompt('');
+    toast.success('Custom skill added');
+  };
+
+  const removeCustomSkill = (id: string) => {
+    const next = skills.filter((skill) => skill.id !== id);
+    setSkills(next);
+    saveSkills(next);
+    toast.success('Custom skill removed');
   };
 
   const toggleWebhookEvent = (event: string) => {
@@ -657,22 +674,73 @@ const SettingsModal = () => {
         return (
           <div className="space-y-4">
             <h3 className="text-base font-medium text-foreground">Skills</h3>
-            <p className="text-xs text-muted-foreground">Enable or disable agent capabilities.</p>
+            <p className="text-xs text-muted-foreground">Enable built-in capabilities and add your own reusable skills, similar to Claude-style custom instructions.</p>
             <div className="space-y-1">
               {skills.map((skill) => (
                 <div key={skill.id} className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-surface-elevated/50 transition-colors">
                   <div className="min-w-0 flex-1 mr-3">
-                    <p className="text-sm text-foreground">{skill.name}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm text-foreground">{skill.name}</p>
+                      {!skill.builtin && (
+                        <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                          Custom
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground">{skill.description}</p>
+                    {skill.prompt && (
+                      <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{skill.prompt}</p>
+                    )}
                   </div>
-                  <div
-                    onClick={() => toggleSkill(skill.id)}
-                    className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer shrink-0 ${skill.enabled ? 'bg-primary' : 'bg-muted'}`}
-                  >
-                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-foreground transition-transform ${skill.enabled ? 'left-4' : 'left-0.5'}`} />
+                  <div className="flex items-center gap-2 shrink-0">
+                    {!skill.builtin && (
+                      <button
+                        onClick={() => removeCustomSkill(skill.id)}
+                        className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        title={`Remove ${skill.name}`}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                    <div
+                      onClick={() => toggleSkill(skill.id)}
+                      className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${skill.enabled ? 'bg-primary' : 'bg-muted'}`}
+                    >
+                      <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-foreground transition-transform ${skill.enabled ? 'left-4' : 'left-0.5'}`} />
+                    </div>
                   </div>
                 </div>
               ))}
+            </div>
+            <div className="border border-dashed border-border rounded-lg p-3 space-y-2.5">
+              <p className="text-sm font-medium text-foreground">Add custom skill</p>
+              <input
+                value={newSkillName}
+                onChange={(e) => setNewSkillName(e.target.value)}
+                placeholder="Skill name"
+                className="w-full bg-muted border border-border rounded-md px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              <input
+                value={newSkillDescription}
+                onChange={(e) => setNewSkillDescription(e.target.value)}
+                placeholder="Short description"
+                className="w-full bg-muted border border-border rounded-md px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              <textarea
+                value={newSkillPrompt}
+                onChange={(e) => setNewSkillPrompt(e.target.value)}
+                rows={3}
+                placeholder="Instructions this skill should apply, for example: Always return shell-safe commands and explain risks briefly."
+                className="w-full bg-muted border border-border rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+              />
+              <button
+                onClick={addCustomSkill}
+                disabled={!newSkillName.trim() || !newSkillPrompt.trim()}
+                className="w-full flex items-center justify-center gap-1.5 text-sm bg-surface-elevated text-foreground px-3 py-2 rounded-md hover:bg-muted transition-colors disabled:opacity-40 active:scale-[0.98]"
+              >
+                <Plus size={14} />
+                Add custom skill
+              </button>
             </div>
           </div>
         );

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Plus, Mic, Paperclip, CheckCircle, AlertTriangle, Square, X } from 'lucide-react';
+import { Send, Plus, Mic, Paperclip, CheckCircle, AlertTriangle, Square, X, Layers3 } from 'lucide-react';
 import { useStore, type LogEntry } from '@/store/useStore';
 import ChatMessage from './chat/ChatMessage';
 import ThinkingIndicator from './chat/ThinkingIndicator';
@@ -9,6 +9,7 @@ import ProviderConfigModal from './ProviderConfigModal';
 import ConnectorConfigModal from './chat/ConnectorConfigModal';
 import ConnectorsDirectoryModal from './chat/ConnectorsDirectoryModal';
 import ConnectorQuickAccess from './chat/ConnectorQuickAccess';
+import ArtifactWorkspaceModal from './chat/ArtifactWorkspaceModal';
 import { chatDirect } from '@/lib/api';
 import {
   CONNECTORS_UPDATED_EVENT,
@@ -17,6 +18,8 @@ import {
   type ConnectorState,
 } from '@/lib/connectors';
 import { toast } from '@/components/ui/sonner';
+import { getBehaviorInstructions } from '@/lib/user-config';
+import { collectArtifactsFromEntries } from './chat/ArtifactCard';
 
 const ChatPanel = () => {
   const task = useStore((s) => s.task);
@@ -38,6 +41,7 @@ const ChatPanel = () => {
   const [configProvider, setConfigProvider] = useState<string | null>(null);
   const [directoryOpen, setDirectoryOpen] = useState(false);
   const [configConnectorId, setConfigConnectorId] = useState<string | null>(null);
+  const [artifactWorkspaceOpen, setArtifactWorkspaceOpen] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [connectors, setConnectors] = useState<ConnectorState[]>([]);
@@ -48,6 +52,7 @@ const ChatPanel = () => {
   const isRunning = status === 'running';
   const isPaused = status === 'paused';
   const chronologicalEntries = [...entries].reverse();
+  const artifacts = collectArtifactsFromEntries(entries);
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
@@ -107,6 +112,10 @@ const ChatPanel = () => {
 
     // Build messages from history
     const messages: { role: string; content: string }[] = [];
+    const behaviorInstructions = getBehaviorInstructions();
+    if (behaviorInstructions) {
+      messages.push({ role: 'system', content: behaviorInstructions });
+    }
     const allEntries = [...useStore.getState().entries].reverse();
     for (const e of allEntries) {
       if (e.id === userEntry.id) {
@@ -212,6 +221,15 @@ const ChatPanel = () => {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {artifacts.length > 0 && (
+            <button
+              onClick={() => setArtifactWorkspaceOpen(true)}
+              className="text-xs text-muted-foreground border border-border px-3 py-1 rounded-md hover:bg-surface-elevated transition-colors active:scale-[0.97] flex items-center gap-1.5"
+            >
+              <Layers3 size={12} />
+              Artifacts
+            </button>
+          )}
           {isPaused && (
             <span className="text-xs text-accent bg-accent/10 px-2.5 py-1 rounded-md font-medium">
               Paused
@@ -406,6 +424,11 @@ const ChatPanel = () => {
 
       {/* Provider config modal */}
       <ProviderConfigModal providerId={configProvider} onClose={() => setConfigProvider(null)} />
+      <ArtifactWorkspaceModal
+        open={artifactWorkspaceOpen}
+        artifacts={artifacts}
+        onClose={() => setArtifactWorkspaceOpen(false)}
+      />
       <ConnectorsDirectoryModal
         open={directoryOpen}
         connectors={connectors}

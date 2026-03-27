@@ -4,6 +4,7 @@ import {
   ExternalLink, FileCode, FileSpreadsheet, Globe, Terminal as TerminalIcon,
   Eye
 } from 'lucide-react';
+import type { LogEntry } from '@/store/useStore';
 
 export type ArtifactType = 'code' | 'document' | 'image' | 'html' | 'csv' | 'terminal' | 'webpage' | 'markdown';
 
@@ -15,6 +16,7 @@ export interface Artifact {
   language?: string;
   url?: string;
   filename?: string;
+  sourceLabel?: string;
 }
 
 const artifactIcons: Record<ArtifactType, typeof FileText> = {
@@ -238,4 +240,48 @@ export function parseArtifacts(content: string): { text: string; artifacts: Arti
   }
 
   return { text, artifacts };
+}
+
+export function collectArtifactsFromEntries(entries: LogEntry[]): Artifact[] {
+  const collected: Artifact[] = [];
+
+  for (const entry of [...entries].reverse()) {
+    if (entry.type === 'result' && entry.action) {
+      const { artifacts } = parseArtifacts(entry.action);
+      artifacts.forEach((artifact, index) => {
+        collected.push({
+          ...artifact,
+          id: `${entry.id}-${artifact.id}-${index}`,
+          sourceLabel: entry.toolLabel || `Step ${entry.step || 0}`,
+        });
+      });
+    }
+
+    if (entry.attachments?.length) {
+      entry.attachments.forEach((attachment, index) => {
+        const inferredType: ArtifactType =
+          attachment.type.startsWith('image/')
+            ? 'image'
+            : attachment.type.includes('html')
+            ? 'html'
+            : attachment.type.includes('csv')
+            ? 'csv'
+            : attachment.type.includes('markdown')
+            ? 'markdown'
+            : 'document';
+
+        collected.push({
+          id: `${entry.id}-attachment-${index}`,
+          type: inferredType,
+          title: attachment.name,
+          content: attachment.content || attachment.url || '',
+          url: attachment.url,
+          filename: attachment.name,
+          sourceLabel: entry.toolLabel || `Step ${entry.step || 0}`,
+        });
+      });
+    }
+  }
+
+  return collected;
 }
