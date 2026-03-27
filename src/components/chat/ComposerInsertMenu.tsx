@@ -62,10 +62,10 @@ const ComposerInsertMenu = ({
 
       const rect = anchor.getBoundingClientRect();
       const viewportWidth = window.innerWidth;
-      const panelWidth = Math.min(340, Math.max(viewportWidth - 24, 260));
+      const panelWidth = Math.min(304, Math.max(236, viewportWidth - 24));
       const left = Math.max(12, Math.min(rect.left, viewportWidth - panelWidth - 12));
       const top = rect.top - 12;
-      const maxHeight = Math.max(240, window.innerHeight - 24);
+      const maxHeight = Math.min(520, Math.max(220, rect.top - 24));
 
       setStyle({
         left,
@@ -92,65 +92,65 @@ const ComposerInsertMenu = ({
     <div className="fixed inset-0 z-[90] pointer-events-none">
       <div
         ref={panelRef}
-        className="pointer-events-auto fixed overflow-y-auto rounded-[26px] border border-white/10 bg-[rgba(18,20,27,0.94)] backdrop-blur-2xl shadow-[0_28px_90px_rgba(0,0,0,0.46)] p-2.5"
+        className="pointer-events-auto fixed overflow-y-auto rounded-[24px] border border-white/10 bg-[rgba(18,20,27,0.95)] backdrop-blur-2xl shadow-[0_24px_72px_rgba(0,0,0,0.42)] p-2"
         style={style}
       >
-        <div className="px-2.5 pb-1.5">
-          <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-white/40">Insert</p>
+        <div className="px-2.5 pb-1">
+          <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-white/38">Insert</p>
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-0.5">
           <MenuRow
             icon={<Paperclip size={16} className="text-white/82" />}
             title="Add files or photos"
-            subtitle="Import documents, screenshots, and references"
+            subtitle="Import docs, screenshots, and references"
             onClick={onAddFiles}
           />
           <MenuRow
             icon={<ImagePlus size={16} className="text-white/82" />}
             title="Import images"
-            subtitle="Attach mockups, product photos, and visual inspiration"
+            subtitle="Attach mockups, photos, and inspiration"
             onClick={onAddImages}
           />
           <MenuRow
             icon={<ConnectorLogo connectorId="google-drive" name="Google Drive" badge="GD" size="sm" className="border-white/12 bg-white/[0.03]" />}
             title="Add from Google Drive"
-            subtitle="Connect or review Drive access for file workflows"
+            subtitle="Review Drive access for file workflows"
             onClick={onOpenGoogleDrive}
             trailing={<ChevronRight size={15} className="text-white/32" />}
           />
           <MenuRow
             icon={<ConnectorLogo connectorId="github" name="GitHub" badge="GH" size="sm" className="border-white/12 bg-white/[0.03]" />}
             title="Add from GitHub"
-            subtitle="Bring repositories, issues, and code context into tasks"
+            subtitle="Bring repos, issues, and code context"
             onClick={onOpenGitHub}
             trailing={<ChevronRight size={15} className="text-white/32" />}
           />
         </div>
 
-        <div className="my-2 h-px bg-white/8" />
+        <div className="my-1.5 h-px bg-white/8" />
 
-        <div className="space-y-1">
+        <div className="space-y-0.5">
           <MenuRow
             icon={<Sparkles size={16} className="text-accent" />}
             title="Skills"
-            subtitle="Open reusable skills and custom instructions"
+            subtitle="Reusable skills and custom instructions"
             onClick={onOpenSkills}
             trailing={<ChevronRight size={15} className="text-white/32" />}
           />
           <MenuRow
             icon={<Layers3 size={16} className="text-white/82" />}
             title="Connectors"
-            subtitle={connectedCount > 0 ? `${connectedCount} connected and ready to use` : 'Set up apps like GitHub, Canva, Telegram, and more'}
+            subtitle={connectedCount > 0 ? `${connectedCount} connected and ready` : 'Set up GitHub, Canva, Telegram, and more'}
             onClick={onOpenConnectors}
             trailing={
               connectedCount > 0 ? (
-                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[10px] font-medium text-emerald-200">
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium text-emerald-200">
                   <Check size={11} />
                   Ready
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-1 text-[10px] font-medium text-amber-200">
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-0.5 text-[10px] font-medium text-amber-200">
                   <TriangleAlert size={11} />
                   Setup
                 </span>
@@ -159,13 +159,13 @@ const ComposerInsertMenu = ({
           />
         </div>
 
-        <div className="my-2 h-px bg-white/8" />
+        <div className="my-1.5 h-px bg-white/8" />
 
-        <div className="space-y-1">
+        <div className="space-y-0.5">
           <ToggleRow
             icon={<Search size={16} className={webSearchEnabled ? 'text-sky-300' : 'text-sky-400'} />}
             title="Web research"
-            subtitle="Verify unstable facts and enrich answers with live sources"
+            subtitle="Verify facts and enrich answers with live sources"
             active={webSearchEnabled}
             onClick={onToggleWebSearch}
           />
@@ -198,14 +198,14 @@ const MenuRow = ({
 }) => (
   <button
     onClick={onClick}
-    className="w-full flex items-center gap-3 rounded-[20px] px-3 py-3 text-left hover:bg-white/[0.05] transition-colors"
+    className="w-full flex items-center gap-3 rounded-[18px] px-2.5 py-2.5 text-left hover:bg-white/[0.05] transition-colors"
   >
-    <div className="h-10 w-10 shrink-0 rounded-2xl border border-white/10 bg-white/[0.04] flex items-center justify-center overflow-hidden">
+    <div className="h-9 w-9 shrink-0 rounded-xl border border-white/10 bg-white/[0.04] flex items-center justify-center overflow-hidden">
       {icon}
     </div>
     <div className="min-w-0 flex-1">
-      <p className="text-sm font-medium text-white">{title}</p>
-      <p className="mt-0.5 text-xs leading-relaxed text-white/55">{subtitle}</p>
+      <p className="text-[13px] font-medium text-white">{title}</p>
+      <p className="mt-0.5 text-[11px] leading-relaxed text-white/52">{subtitle}</p>
     </div>
     {trailing && <div className="shrink-0">{trailing}</div>}
   </button>
@@ -226,24 +226,24 @@ const ToggleRow = ({
 }) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center gap-3 rounded-[20px] px-3 py-3 text-left transition-colors ${
+    className={`w-full flex items-center gap-3 rounded-[18px] px-2.5 py-2.5 text-left transition-colors ${
       active ? 'bg-white/[0.06]' : 'hover:bg-white/[0.05]'
     }`}
   >
-    <div className="h-10 w-10 shrink-0 rounded-2xl border border-white/10 bg-white/[0.04] flex items-center justify-center">
+    <div className="h-9 w-9 shrink-0 rounded-xl border border-white/10 bg-white/[0.04] flex items-center justify-center">
       {icon}
     </div>
     <div className="min-w-0 flex-1">
-      <p className="text-sm font-medium text-white">{title}</p>
-      <p className="mt-0.5 text-xs leading-relaxed text-white/55">{subtitle}</p>
+      <p className="text-[13px] font-medium text-white">{title}</p>
+      <p className="mt-0.5 text-[11px] leading-relaxed text-white/52">{subtitle}</p>
     </div>
     <div className="shrink-0">
       {active ? (
-        <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-full border border-sky-300/20 bg-sky-400/10 px-2 text-[11px] font-medium text-sky-100">
+        <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-sky-300/20 bg-sky-400/10 px-2 text-[10px] font-medium text-sky-100">
           <Check size={12} />
         </span>
       ) : (
-        <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-2 text-[11px] font-medium text-white/38">
+        <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-2 text-[10px] font-medium text-white/38">
           Off
         </span>
       )}
