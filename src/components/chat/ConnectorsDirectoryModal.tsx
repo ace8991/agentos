@@ -91,45 +91,41 @@ const ConnectorsDirectoryModal = ({
   return (
     <div className="fixed inset-0 z-[58] flex items-center justify-center bg-black/55 px-3 py-4" onClick={onClose}>
       <div
-        className="w-full max-w-6xl max-h-[92vh] rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_left,#38362f_0%,#2b2924_42%,#211f1b_100%)] text-foreground shadow-2xl backdrop-blur-xl overflow-hidden"
+        className="w-full max-w-[940px] max-h-[92vh] rounded-[26px] border border-white/10 bg-[radial-gradient(circle_at_top_left,#37342d_0%,#2a2824_40%,#211f1b_100%)] text-foreground shadow-2xl backdrop-blur-xl overflow-hidden"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 px-6 md:px-8 pt-6 md:pt-8 pb-5 border-b border-white/10">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-stone-300">
-              Verified Connectors
-            </div>
-            <h2 className="text-3xl md:text-[40px] leading-none font-semibold tracking-tight text-stone-100">
+        <div className="flex items-start justify-between gap-4 px-5 md:px-7 pt-5 md:pt-6 pb-4 border-b border-white/10">
+          <div className="max-w-2xl">
+            <h2 className="text-[34px] md:text-[42px] leading-none font-semibold tracking-tight text-stone-100">
               Connecteurs
             </h2>
-            <p className="mt-3 text-sm md:text-base text-stone-300 leading-relaxed">
+            <p className="mt-2 text-sm md:text-[15px] text-stone-300 leading-relaxed">
               Connectez AgentOS a vos applications, fichiers et services. Choisissez un connecteur,
               puis configurez ses credentials dans l&apos;etape suivante.
             </p>
-            <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-stone-400">
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-[12px] text-stone-400">
               <span>{connectors.filter((connector) => connector.connected).length} connectes</span>
               <span>{CONNECTOR_DEFINITIONS.length} integrations disponibles</span>
-              <span>Optimise mobile et desktop</span>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="mt-1 text-stone-400 hover:text-white transition-colors p-1"
+            className="mt-0.5 text-stone-400 hover:text-white transition-colors p-1"
             title="Close connectors"
           >
             <X size={22} />
           </button>
         </div>
 
-        <div className="px-6 md:px-8 pt-5 pb-4 border-b border-white/10">
-          <div className="flex flex-col xl:flex-row gap-3">
+        <div className="px-5 md:px-7 pt-4 pb-4 border-b border-white/10">
+          <div className="flex flex-col md:flex-row md:flex-wrap gap-2.5">
             <div className="relative flex-1">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Rechercher"
-                className="w-full h-11 rounded-xl border border-white/10 bg-white/5 pl-10 pr-4 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-1 focus:ring-white/20"
+                className="w-full h-10 rounded-xl border border-white/10 bg-white/5 pl-10 pr-4 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:ring-1 focus:ring-white/20"
               />
             </div>
 
@@ -139,7 +135,7 @@ const ConnectorsDirectoryModal = ({
             {onOpenSettings && (
               <button
                 onClick={onOpenSettings}
-                className="h-11 px-4 rounded-xl border border-white/10 bg-white/5 text-sm text-stone-200 hover:bg-white/10 transition-colors flex items-center gap-2"
+                className="h-10 px-4 rounded-xl border border-white/10 bg-white/5 text-sm text-stone-200 hover:bg-white/10 transition-colors flex items-center gap-2"
               >
                 <Settings2 size={15} />
                 Settings
@@ -148,8 +144,8 @@ const ConnectorsDirectoryModal = ({
           </div>
         </div>
 
-        <div className="overflow-y-auto max-h-[calc(92vh-228px)] px-6 md:px-8 py-6">
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div className="overflow-y-auto max-h-[calc(92vh-188px)] px-5 md:px-7 py-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {visibleConnectors.map((connector) => {
               const state = connectorStateMap.get(connector.id);
               const isConnected = Boolean(state?.connected);
@@ -159,43 +155,50 @@ const ConnectorsDirectoryModal = ({
                 <button
                   key={connector.id}
                   onClick={() => onSelectConnector(connector.id)}
-                  className="w-full text-left rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.025))] hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.04))] transition-all duration-200 p-5 md:p-6 flex items-start gap-4 group shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+                  className="w-full text-left rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02))] hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.03))] transition-all duration-200 px-4 py-3.5 flex items-start gap-3 group shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
                 >
-                  <ConnectorLogo connectorId={connector.id} name={connector.name} badge={connector.badge} size="lg" className="bg-black/15" />
+                  <ConnectorLogo connectorId={connector.id} name={connector.name} badge={connector.badge} size="md" className="bg-black/12" />
 
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-xl md:text-2xl leading-none font-semibold text-stone-100">{connector.name}</h3>
-                      {connector.popularityRank && (
-                        <span className="text-sm text-stone-400">#{connector.popularityRank} populaire</span>
-                      )}
-                      {connector.providerLabel && (
-                        <span className="text-sm text-stone-400">{connector.providerLabel}</span>
-                      )}
+                    <div className="flex items-center gap-2 min-w-0">
+                      <h3 className="text-[15px] md:text-[16px] leading-none font-semibold text-stone-100 truncate">
+                        {connector.name}
+                      </h3>
+                      <div className="flex items-center gap-1.5 text-[12px] text-stone-400 whitespace-nowrap">
+                        {connector.popularityRank && <span>#{connector.popularityRank}</span>}
+                        {connector.providerLabel && <span className="truncate max-w-[92px]">{connector.providerLabel}</span>}
+                      </div>
                     </div>
-                    <p className="mt-2 text-sm md:text-[15px] leading-6 text-stone-300">
+                    <p
+                      className="mt-1.5 text-[13px] leading-5 text-stone-300"
+                      style={{
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                      }}
+                    >
                       {config?.shortAction ?? connector.name}
                     </p>
-                    <div className="mt-3 flex items-center gap-2 flex-wrap">
-                      <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] uppercase tracking-wide text-stone-300">
-                        {connector.type}
-                      </span>
+                    <div className="mt-2 flex items-center gap-1.5 flex-wrap text-[10px] uppercase tracking-[0.14em] text-stone-400">
+                      <span>{connector.type}</span>
                       {config?.category && (
-                        <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] uppercase tracking-wide text-stone-300">
-                          {config.category}
-                        </span>
+                        <>
+                          <span className="text-stone-500">/</span>
+                          <span>{config.category}</span>
+                        </>
                       )}
                     </div>
                   </div>
 
-                  <div className="shrink-0">
+                  <div className="shrink-0 pt-0.5">
                     {isConnected ? (
-                      <div className="h-11 w-11 rounded-2xl border border-success/25 bg-success/10 text-success flex items-center justify-center shadow-[0_0_0_1px_rgba(74,222,128,0.08)]">
-                        <Check size={18} />
+                      <div className="h-10 w-10 rounded-[18px] border border-success/25 bg-success/10 text-success flex items-center justify-center shadow-[0_0_0_1px_rgba(74,222,128,0.06)]">
+                        <Check size={16} />
                       </div>
                     ) : (
-                      <div className="h-11 w-11 rounded-2xl border border-white/10 bg-white/[0.04] text-stone-200 flex items-center justify-center group-hover:bg-white/[0.08]">
-                        <Plus size={18} />
+                      <div className="h-10 w-10 rounded-[18px] border border-white/10 bg-white/[0.04] text-stone-200 flex items-center justify-center group-hover:bg-white/[0.08]">
+                        <Plus size={16} />
                       </div>
                     )}
                   </div>
@@ -230,7 +233,7 @@ const SelectPill = ({
     <select
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className="appearance-none h-11 rounded-xl border border-white/10 bg-white/5 pl-4 pr-10 text-sm text-stone-200 focus:outline-none focus:ring-1 focus:ring-white/20 min-w-[150px]"
+      className="appearance-none h-10 rounded-xl border border-white/10 bg-white/5 pl-4 pr-10 text-sm text-stone-200 focus:outline-none focus:ring-1 focus:ring-white/20 min-w-[138px]"
     >
       {options.map((option) => (
         <option key={option} value={option} className="text-black">
