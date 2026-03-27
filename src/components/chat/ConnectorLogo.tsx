@@ -30,6 +30,24 @@ const ConnectorLogo = ({
 
 const renderLogo = (connectorId: string, badge: string) => {
   switch (connectorId) {
+    case 'gmail':
+      return (
+        <svg viewBox="0 0 64 64" className="h-[76%] w-[76%]" aria-hidden="true">
+          <path fill="#EA4335" d="M12 20.8 32 35l20-14.2V48a4 4 0 0 1-4 4H16a4 4 0 0 1-4-4V20.8Z" />
+          <path fill="#34A853" d="M52 20.8V48a4 4 0 0 1-4 4H40V29.3l12-8.5Z" />
+          <path fill="#FBBC04" d="M12 20.8 24 29.3V52H16a4 4 0 0 1-4-4V20.8Z" />
+          <path fill="#4285F4" d="M12 16a4 4 0 0 1 4-4h1.2L32 22.8 46.8 12H48a4 4 0 0 1 4 4v4.8L32 35 12 20.8V16Z" />
+        </svg>
+      );
+    case 'google-calendar':
+      return (
+        <svg viewBox="0 0 64 64" className="h-[76%] w-[76%]" aria-hidden="true">
+          <rect x="10" y="12" width="44" height="42" rx="8" fill="white" />
+          <path fill="#4285F4" d="M18 12h28a8 8 0 0 1 8 8v8H10v-8a8 8 0 0 1 8-8Z" />
+          <rect x="20" y="34" width="24" height="14" rx="3" fill="#4285F4" />
+          <text x="32" y="45" textAnchor="middle" fontSize="16" fontWeight="700" fill="white">31</text>
+        </svg>
+      );
     case 'github':
       return (
         <svg viewBox="0 0 64 64" className="h-[70%] w-[70%]" aria-hidden="true">
@@ -44,6 +62,16 @@ const renderLogo = (connectorId: string, badge: string) => {
         <div className="h-full w-full bg-[linear-gradient(135deg,#00c4cc,#7d2ae8)] flex items-center justify-center text-white font-serif text-2xl">
           C
         </div>
+      );
+    case 'figma':
+      return (
+        <svg viewBox="0 0 64 64" className="h-[76%] w-[76%]" aria-hidden="true">
+          <rect x="20" y="8" width="12" height="16" rx="6" fill="#F24E1E" />
+          <rect x="32" y="8" width="12" height="16" rx="6" fill="#FF7262" />
+          <rect x="20" y="24" width="12" height="16" rx="6" fill="#A259FF" />
+          <circle cx="38" cy="32" r="6" fill="#1ABCFE" />
+          <rect x="20" y="40" width="12" height="16" rx="6" fill="#0ACF83" />
+        </svg>
       );
     case 'slack':
       return (
@@ -66,10 +94,26 @@ const renderLogo = (connectorId: string, badge: string) => {
           <polygon points="16,24 32,52 20,52 4,24" fill="#4285F4" />
         </svg>
       );
+    case 'hubspot':
+      return (
+        <svg viewBox="0 0 64 64" className="h-[74%] w-[74%]" aria-hidden="true">
+          <circle cx="32" cy="32" r="20" fill="#FF7A59" />
+          <circle cx="32" cy="32" r="7" fill="white" />
+          <circle cx="49" cy="18" r="5" fill="#FF7A59" />
+          <rect x="46" y="23" width="4" height="15" rx="2" fill="#FF7A59" />
+          <rect x="18" y="30" width="11" height="4" rx="2" fill="#FF7A59" />
+        </svg>
+      );
     case 'notion':
       return (
         <div className="h-[72%] w-[72%] rounded-md border-2 border-black bg-white text-black flex items-center justify-center font-serif text-xl font-bold">
           N
+        </div>
+      );
+    case 'box':
+      return (
+        <div className="h-full w-full bg-[#0C64F5] flex items-center justify-center text-white text-lg font-bold">
+          box
         </div>
       );
     case 'discord':
@@ -103,6 +147,14 @@ const renderLogo = (connectorId: string, badge: string) => {
           <path fill="#0052CC" d="M26.5 32 13 45.5 21.2 54 34.7 40.2 26.5 32Z" />
         </svg>
       );
+    case 'asana':
+      return (
+        <svg viewBox="0 0 64 64" className="h-[74%] w-[74%]" aria-hidden="true">
+          <circle cx="24" cy="40" r="8" fill="#F06A6A" />
+          <circle cx="40" cy="40" r="8" fill="#F06A6A" opacity=".82" />
+          <circle cx="32" cy="22" r="8" fill="#8B5CF6" />
+        </svg>
+      );
     case 'linear':
       return (
         <svg viewBox="0 0 64 64" className="h-[72%] w-[72%]" aria-hidden="true">
@@ -110,11 +162,76 @@ const renderLogo = (connectorId: string, badge: string) => {
           <path fill="white" d="M21 24h4v16h-4zM28 24h15v4H28zM28 30h12v4H28zM28 36h8v4h-8z" opacity=".92" />
         </svg>
       );
+    case 'supabase':
+      return (
+        <svg viewBox="0 0 64 64" className="h-[74%] w-[74%]" aria-hidden="true">
+          <path fill="#3ECF8E" d="M38 10c2.1-2.7 6.4-1.2 6.4 2.2V48c0 1.6-1.3 2.9-2.9 2.9-1 0-2-.5-2.5-1.3L25.8 31.4c-.8-1-.8-2.5 0-3.5L38 10Z" />
+          <path fill="#2FB97F" d="M26 18.4c2.1-2.7 6.4-1.2 6.4 2.2V56L19 37.6c-.8-1-.8-2.5 0-3.5L26 18.4Z" />
+        </svg>
+      );
+    case 'vercel':
+      return (
+        <svg viewBox="0 0 64 64" className="h-[70%] w-[70%]" aria-hidden="true">
+          <path fill="currentColor" d="M32 14 50 46H14l18-32Z" />
+        </svg>
+      );
+    case 'stripe':
+      return (
+        <div className="h-full w-full bg-[#635BFF] flex items-center justify-center text-white text-xl font-bold">
+          S
+        </div>
+      );
+    case 'airtable':
+      return (
+        <svg viewBox="0 0 64 64" className="h-[76%] w-[76%]" aria-hidden="true">
+          <path fill="#FCB400" d="M12 20 30.5 10.8a4 4 0 0 1 3.1 0L52 20 33.7 29.1a4 4 0 0 1-3.4 0L12 20Z" />
+          <path fill="#18BFFF" d="M52 24v16.7a4 4 0 0 1-2.2 3.6L34.7 52V33.6L52 24Z" />
+          <path fill="#F82B60" d="M29.3 34.1V52l-15.1-7.7A4 4 0 0 1 12 40.7V24l17.3 10.1Z" />
+        </svg>
+      );
     case 'zapier':
       return (
         <svg viewBox="0 0 64 64" className="h-[72%] w-[72%]" aria-hidden="true">
           <path fill="#FF4F00" d="M28 8h8v18h18v8H36v18h-8V34H10v-8h18V8Z" />
         </svg>
+      );
+    case 'n8n':
+      return (
+        <div className="h-full w-full bg-[linear-gradient(135deg,#ff6d5a,#ea4b71)] flex items-center justify-center text-white text-lg font-bold">
+          n8n
+        </div>
+      );
+    case 'wordpress-com':
+      return (
+        <svg viewBox="0 0 64 64" className="h-[74%] w-[74%]" aria-hidden="true">
+          <circle cx="32" cy="32" r="24" fill="#21759B" />
+          <text x="32" y="40" textAnchor="middle" fontSize="26" fontFamily="Georgia, serif" fill="white">W</text>
+        </svg>
+      );
+    case 'tavily':
+      return (
+        <div className="h-full w-full bg-[linear-gradient(135deg,#0ea5e9,#1d4ed8)] flex items-center justify-center text-white text-lg font-bold">
+          T
+        </div>
+      );
+    case 'filesystem':
+      return (
+        <svg viewBox="0 0 64 64" className="h-[72%] w-[72%]" aria-hidden="true">
+          <path fill="#E5E7EB" d="M10 18a4 4 0 0 1 4-4h12l4 4h20a4 4 0 0 1 4 4v24a4 4 0 0 1-4 4H14a4 4 0 0 1-4-4V18Z" />
+          <path fill="#94A3B8" d="M10 24h44v6H10z" />
+        </svg>
+      );
+    case 'windows-mcp':
+      return (
+        <svg viewBox="0 0 64 64" className="h-[70%] w-[70%]" aria-hidden="true">
+          <path fill="#3B82F6" d="M10 12 30 9v21H10V12Zm24-3 20-3v24H34V9ZM10 34h20v21L10 52V34Zm24 0h20v24l-20-3V34Z" />
+        </svg>
+      );
+    case 'apify':
+      return (
+        <div className="h-full w-full bg-black flex items-center justify-center text-white text-xl font-bold">
+          A
+        </div>
       );
     default:
       return (
