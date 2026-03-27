@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { startRun, stopRun, createEventStream, checkHealth, type AgentEvent, type HealthResponse } from '@/lib/api';
 import { isAgentModelSupported } from '@/components/ModelSelector';
 import { buildAgentTask, defaultComposerPreferences, type ComposerPreferences } from '@/lib/user-config';
+import { getCurrentProjectId as loadCurrentProjectId, setCurrentProjectId as persistCurrentProjectId } from '@/lib/projects';
 
 export type AgentMode = 'smart' | 'chat' | 'agent';
 export type AgentStatus = 'idle' | 'running' | 'done' | 'error' | 'paused';
@@ -85,6 +86,8 @@ interface AppState {
   backendHealth: HealthResponse | null;
   errorMessage: string | null;
   activeThread: ActiveThread;
+  currentProjectId: string | null;
+  incognitoMode: boolean;
 
   // Log
   entries: LogEntry[];
@@ -126,6 +129,8 @@ interface AppState {
   setBackendHealth: (health: HealthResponse | null) => void;
   syncBackendHealth: () => Promise<void>;
   setActiveThread: (thread: ActiveThread) => void;
+  setCurrentProjectId: (projectId: string | null) => void;
+  setIncognitoMode: (enabled: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
   setSettingsSection: (section: SettingsSection) => void;
   openSettingsFor: (section: SettingsSection) => void;
@@ -192,6 +197,8 @@ export const useStore = create<AppState>((set, get) => ({
   backendHealth: null,
   errorMessage: null,
   activeThread: null,
+  currentProjectId: loadCurrentProjectId(),
+  incognitoMode: typeof window !== 'undefined' && localStorage.getItem('INCOGNITO_MODE') === 'true',
   entries: [],
   memory: [],
   currentScreenshot: null,
@@ -230,6 +237,16 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
   setActiveThread: (thread) => set({ activeThread: thread }),
+  setCurrentProjectId: (projectId) => {
+    persistCurrentProjectId(projectId);
+    set({ currentProjectId: projectId });
+  },
+  setIncognitoMode: (enabled) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('INCOGNITO_MODE', String(enabled));
+    }
+    set({ incognitoMode: enabled });
+  },
   setSettingsOpen: (open) => set({ settingsOpen: open }),
   setSettingsSection: (section) => set({ settingsSection: section }),
   openSettingsFor: (section) => set({ settingsOpen: true, settingsSection: section }),
@@ -447,7 +464,10 @@ export const useStore = create<AppState>((set, get) => ({
         status: 'done',
         entries: s.entries,
       };
-      set((prev) => ({ status: 'done', history: [run, ...prev.history] }));
+      set((prev) => ({
+        status: 'done',
+        history: s.incognitoMode ? prev.history : [run, ...prev.history],
+      }));
     }
 
     if (event.type === 'error') {

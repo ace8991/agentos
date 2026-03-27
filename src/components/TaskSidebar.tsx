@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Plus, Search, Settings, SlidersHorizontal, BookOpen, Bot, FolderPlus,
@@ -9,6 +9,8 @@ import { useStore, type HistoryRun } from '@/store/useStore';
 import HexLogo from './HexLogo';
 import SidebarModeSwitch from './sidebar/SidebarModeSwitch';
 import SidebarToolStatus from './sidebar/SidebarToolStatus';
+import ProjectsModal from './projects/ProjectsModal';
+import { getCurrentProject, loadProjects, PROJECTS_UPDATED_EVENT, type AppProject } from '@/lib/projects';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { toast } from '@/components/ui/sonner';
@@ -27,6 +29,7 @@ const TaskSidebar = () => {
   const setSettingsOpen = useStore((s) => s.setSettingsOpen);
   const openSettingsFor = useStore((s) => s.openSettingsFor);
   const setViewingHistory = useStore((s) => s.setViewingHistory);
+  const currentProjectId = useStore((s) => s.currentProjectId);
   const [collapsed, setCollapsed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -34,9 +37,19 @@ const TaskSidebar = () => {
   const [agentsOpen, setAgentsOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [projectsOpen, setProjectsOpen] = useState(false);
+  const [projects, setProjects] = useState<AppProject[]>(() => loadProjects());
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
+  const currentProject = projects.find((project) => project.id === currentProjectId) || getCurrentProject(projects);
+
+  useEffect(() => {
+    const syncProjects = () => setProjects(loadProjects());
+    syncProjects();
+    window.addEventListener(PROJECTS_UPDATED_EVENT, syncProjects);
+    return () => window.removeEventListener(PROJECTS_UPDATED_EVENT, syncProjects);
+  }, []);
 
   const handleNewTask = () => {
     reset();
@@ -172,25 +185,66 @@ const TaskSidebar = () => {
       {libraryOpen && (
         <div className="px-3 pb-2 log-entry-enter">
           <div className="bg-muted/50 border border-border rounded-lg p-3 space-y-2">
-            <p className="text-xs font-medium text-foreground">Saved Prompts</p>
-            {history.length > 0 ? (
-              history.slice(0, 5).map((run) => (
-                <button
-                  key={run.run_id}
-                  onClick={() => {
-                    useStore.getState().setTask(run.task);
-                    setLibraryOpen(false);
-                    setMobileOpen(false);
-                    navigate('/dashboard');
-                  }}
-                  className="w-full text-left px-2.5 py-1.5 rounded-md hover:bg-surface-elevated transition-colors"
-                >
-                  <p className="text-xs text-foreground truncate">{run.task}</p>
-                </button>
-              ))
-            ) : (
-              <p className="text-xs text-muted-foreground text-center py-2">No saved prompts yet</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium text-foreground">Library</p>
+              <button
+                onClick={() => setProjectsOpen(true)}
+                className="text-[11px] text-primary hover:text-primary/80 transition-colors"
+              >
+                Manage projects
+              </button>
+            </div>
+            {currentProject && (
+              <div className="rounded-lg border border-primary/15 bg-primary/8 px-2.5 py-2">
+                <p className="text-xs font-medium text-foreground">{currentProject.name}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  {currentProject.knowledge.length} docs available to the workspace
+                </p>
+              </div>
             )}
+            <div className="space-y-1">
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Projects</p>
+              {projects.length > 0 ? (
+                projects.slice(0, 4).map((project) => (
+                  <button
+                    key={project.id}
+                    onClick={() => {
+                      useStore.getState().setCurrentProjectId(project.id);
+                      setLibraryOpen(false);
+                      setMobileOpen(false);
+                      toast.success(`${project.name} is now active`);
+                    }}
+                    className="w-full text-left px-2.5 py-2 rounded-md hover:bg-surface-elevated transition-colors"
+                  >
+                    <p className="text-xs text-foreground truncate">{project.name}</p>
+                    <p className="text-[11px] text-muted-foreground">{project.knowledge.length} docs</p>
+                  </button>
+                ))
+              ) : (
+                <p className="text-xs text-muted-foreground text-center py-1.5">No projects yet</p>
+              )}
+            </div>
+            <div className="space-y-1">
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Recent tasks</p>
+              {history.length > 0 ? (
+                history.slice(0, 4).map((run) => (
+                  <button
+                    key={run.run_id}
+                    onClick={() => {
+                      useStore.getState().setTask(run.task);
+                      setLibraryOpen(false);
+                      setMobileOpen(false);
+                      navigate('/dashboard');
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 rounded-md hover:bg-surface-elevated transition-colors"
+                  >
+                    <p className="text-xs text-foreground truncate">{run.task}</p>
+                  </button>
+                ))
+              ) : (
+                <p className="text-xs text-muted-foreground text-center py-1.5">No saved tasks yet</p>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -199,7 +253,7 @@ const TaskSidebar = () => {
 
       <div className="px-3 py-2">
         <button
-          onClick={handleNewTask}
+          onClick={() => setProjectsOpen(true)}
           className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.98]"
         >
           <FolderPlus size={16} />
@@ -322,6 +376,7 @@ const TaskSidebar = () => {
           </button>
         </div>
       </div>
+      <ProjectsModal open={projectsOpen} onClose={() => setProjectsOpen(false)} />
     </div>
   );
 

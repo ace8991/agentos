@@ -5,7 +5,9 @@ import {
   Bell,
   ChevronDown,
   FileText,
+  FolderOpen,
   Globe as GlobeIcon,
+  Ghost,
   KeyRound,
   Layers3,
   Mic,
@@ -27,6 +29,7 @@ import ConnectorConfigModal from '@/components/chat/ConnectorConfigModal';
 import ComposerInsertMenu from '@/components/chat/ComposerInsertMenu';
 import ConnectorsDirectoryModal from '@/components/chat/ConnectorsDirectoryModal';
 import ConnectorQuickAccess from '@/components/chat/ConnectorQuickAccess';
+import ProjectsModal from '@/components/projects/ProjectsModal';
 import { useStore } from '@/store/useStore';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
@@ -35,6 +38,7 @@ import {
   saveConnectors,
   type ConnectorState,
 } from '@/lib/connectors';
+import { getCurrentProject, loadProjects, PROJECTS_UPDATED_EVENT, type AppProject } from '@/lib/projects';
 import { toast } from '@/components/ui/sonner';
 import { getSavedResponseStyleLabel } from '@/lib/user-config';
 
@@ -72,6 +76,9 @@ const Welcome = () => {
   const openSettingsFor = useStore((s) => s.openSettingsFor);
   const composerPreferences = useStore((s) => s.composerPreferences);
   const setComposerPreferences = useStore((s) => s.setComposerPreferences);
+  const currentProjectId = useStore((s) => s.currentProjectId);
+  const incognitoMode = useStore((s) => s.incognitoMode);
+  const setIncognitoMode = useStore((s) => s.setIncognitoMode);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -83,6 +90,8 @@ const Welcome = () => {
   const profileRef = useRef<HTMLDivElement>(null);
   const profilePanelRef = useRef<HTMLDivElement>(null);
   const responseStyleLabel = getSavedResponseStyleLabel();
+  const [projects, setProjects] = useState<AppProject[]>([]);
+  const [projectsOpen, setProjectsOpen] = useState(false);
 
   useEffect(() => {
     const syncConnectors = () => setConnectors(loadConnectors());
@@ -91,6 +100,16 @@ const Welcome = () => {
 
     return () => {
       window.removeEventListener(CONNECTORS_UPDATED_EVENT, syncConnectors);
+    };
+  }, []);
+
+  useEffect(() => {
+    const syncProjects = () => setProjects(loadProjects());
+    syncProjects();
+    window.addEventListener(PROJECTS_UPDATED_EVENT, syncProjects);
+
+    return () => {
+      window.removeEventListener(PROJECTS_UPDATED_EVENT, syncProjects);
     };
   }, []);
 
@@ -128,6 +147,7 @@ const Welcome = () => {
   }, []);
 
   const connectedCount = connectors.filter((connector) => connector.connected).length;
+  const currentProject = projects.find((project) => project.id === currentProjectId) || getCurrentProject(projects);
 
   const notifications = useMemo<NotificationItem[]>(
     () => [
@@ -405,7 +425,12 @@ const Welcome = () => {
                         <p className="text-xs text-white/55">Premium local agent configuration</p>
                       </div>
                     </div>
-                    <div className="mt-3 flex items-center gap-2 flex-wrap text-[11px] text-white/55">
+                  <div className="mt-3 flex items-center gap-2 flex-wrap text-[11px] text-white/55">
+                      {currentProject && (
+                        <span className="rounded-full border border-sky-300/16 bg-sky-400/10 px-2.5 py-1 text-sky-100">
+                          {currentProject.name}
+                        </span>
+                      )}
                       <span className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1">
                         {connectedCount} connectors
                       </span>
@@ -421,6 +446,15 @@ const Welcome = () => {
                       label="Profile & appearance"
                       description="Personalize identity, tone, and workspace defaults"
                       onClick={() => handleProfileAction('personalization')}
+                    />
+                    <ProfileAction
+                      icon={FolderOpen}
+                      label="Projects & knowledge"
+                      description="Reusable project instructions, notes, and file context"
+                      onClick={() => {
+                        setProfileOpen(false);
+                        setProjectsOpen(true);
+                      }}
                     />
                     <ProfileAction
                       icon={KeyRound}
@@ -473,6 +507,30 @@ const Welcome = () => {
             <p className="mt-4 text-sm md:text-base text-white/70 max-w-2xl mx-auto leading-relaxed">
               Coordinate research, browser workflows, desktop actions, files, connectors, custom skills, and artifacts from one premium workspace.
             </p>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <button
+                onClick={() => setProjectsOpen(true)}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  currentProject
+                    ? 'border-sky-300/16 bg-sky-400/10 text-sky-100'
+                    : 'border-white/12 bg-white/[0.06] text-white/78 hover:text-white hover:bg-white/[0.09]'
+                }`}
+              >
+                <FolderOpen size={13} />
+                {currentProject ? currentProject.name : 'Set active project'}
+              </button>
+              <button
+                onClick={() => setIncognitoMode(!incognitoMode)}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  incognitoMode
+                    ? 'border-amber-300/16 bg-amber-400/10 text-amber-100'
+                    : 'border-white/12 bg-white/[0.06] text-white/78 hover:text-white hover:bg-white/[0.09]'
+                }`}
+              >
+                <Ghost size={13} />
+                {incognitoMode ? 'Private session' : 'Standard session'}
+              </button>
+            </div>
           </div>
 
           <div className="w-full max-w-3xl mt-7 md:mt-9">
@@ -585,6 +643,10 @@ const Welcome = () => {
                     }}
                     onOpenGoogleDrive={() => handleComposerConnector('google-drive')}
                     onOpenGitHub={() => handleComposerConnector('github')}
+                    onOpenProjects={() => {
+                      setComposerMenuOpen(false);
+                      setProjectsOpen(true);
+                    }}
                     onOpenSkills={() => {
                       setComposerMenuOpen(false);
                       openSettingsFor('skills');
@@ -655,6 +717,7 @@ const Welcome = () => {
       </div>
 
       <SettingsModal />
+      <ProjectsModal open={projectsOpen} onClose={() => setProjectsOpen(false)} />
       <ConnectorsDirectoryModal
         open={directoryOpen}
         connectors={connectors}

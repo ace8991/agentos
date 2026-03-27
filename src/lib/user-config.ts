@@ -1,3 +1,5 @@
+import { buildProjectContext } from '@/lib/projects';
+
 export interface AppSkill {
   id: string;
   name: string;
@@ -186,7 +188,7 @@ export const buildAgentTask = (
   task: string,
   preferences: Partial<ComposerPreferences> = defaultComposerPreferences,
 ) => {
-  const sections = [getBehaviorInstructions(), getComposerInstructions(preferences)].filter(Boolean);
+  const sections = [getBehaviorInstructions(), getComposerInstructions(preferences), buildProjectContext(task)].filter(Boolean);
 
   if (sections.length === 0) {
     return task;

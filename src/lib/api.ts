@@ -108,7 +108,10 @@ async function streamAnthropic(
   onDone: () => void,
   onError: (e: string) => void,
 ) {
-  const systemMsg = messages.find((m) => m.role === 'system');
+  const systemContent = messages
+    .filter((m) => m.role === 'system' && m.content.trim())
+    .map((m) => m.content.trim())
+    .join('\n\n');
   const userMessages = messages.filter((m) => m.role !== 'system');
 
   const body: Record<string, unknown> = {
@@ -117,7 +120,7 @@ async function streamAnthropic(
     messages: userMessages,
     stream: true,
   };
-  if (systemMsg) body.system = systemMsg.content;
+  if (systemContent) body.system = systemContent;
 
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -226,10 +229,13 @@ async function streamGoogle(
       parts: [{ text: m.content }],
     }));
 
-  const systemInstruction = messages.find((m) => m.role === 'system');
+  const systemInstruction = messages
+    .filter((m) => m.role === 'system' && m.content.trim())
+    .map((m) => m.content.trim())
+    .join('\n\n');
   const body: Record<string, unknown> = { contents };
   if (systemInstruction) {
-    body.systemInstruction = { parts: [{ text: systemInstruction.content }] };
+    body.systemInstruction = { parts: [{ text: systemInstruction }] };
   }
 
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;

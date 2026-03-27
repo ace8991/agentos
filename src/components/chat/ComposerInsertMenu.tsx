@@ -3,6 +3,7 @@ import { useEffect, useState, type CSSProperties, type ReactNode, type RefObject
 import {
   Check,
   ChevronRight,
+  FolderOpen,
   ImagePlus,
   Layers3,
   Paperclip,
@@ -25,6 +26,7 @@ interface ComposerInsertMenuProps {
   onAddImages: () => void;
   onOpenGoogleDrive: () => void;
   onOpenGitHub: () => void;
+  onOpenProjects: () => void;
   onOpenSkills: () => void;
   onOpenConnectors: () => void;
   onToggleWebSearch: () => void;
@@ -43,6 +45,7 @@ const ComposerInsertMenu = ({
   onAddImages,
   onOpenGoogleDrive,
   onOpenGitHub,
+  onOpenProjects,
   onOpenSkills,
   onOpenConnectors,
   onToggleWebSearch,
@@ -123,6 +126,12 @@ const ComposerInsertMenu = ({
         <div className="my-1.5 h-px bg-white/10" />
 
         <div className="space-y-0.5">
+          <MenuRow
+            icon={<FolderOpen size={16} className="text-white/82" />}
+            title="Projects"
+            onClick={onOpenProjects}
+            trailing={<ChevronRight size={15} className="text-white/32" />}
+          />
           <MenuRow
             icon={<Sparkles size={16} className="text-accent" />}
             title="Skills"

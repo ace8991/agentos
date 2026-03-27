@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, CheckCircle, Layers3, Mic, Paperclip, Plus, Send, Square, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle, FolderOpen, Ghost, Layers3, Mic, Paperclip, Plus, Send, Square, X } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { useStore, type LogEntry } from '@/store/useStore';
 import ChatMessage from './chat/ChatMessage';
@@ -13,6 +13,7 @@ import ComposerInsertMenu from './chat/ComposerInsertMenu';
 import ConnectorsDirectoryModal from './chat/ConnectorsDirectoryModal';
 import ConnectorQuickAccess from './chat/ConnectorQuickAccess';
 import ArtifactWorkspaceModal from './chat/ArtifactWorkspaceModal';
+import ProjectsModal from './projects/ProjectsModal';
 import { chatDirect } from '@/lib/api';
 import {
   CONNECTORS_UPDATED_EVENT,
@@ -22,6 +23,7 @@ import {
 } from '@/lib/connectors';
 import { getBehaviorInstructions, getComposerInstructions, getSavedResponseStyleLabel } from '@/lib/user-config';
 import { collectArtifactsFromEntries } from './chat/ArtifactCard';
+import { buildProjectContext, getCurrentProject, loadProjects, PROJECTS_UPDATED_EVENT, type AppProject } from '@/lib/projects';
 
 const AGENT_REQUEST_PATTERNS = [
   /https?:\/\//i,
@@ -68,15 +70,20 @@ const ChatPanel = () => {
   const setComposerPreferences = useStore((s) => s.setComposerPreferences);
   const backendOnline = useStore((s) => s.backendOnline);
   const backendHealth = useStore((s) => s.backendHealth);
+  const currentProjectId = useStore((s) => s.currentProjectId);
+  const incognitoMode = useStore((s) => s.incognitoMode);
+  const setIncognitoMode = useStore((s) => s.setIncognitoMode);
 
   const [inputValue, setInputValue] = useState('');
   const [configProvider, setConfigProvider] = useState<string | null>(null);
   const [directoryOpen, setDirectoryOpen] = useState(false);
   const [configConnectorId, setConfigConnectorId] = useState<string | null>(null);
   const [artifactWorkspaceOpen, setArtifactWorkspaceOpen] = useState(false);
+  const [projectsOpen, setProjectsOpen] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [connectors, setConnectors] = useState<ConnectorState[]>([]);
+  const [projects, setProjects] = useState<AppProject[]>([]);
   const [composerMenuOpen, setComposerMenuOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -90,6 +97,7 @@ const ChatPanel = () => {
   const isPaused = status === 'paused';
   const chronologicalEntries = [...entries].reverse();
   const artifacts = collectArtifactsFromEntries(entries);
+  const currentProject = projects.find((project) => project.id === currentProjectId) || getCurrentProject(projects);
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
@@ -110,6 +118,16 @@ const ChatPanel = () => {
 
     return () => {
       window.removeEventListener(CONNECTORS_UPDATED_EVENT, syncConnectors);
+    };
+  }, []);
+
+  useEffect(() => {
+    const syncProjects = () => setProjects(loadProjects());
+    syncProjects();
+    window.addEventListener(PROJECTS_UPDATED_EVENT, syncProjects);
+
+    return () => {
+      window.removeEventListener(PROJECTS_UPDATED_EVENT, syncProjects);
     };
   }, []);
 
@@ -192,9 +210,11 @@ const ChatPanel = () => {
     const behaviorInstructions = [getBehaviorInstructions(), getComposerInstructions(composerPreferences)]
       .filter(Boolean)
       .join('\n\n');
+    const projectContext = buildProjectContext(text, currentProject);
+    const systemContext = [behaviorInstructions, projectContext].filter(Boolean).join('\n\n');
 
-    if (behaviorInstructions) {
-      messages.push({ role: 'system', content: behaviorInstructions });
+    if (systemContext) {
+      messages.push({ role: 'system', content: systemContext });
     }
 
     const allEntries = [...useStore.getState().entries].reverse();
@@ -298,7 +318,11 @@ const ChatPanel = () => {
           <div className="w-10 shrink-0 md:hidden" />
           <ModelSelector onConfigureProvider={setConfigProvider} />
           <span className="hidden truncate text-sm font-medium text-foreground md:inline">
-            {task && activeThread === 'agent' ? task.slice(0, 50) + (task.length > 50 ? '...' : '') : 'Smart workspace'}
+            {task && activeThread === 'agent'
+              ? task.slice(0, 50) + (task.length > 50 ? '...' : '')
+              : currentProject
+              ? `Project: ${currentProject.name}`
+              : 'Smart workspace'}
           </span>
           {(isRunning || isPaused) && (
             <div className="flex items-center gap-2">
@@ -312,6 +336,29 @@ const ChatPanel = () => {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setProjectsOpen(true)}
+            className={`hidden items-center gap-1.5 rounded-md border px-3 py-1 text-xs transition-colors md:inline-flex ${
+              currentProject
+                ? 'border-sky-300/18 bg-sky-400/10 text-sky-100 hover:bg-sky-400/15'
+                : 'border-border text-muted-foreground hover:bg-surface-elevated'
+            }`}
+          >
+            <FolderOpen size={12} />
+            {currentProject ? currentProject.name : 'Projects'}
+          </button>
+          <button
+            onClick={() => setIncognitoMode(!incognitoMode)}
+            className={`hidden items-center gap-1.5 rounded-md border px-3 py-1 text-xs transition-colors md:inline-flex ${
+              incognitoMode
+                ? 'border-amber-300/18 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15'
+                : 'border-border text-muted-foreground hover:bg-surface-elevated'
+            }`}
+            title="Private session mode"
+          >
+            <Ghost size={12} />
+            {incognitoMode ? 'Private' : 'Standard'}
+          </button>
           {artifacts.length > 0 && (
             <button
               onClick={() => setArtifactWorkspaceOpen(true)}
@@ -466,6 +513,30 @@ const ChatPanel = () => {
         </div>
       )}
 
+      {(currentProject || incognitoMode) && (
+        <div className="flex flex-wrap items-center gap-2 px-5 pt-2">
+          {currentProject && (
+            <button
+              onClick={() => setProjectsOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-sky-300/16 bg-sky-400/10 px-2.5 py-1 text-[11px] font-medium text-sky-100"
+            >
+              <FolderOpen size={11} />
+              {currentProject.name}
+            </button>
+          )}
+          {incognitoMode && (
+            <button
+              onClick={() => setIncognitoMode(false)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/16 bg-amber-400/10 px-2.5 py-1 text-[11px] font-medium text-amber-100"
+            >
+              <Ghost size={11} />
+              Private session
+              <X size={11} />
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="px-3 pb-3 pt-2 md:px-5 md:pb-4">
         <div className="relative flex items-end gap-2 rounded-xl border border-border bg-muted px-3 py-2.5 transition-shadow focus-within:glow-purple md:gap-3 md:px-4 md:py-3">
           <button
@@ -499,6 +570,10 @@ const ChatPanel = () => {
             onOpenGitHub={() => {
               setComposerMenuOpen(false);
               setConfigConnectorId('github');
+            }}
+            onOpenProjects={() => {
+              setComposerMenuOpen(false);
+              setProjectsOpen(true);
             }}
             onOpenSkills={() => {
               setComposerMenuOpen(false);
@@ -568,6 +643,7 @@ const ChatPanel = () => {
         artifacts={artifacts}
         onClose={() => setArtifactWorkspaceOpen(false)}
       />
+      <ProjectsModal open={projectsOpen} onClose={() => setProjectsOpen(false)} />
       <ConnectorsDirectoryModal
         open={directoryOpen}
         connectors={connectors}
