@@ -59,6 +59,7 @@ interface NotificationItem {
 
 const Welcome = () => {
   const [taskInput, setTaskInput] = useState('');
+  const [heroReady, setHeroReady] = useState(false);
   const [connectors, setConnectors] = useState<ConnectorState[]>([]);
   const [directoryOpen, setDirectoryOpen] = useState(false);
   const [configConnectorId, setConfigConnectorId] = useState<string | null>(null);
@@ -250,15 +251,40 @@ const Welcome = () => {
       <div className="flex-1 flex flex-col h-screen min-w-0 relative overflow-hidden">
         <div className="absolute inset-0 bg-[linear-gradient(180deg,#6679a6_0%,#3a334c_48%,#121520_100%)]" />
         <img
-          src="/images/hero-bg-user.png"
+          src="/images/hero-bg-user-preview.avif"
           alt=""
           aria-hidden="true"
-          loading="eager"
-          decoding="async"
-          fetchPriority="high"
-          className="absolute inset-0 h-full w-full object-cover object-center scale-[1.015] select-none"
+          className={`absolute inset-0 h-full w-full object-cover object-center scale-[1.035] blur-xl transition-opacity duration-500 select-none ${
+            heroReady ? 'opacity-0' : 'opacity-100'
+          }`}
           draggable={false}
         />
+        <picture className="absolute inset-0 block">
+          <source
+            type="image/avif"
+            srcSet="/images/hero-bg-user-960.avif 960w, /images/hero-bg-user-1536.avif 1536w"
+            sizes="100vw"
+          />
+          <source
+            type="image/webp"
+            srcSet="/images/hero-bg-user-960.webp 960w, /images/hero-bg-user-1536.webp 1536w"
+            sizes="100vw"
+          />
+          <img
+            src="/images/hero-bg-user.png"
+            alt=""
+            aria-hidden="true"
+            loading="eager"
+            decoding="async"
+            fetchPriority="high"
+            className={`absolute inset-0 h-full w-full object-cover object-center scale-[1.015] transition-opacity duration-500 select-none ${
+              heroReady ? 'opacity-100' : 'opacity-0'
+            }`}
+            draggable={false}
+            onLoad={() => setHeroReady(true)}
+            onError={() => setHeroReady(true)}
+          />
+        </picture>
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_24%,rgba(67,176,255,0.24),transparent_28%),radial-gradient(circle_at_78%_18%,rgba(255,192,120,0.18),transparent_26%),radial-gradient(circle_at_50%_72%,rgba(156,139,255,0.10),transparent_30%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,14,24,0.12)_0%,rgba(10,14,24,0.42)_100%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(9,11,19,0.20)_0%,rgba(9,11,19,0.04)_45%,rgba(9,11,19,0.20)_100%)]" />
