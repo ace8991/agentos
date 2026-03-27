@@ -257,7 +257,7 @@ const Welcome = () => {
         open={directoryOpen}
         connectors={connectors}
         onClose={() => setDirectoryOpen(false)}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={() => openSettingsFor('connectors')}
         onSelectConnector={(id) => {
           setDirectoryOpen(false);
           setConfigConnectorId(id);
