@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { X, Eye, EyeOff, Calendar, Mail, Database, Globe, User, Puzzle, Plug, Layers, Key, Shield, Camera, Monitor, Plus, Trash2, Check, ExternalLink, Settings } from 'lucide-react';
+import { X, Eye, EyeOff, Calendar, Mail, Database, Globe, User, Puzzle, Plug, Layers, Key, Shield, Camera, Monitor, Plus, Trash2, Check, ExternalLink, Settings, Bot } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { MODEL_PROVIDERS } from './ModelSelector';
 import ConnectorConfigModal from './chat/ConnectorConfigModal';
 import ConnectorLogo from './chat/ConnectorLogo';
+import RemoteControlPanel from './settings/RemoteControlPanel';
 import { buildDefaultConnectors, loadConnectors, saveConnectors, type ConnectorState } from '@/lib/connectors';
 import { API_BASE_URL } from '@/lib/api';
 import { toast } from '@/components/ui/sonner';
@@ -27,6 +28,7 @@ const sidebarSections: { label: string; key: Section; icon: typeof Key }[] = [
   { label: 'Mail', key: 'mail', icon: Mail },
   { label: 'Data controls', key: 'data', icon: Database },
   { label: 'Cloud browser', key: 'cloud-browser', icon: Globe },
+  { label: 'Remote control', key: 'remote-control', icon: Bot },
   { label: 'Personalization', key: 'personalization', icon: User },
   { label: 'Skills', key: 'skills', icon: Puzzle },
   { label: 'Connectors', key: 'connectors', icon: Plug },
@@ -635,6 +637,9 @@ const SettingsModal = () => {
             )}
           </div>
         );
+
+      case 'remote-control':
+        return <RemoteControlPanel />;
 
       case 'personalization':
         return (

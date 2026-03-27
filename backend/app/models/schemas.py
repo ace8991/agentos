@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 from enum import Enum
 
 
@@ -108,3 +108,57 @@ class StepEvent(BaseModel):
     memory: list[MemoryItem]
     tool_result: Optional[dict] = None
     parsed_action: Optional[AgentAction] = None
+
+
+class RemoteChannel(str, Enum):
+    TELEGRAM = "telegram"
+    WHATSAPP = "whatsapp"
+    WEBHOOK = "webhook"
+
+
+class RemoteCommandStatus(str, Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    CLAIMED = "claimed"
+    REJECTED = "rejected"
+    COMPLETED = "completed"
+
+
+class RemoteInboundRequest(BaseModel):
+    channel: RemoteChannel
+    text: str
+    secret: str
+    sender: Optional[str] = None
+    metadata: Optional[dict[str, Any]] = None
+
+
+class RemoteDecisionRequest(BaseModel):
+    actor: str = "local-user"
+    note: Optional[str] = None
+
+
+class RemoteCompleteRequest(BaseModel):
+    actor: str = "local-workspace"
+    success: bool
+    note: Optional[str] = None
+
+
+class RemoteCommand(BaseModel):
+    id: str
+    channel: RemoteChannel
+    text: str
+    sender: Optional[str] = None
+    status: RemoteCommandStatus
+    created_at: str
+    updated_at: str
+    actor: Optional[str] = None
+    note: Optional[str] = None
+    metadata: dict[str, Any] = {}
+
+
+class RemoteConfigResponse(BaseModel):
+    enabled: bool
+    local_execution_available: bool
+    approval_required: bool
+    configured_channels: dict[str, bool]
+    inbound_path: str

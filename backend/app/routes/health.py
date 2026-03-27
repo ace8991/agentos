@@ -1,36 +1,13 @@
-import importlib.util
-import os
-import platform
 from fastapi import APIRouter
-from app.config import MODE, IS_LOCAL
+from app.config import IS_LOCAL
+from app.services.capabilities import detect_capabilities
 
 router = APIRouter()
 
 @router.get("/health")
 async def health():
-    playwright_available = importlib.util.find_spec("playwright") is not None
-    pyautogui_available = IS_LOCAL and importlib.util.find_spec("pyautogui") is not None
-    computer_use_available = IS_LOCAL and bool(os.getenv("ANTHROPIC_API_KEY"))
-    info = {
-        "status": "ok",
-        "version": "1.0.0",
-        "mode": MODE,
-        "available_tools": {
-            "tavily":       bool(os.getenv("TAVILY_API_KEY")),
-            "playwright":   playwright_available,
-            "pyautogui":    pyautogui_available,
-            "computer_use": computer_use_available,
-        },
-        "system": {
-            "os": platform.system(),
-            "anthropic_key": bool(os.getenv("ANTHROPIC_API_KEY")),
-            "tavily_key":    bool(os.getenv("TAVILY_API_KEY")),
-            "openai_key":    bool(os.getenv("OPENAI_API_KEY")),
-            "deepseek_key":  bool(os.getenv("DEEPSEEK_API_KEY")),
-            "google_key":    bool(os.getenv("GOOGLE_API_KEY")),
-        },
-    }
-    if IS_LOCAL and pyautogui_available:
+    info = detect_capabilities()
+    if IS_LOCAL and info["available_tools"]["pyautogui"]:
         try:
             import mss
             import pyautogui

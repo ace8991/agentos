@@ -450,6 +450,98 @@ export interface HealthResponse {
     google_key?: boolean;
     screen_error?: string;
   };
+  providers?: {
+    anthropic: boolean;
+    openai: boolean;
+    deepseek: boolean;
+    google: boolean;
+    tavily: boolean;
+  };
+  runtime?: {
+    supports_browser: boolean;
+    supports_terminal: boolean;
+    supports_desktop: boolean;
+    supports_remote_commands: boolean;
+    approval_required: boolean;
+  };
+  remote?: RemoteConfig;
+}
+
+export type RemoteCommandStatus = 'pending' | 'approved' | 'claimed' | 'rejected' | 'completed';
+export type RemoteChannel = 'telegram' | 'whatsapp' | 'webhook';
+
+export interface RemoteConfig {
+  enabled: boolean;
+  local_execution_available: boolean;
+  approval_required: boolean;
+  configured_channels: Record<string, boolean>;
+  inbound_path: string;
+}
+
+export interface RemoteCommand {
+  id: string;
+  channel: RemoteChannel;
+  text: string;
+  sender?: string | null;
+  status: RemoteCommandStatus;
+  created_at: string;
+  updated_at: string;
+  actor?: string | null;
+  note?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export async function getRemoteConfig(): Promise<RemoteConfig> {
+  const r = await fetch(`${BASE}/remote/config`);
+  if (!r.ok) throw new Error(`Remote config failed: ${r.status}`);
+  return r.json();
+}
+
+export async function getRemoteCommands(status?: RemoteCommandStatus): Promise<RemoteCommand[]> {
+  const url = status ? `${BASE}/remote/commands?status=${status}` : `${BASE}/remote/commands`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`Remote commands failed: ${r.status}`);
+  return r.json();
+}
+
+export async function approveRemoteCommand(commandId: string, note?: string) {
+  const r = await fetch(`${BASE}/remote/commands/${commandId}/approve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ actor: 'local-user', note }),
+  });
+  if (!r.ok) throw new Error(`Approve failed: ${r.status}`);
+  return r.json() as Promise<RemoteCommand>;
+}
+
+export async function rejectRemoteCommand(commandId: string, note?: string) {
+  const r = await fetch(`${BASE}/remote/commands/${commandId}/reject`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ actor: 'local-user', note }),
+  });
+  if (!r.ok) throw new Error(`Reject failed: ${r.status}`);
+  return r.json() as Promise<RemoteCommand>;
+}
+
+export async function claimRemoteCommand(commandId: string) {
+  const r = await fetch(`${BASE}/remote/commands/${commandId}/claim`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ actor: 'local-workspace' }),
+  });
+  if (!r.ok) throw new Error(`Claim failed: ${r.status}`);
+  return r.json() as Promise<RemoteCommand>;
+}
+
+export async function completeRemoteCommand(commandId: string, success: boolean, note?: string) {
+  const r = await fetch(`${BASE}/remote/commands/${commandId}/complete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ actor: 'local-workspace', success, note }),
+  });
+  if (!r.ok) throw new Error(`Complete failed: ${r.status}`);
+  return r.json() as Promise<RemoteCommand>;
 }
 
 export interface ModelInfo {

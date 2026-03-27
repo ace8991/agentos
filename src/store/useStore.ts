@@ -62,6 +62,7 @@ export type SettingsSection =
   | 'mail'
   | 'data'
   | 'cloud-browser'
+  | 'remote-control'
   | 'personalization'
   | 'skills'
   | 'connectors'
