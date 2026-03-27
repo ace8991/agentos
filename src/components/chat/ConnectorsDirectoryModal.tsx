@@ -91,7 +91,7 @@ const ConnectorsDirectoryModal = ({
   return (
     <div className="fixed inset-0 z-[58] flex items-center justify-center bg-black/55 px-3 py-4" onClick={onClose}>
       <div
-        className="w-full max-w-[940px] max-h-[92vh] rounded-[26px] border border-white/10 bg-[radial-gradient(circle_at_top_left,#37342d_0%,#2a2824_40%,#211f1b_100%)] text-foreground shadow-2xl backdrop-blur-xl overflow-hidden"
+        className="w-full max-w-[900px] max-h-[92vh] rounded-[24px] border border-white/10 bg-[radial-gradient(circle_at_top_left,#37342d_0%,#2a2824_40%,#211f1b_100%)] text-foreground shadow-2xl backdrop-blur-xl overflow-hidden"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 px-5 md:px-7 pt-5 md:pt-6 pb-4 border-b border-white/10">
@@ -144,8 +144,8 @@ const ConnectorsDirectoryModal = ({
           </div>
         </div>
 
-        <div className="overflow-y-auto max-h-[calc(92vh-188px)] px-5 md:px-7 py-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="overflow-y-auto max-h-[calc(92vh-188px)] px-5 md:px-7 py-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
             {visibleConnectors.map((connector) => {
               const state = connectorStateMap.get(connector.id);
               const isConnected = Boolean(state?.connected);
@@ -155,22 +155,22 @@ const ConnectorsDirectoryModal = ({
                 <button
                   key={connector.id}
                   onClick={() => onSelectConnector(connector.id)}
-                  className="w-full text-left rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02))] hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.03))] transition-all duration-200 px-4 py-3.5 flex items-start gap-3 group shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                  className="w-full text-left rounded-[22px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.042),rgba(255,255,255,0.018))] hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.064),rgba(255,255,255,0.028))] transition-all duration-200 px-3.5 py-3 flex items-start gap-2.5 group shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]"
                 >
-                  <ConnectorLogo connectorId={connector.id} name={connector.name} badge={connector.badge} size="md" className="bg-black/12" />
+                  <ConnectorLogo connectorId={connector.id} name={connector.name} badge={connector.badge} size="sm" className="bg-black/10" />
 
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <h3 className="text-[15px] md:text-[16px] leading-none font-semibold text-stone-100 truncate">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <h3 className="text-[14px] md:text-[15px] leading-none font-semibold text-stone-100 truncate">
                         {connector.name}
                       </h3>
-                      <div className="flex items-center gap-1.5 text-[12px] text-stone-400 whitespace-nowrap">
+                      <div className="flex items-center gap-1 text-[11px] text-stone-400 whitespace-nowrap">
                         {connector.popularityRank && <span>#{connector.popularityRank}</span>}
-                        {connector.providerLabel && <span className="truncate max-w-[92px]">{connector.providerLabel}</span>}
+                        {connector.providerLabel && <span className="truncate max-w-[80px]">{connector.providerLabel}</span>}
                       </div>
                     </div>
                     <p
-                      className="mt-1.5 text-[13px] leading-5 text-stone-300"
+                      className="mt-1 text-[12px] leading-[1.35] text-stone-300"
                       style={{
                         display: '-webkit-box',
                         WebkitLineClamp: 2,
@@ -180,7 +180,7 @@ const ConnectorsDirectoryModal = ({
                     >
                       {config?.shortAction ?? connector.name}
                     </p>
-                    <div className="mt-2 flex items-center gap-1.5 flex-wrap text-[10px] uppercase tracking-[0.14em] text-stone-400">
+                    <div className="mt-1.5 flex items-center gap-1 flex-wrap text-[9px] uppercase tracking-[0.16em] text-stone-400">
                       <span>{connector.type}</span>
                       {config?.category && (
                         <>
@@ -193,12 +193,12 @@ const ConnectorsDirectoryModal = ({
 
                   <div className="shrink-0 pt-0.5">
                     {isConnected ? (
-                      <div className="h-10 w-10 rounded-[18px] border border-success/25 bg-success/10 text-success flex items-center justify-center shadow-[0_0_0_1px_rgba(74,222,128,0.06)]">
-                        <Check size={16} />
+                      <div className="h-9 w-9 rounded-[16px] border border-success/25 bg-success/10 text-success flex items-center justify-center shadow-[0_0_0_1px_rgba(74,222,128,0.06)]">
+                        <Check size={15} />
                       </div>
                     ) : (
-                      <div className="h-10 w-10 rounded-[18px] border border-white/10 bg-white/[0.04] text-stone-200 flex items-center justify-center group-hover:bg-white/[0.08]">
-                        <Plus size={16} />
+                      <div className="h-9 w-9 rounded-[16px] border border-white/10 bg-white/[0.04] text-stone-200 flex items-center justify-center group-hover:bg-white/[0.08]">
+                        <Plus size={15} />
                       </div>
                     )}
                   </div>
