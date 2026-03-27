@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell,
@@ -69,7 +70,9 @@ const Welcome = () => {
   const isMobile = useIsMobile();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
+  const notificationsPanelRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+  const profilePanelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const syncConnectors = () => setConnectors(loadConnectors());
@@ -82,12 +85,15 @@ const Welcome = () => {
   }, []);
 
   useEffect(() => {
-    const handlePointerDown = (event: MouseEvent) => {
+    const isTargetInside = (target: Node, refs: Array<RefObject<HTMLElement | null>>) =>
+      refs.some((ref) => ref.current?.contains(target));
+
+    const handlePointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
-      if (notificationsRef.current && !notificationsRef.current.contains(target)) {
+      if (!isTargetInside(target, [notificationsRef, notificationsPanelRef])) {
         setNotificationsOpen(false);
       }
-      if (profileRef.current && !profileRef.current.contains(target)) {
+      if (!isTargetInside(target, [profileRef, profilePanelRef])) {
         setProfileOpen(false);
       }
     };
@@ -99,10 +105,10 @@ const Welcome = () => {
       }
     };
 
-    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('pointerdown', handlePointerDown);
     document.addEventListener('keydown', handleEscape);
     return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('pointerdown', handlePointerDown);
       document.removeEventListener('keydown', handleEscape);
     };
   }, []);
@@ -210,7 +216,7 @@ const Welcome = () => {
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,14,24,0.12)_0%,rgba(10,14,24,0.42)_100%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(9,11,19,0.20)_0%,rgba(9,11,19,0.04)_45%,rgba(9,11,19,0.20)_100%)]" />
 
-        <div className="relative z-10 flex items-center justify-between px-4 md:px-6 py-3 border-b border-white/10 backdrop-blur-md bg-[rgba(9,12,20,0.14)]">
+        <div className="relative z-20 flex items-center justify-between px-4 md:px-6 py-3 border-b border-white/10 backdrop-blur-md bg-[rgba(9,12,20,0.14)]">
           <div className="flex items-center gap-2">
             {isMobile && <div className="w-10" />}
             <span className="text-sm text-white font-medium">AgentOS 1.0</span>
@@ -232,8 +238,13 @@ const Welcome = () => {
                 )}
               </button>
 
-              {notificationsOpen && (
-                <div className="absolute right-0 top-12 w-[min(380px,calc(100vw-2rem))] rounded-3xl border border-white/10 bg-[rgba(13,17,27,0.82)] backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] p-3">
+              <FloatingPanel
+                anchorRef={notificationsRef}
+                panelRef={notificationsPanelRef}
+                open={notificationsOpen}
+                width={380}
+                className="rounded-3xl border border-white/10 bg-[rgba(13,17,27,0.88)] backdrop-blur-2xl shadow-[0_24px_80px_rgba(0,0,0,0.42)] p-3"
+              >
                   <div className="flex items-center justify-between px-2 pb-2">
                     <div>
                       <p className="text-sm font-medium text-white">Notifications</p>
@@ -280,8 +291,7 @@ const Welcome = () => {
                       );
                     })}
                   </div>
-                </div>
-              )}
+              </FloatingPanel>
             </div>
 
             <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.08] px-3 py-1.5 text-white/80">
@@ -304,8 +314,13 @@ const Welcome = () => {
                 <ChevronDown size={14} className="text-white/60" />
               </button>
 
-              {profileOpen && (
-                <div className="absolute right-0 top-12 w-[280px] rounded-3xl border border-white/10 bg-[rgba(13,17,27,0.84)] backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] overflow-hidden">
+              <FloatingPanel
+                anchorRef={profileRef}
+                panelRef={profilePanelRef}
+                open={profileOpen}
+                width={300}
+                className="rounded-3xl border border-white/10 bg-[rgba(13,17,27,0.90)] backdrop-blur-2xl shadow-[0_24px_80px_rgba(0,0,0,0.42)] overflow-hidden"
+              >
                   <div className="px-4 py-4 border-b border-white/10">
                     <div className="flex items-center gap-3">
                       <div className="w-11 h-11 rounded-2xl bg-accent flex items-center justify-center text-accent-foreground font-bold">
@@ -352,8 +367,7 @@ const Welcome = () => {
                       onClick={() => handleProfileAction('data')}
                     />
                   </div>
-                </div>
-              )}
+              </FloatingPanel>
             </div>
           </div>
         </div>
@@ -520,6 +534,71 @@ const Welcome = () => {
         }}
       />
     </div>
+  );
+};
+
+const FloatingPanel = ({
+  anchorRef,
+  panelRef,
+  open,
+  width,
+  className,
+  children,
+}: {
+  anchorRef: RefObject<HTMLElement | null>;
+  panelRef: RefObject<HTMLDivElement | null>;
+  open: boolean;
+  width: number;
+  className: string;
+  children: ReactNode;
+}) => {
+  const [style, setStyle] = useState<CSSProperties | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setStyle(null);
+      return;
+    }
+
+    const updatePosition = () => {
+      const anchor = anchorRef.current;
+      if (!anchor) return;
+
+      const rect = anchor.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const panelWidth = Math.min(width, Math.max(viewportWidth - 24, 220));
+      const maxLeft = viewportWidth - panelWidth - 12;
+      const left = Math.max(12, Math.min(rect.right - panelWidth, maxLeft));
+      const top = rect.bottom + 12;
+      const maxHeight = Math.max(220, window.innerHeight - top - 12);
+
+      setStyle({
+        top,
+        left,
+        width: panelWidth,
+        maxHeight,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [anchorRef, open, width]);
+
+  if (!open || !style) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[80] pointer-events-none">
+      <div ref={panelRef} className={`pointer-events-auto fixed overflow-y-auto ${className}`} style={style}>
+        {children}
+      </div>
+    </div>,
+    document.body,
   );
 };
 
