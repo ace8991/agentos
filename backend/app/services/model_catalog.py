@@ -5,6 +5,10 @@ _MODELS: list[ModelInfo] = [
     ModelInfo(id="claude-opus-4-5", name="Claude Opus 4.5", provider="anthropic", cost_per_step="server-key", vision=True),
     ModelInfo(id="claude-sonnet-4-6", name="Claude Sonnet 4.6", provider="anthropic", cost_per_step="server-key", vision=True),
     ModelInfo(id="claude-haiku-3-5", name="Claude Haiku 3.5", provider="anthropic", cost_per_step="server-key", vision=True),
+    ModelInfo(id="gpt-5.4", name="GPT-5.4", provider="openai", cost_per_step="server-key", vision=True),
+    ModelInfo(id="gpt-5.3-codex", name="GPT-5.3-Codex", provider="openai", cost_per_step="server-key", vision=True),
+    ModelInfo(id="gpt-5.2-codex", name="GPT-5.2-Codex", provider="openai", cost_per_step="server-key", vision=True),
+    ModelInfo(id="gpt-5.1", name="GPT-5.1", provider="openai", cost_per_step="server-key", vision=True),
     ModelInfo(id="gpt-4o", name="GPT-4o", provider="openai", cost_per_step="server-key", vision=True),
     ModelInfo(id="gpt-4o-mini", name="GPT-4o Mini", provider="openai", cost_per_step="server-key", vision=True),
     ModelInfo(id="o1", name="o1", provider="openai", cost_per_step="server-key", vision=False),
@@ -37,6 +41,10 @@ def get_model(model_id: str) -> ModelInfo | None:
 _AGENT_MODEL_IDS = {
     "claude-opus-4-5",
     "claude-sonnet-4-6",
+    "gpt-5.4",
+    "gpt-5.3-codex",
+    "gpt-5.2-codex",
+    "gpt-5.1",
     "gpt-4o",
     "gpt-4o-mini",
 }

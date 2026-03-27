@@ -159,9 +159,9 @@ const TaskSidebar = () => {
           <div className="bg-muted/50 border border-border rounded-lg p-3 space-y-2">
             <p className="text-xs font-medium text-foreground">Agent Templates</p>
             {[
-              { name: 'Web Researcher', desc: 'Searches & synthesizes web info' },
-              { name: 'Code Assistant', desc: 'Writes & debugs code' },
-              { name: 'Data Analyst', desc: 'Processes data & creates charts' },
+              { name: 'Code Reviewer', desc: 'Finds bugs, regressions, and missing tests' },
+              { name: 'Bug Fixer', desc: 'Reproduces issues and ships focused fixes' },
+              { name: 'Refactor Planner', desc: 'Improves structure without breaking behavior' },
             ].map((agent) => (
               <button
                 key={agent.name}

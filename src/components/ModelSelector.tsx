@@ -13,6 +13,8 @@ export interface ModelProvider {
   defaultBaseUrl?: string;
 }
 
+export type ReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+
 export const MODEL_PROVIDERS: ModelProvider[] = [
   {
     id: 'anthropic',
@@ -33,6 +35,10 @@ export const MODEL_PROVIDERS: ModelProvider[] = [
     requiresKey: true,
     keyName: 'OPENAI_API_KEY',
     models: [
+      { id: 'gpt-5.4', name: 'GPT-5.4', description: 'Frontier agentic work' },
+      { id: 'gpt-5.3-codex', name: 'GPT-5.3-Codex', description: 'Most capable Codex model' },
+      { id: 'gpt-5.2-codex', name: 'GPT-5.2-Codex', description: 'Long-horizon coding' },
+      { id: 'gpt-5.1', name: 'GPT-5.1', description: 'Best coding and agentic tasks' },
       { id: 'gpt-4o', name: 'GPT-4o', description: 'Flagship multimodal' },
       { id: 'gpt-4o-mini', name: 'GPT-4o Mini', description: 'Fast & affordable' },
       { id: 'o1', name: 'o1', description: 'Reasoning model' },
@@ -114,12 +120,30 @@ export const MODEL_PROVIDERS: ModelProvider[] = [
 const AGENT_SUPPORTED_MODELS = new Set([
   'claude-opus-4-5',
   'claude-sonnet-4-6',
+  'gpt-5.4',
+  'gpt-5.3-codex',
+  'gpt-5.2-codex',
+  'gpt-5.1',
   'gpt-4o',
   'gpt-4o-mini',
 ]);
 
 export function isAgentModelSupported(modelId: string) {
   return AGENT_SUPPORTED_MODELS.has(modelId);
+}
+
+export function supportsReasoningEffort(modelId: string) {
+  return /^gpt-5(\.|-|$)/.test(modelId);
+}
+
+export function getReasoningEffortOptions(modelId: string): ReasoningEffort[] {
+  if (!supportsReasoningEffort(modelId)) {
+    return ['medium'];
+  }
+  if (modelId === 'gpt-5.1') {
+    return ['none', 'low', 'medium', 'high'];
+  }
+  return ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
 }
 
 export function getProviderForModel(modelId: string): ModelProvider | undefined {

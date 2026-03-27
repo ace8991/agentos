@@ -106,6 +106,7 @@ def think_and_act(
     memory: dict,
     model: str = "claude-sonnet-4-6",
     last_tool_result: Optional[dict] = None,
+    reasoning_effort: Optional[str] = None,
 ) -> tuple[str, Optional[AgentAction]]:
     recent = history[-4:]
     history_text = "\n".join(
@@ -150,16 +151,20 @@ Current screen above. What is your next action?"""
         key = os.getenv("OPENAI_API_KEY")
         if not key: raise ValueError("OPENAI_API_KEY not set")
         client = OpenAI(api_key=key)
-        resp = client.chat.completions.create(
-            model=model, max_tokens=1024,
-            messages=[
+        payload = {
+            "model": model,
+            "max_tokens": 1024,
+            "messages": [
                 {"role":"system","content":system},
                 {"role":"user","content":[
                     {"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{screenshot_b64}"}},
                     {"type":"text","text":user_content},
                 ]},
             ],
-        )
+        }
+        if reasoning_effort:
+            payload["reasoning_effort"] = reasoning_effort
+        resp = client.chat.completions.create(**payload)
         text = resp.choices[0].message.content
     else:
         raise ValueError(f"Unsupported model: {model}")

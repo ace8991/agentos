@@ -15,11 +15,19 @@ export interface ComposerPreferences {
 }
 
 const SKILLS_STORAGE_KEY = 'SKILLS';
+const WORK_PROFILE_STORAGE_KEY = 'WORK_PROFILE';
 const RESPONSE_STYLE_LABELS: Record<string, string> = {
   concise: 'Concise',
   balanced: 'Balanced',
   detailed: 'Detailed',
   creative: 'Creative',
+};
+const WORK_PROFILE_LABELS: Record<string, string> = {
+  general: 'General',
+  codex: 'Codex',
+  reviewer: 'Reviewer',
+  debugger: 'Debugger',
+  architect: 'Architect',
 };
 
 export const defaultComposerPreferences: ComposerPreferences = {
@@ -61,6 +69,38 @@ const builtinSkills: AppSkill[] = [
     builtin: true,
   },
   {
+    id: 'repo-analysis',
+    name: 'Repository Analysis',
+    description: 'Read codebases, map modules, and explain architecture',
+    prompt: 'Build context from the codebase first, identify the key files, and explain the implementation plan before or while making changes.',
+    enabled: true,
+    builtin: true,
+  },
+  {
+    id: 'code-review',
+    name: 'Code Review',
+    description: 'Find bugs, regressions, and risky changes',
+    prompt: 'Default to a review mindset when inspecting code: prioritize correctness bugs, regressions, edge cases, and missing verification.',
+    enabled: true,
+    builtin: true,
+  },
+  {
+    id: 'testing-verification',
+    name: 'Testing & Verification',
+    description: 'Run tests, build checks, and smoke validations',
+    prompt: 'After changes, run the narrowest useful verification first, then summarize what passed, what failed, and any residual risk.',
+    enabled: true,
+    builtin: true,
+  },
+  {
+    id: 'safe-refactors',
+    name: 'Safe Refactors',
+    description: 'Keep edits incremental and preserve behavior',
+    prompt: 'Prefer small, auditable refactors with behavior-preserving changes unless the task explicitly asks for broader redesign.',
+    enabled: true,
+    builtin: true,
+  },
+  {
     id: 'data-analysis',
     name: 'Data Analysis',
     description: 'Analyze data and create visualizations',
@@ -95,6 +135,30 @@ const builtinSkills: AppSkill[] = [
 ];
 
 export const getBuiltinSkills = () => builtinSkills.map((skill) => ({ ...skill }));
+
+export const getSavedWorkProfile = () => localStorage.getItem(WORK_PROFILE_STORAGE_KEY) || 'general';
+
+export const getSavedWorkProfileLabel = () => {
+  const profile = getSavedWorkProfile();
+  return WORK_PROFILE_LABELS[profile] || 'General';
+};
+
+export const getWorkProfileInstructions = () => {
+  const profile = getSavedWorkProfile();
+
+  switch (profile) {
+    case 'codex':
+      return 'Operate like a professional coding agent: inspect the codebase before editing, make the smallest high-confidence change, verify with commands, and summarize concrete outcomes.';
+    case 'reviewer':
+      return 'Operate like a strict code reviewer: prioritize bugs, regressions, unsafe assumptions, and missing tests before giving any summary.';
+    case 'debugger':
+      return 'Operate like a debugger: reproduce the issue, isolate the root cause, prefer evidence over guesswork, and verify the fix explicitly.';
+    case 'architect':
+      return 'Operate like a software architect: optimize for maintainability, interface clarity, and clean system boundaries while preserving delivery momentum.';
+    default:
+      return '';
+  }
+};
 
 export const loadSkills = (): AppSkill[] => {
   const defaults = getBuiltinSkills();
@@ -146,10 +210,15 @@ export const saveSkills = (skills: AppSkill[]) => {
 export const getBehaviorInstructions = () => {
   const sections: string[] = [];
   const systemPrompt = localStorage.getItem('SYSTEM_PROMPT')?.trim();
+  const workProfileInstructions = getWorkProfileInstructions();
   const enabledSkills = loadSkills().filter((skill) => skill.enabled && skill.prompt.trim());
 
   if (systemPrompt) {
     sections.push(systemPrompt);
+  }
+
+  if (workProfileInstructions) {
+    sections.push(workProfileInstructions);
   }
 
   if (enabledSkills.length > 0) {

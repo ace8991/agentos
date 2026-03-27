@@ -192,6 +192,9 @@ async def stream_chat(req: ChatRequest) -> AsyncGenerator[str, None]:
         return
 
     payload_messages = [{"role": message.role, "content": message.content} for message in messages]
+    provider_payload: dict[str, object] = {"model": req.model, "messages": payload_messages, "stream": True}
+    if provider == "openai" and req.reasoning_effort:
+        provider_payload["reasoning_effort"] = req.reasoning_effort
 
     if provider == "anthropic":
         async for event in _stream_anthropic(messages, req.model):
@@ -212,7 +215,7 @@ async def stream_chat(req: ChatRequest) -> AsyncGenerator[str, None]:
         endpoint = f"{os.getenv('LMSTUDIO_BASE_URL', 'http://localhost:1234').rstrip('/')}/v1/chat/completions"
         async for event in _stream_openai_compatible(
             endpoint,
-            {"model": req.model, "messages": payload_messages, "stream": True},
+            provider_payload,
         ):
             yield event
         return
@@ -235,7 +238,7 @@ async def stream_chat(req: ChatRequest) -> AsyncGenerator[str, None]:
 
     async for event in _stream_openai_compatible(
         endpoint,
-        {"model": req.model, "messages": payload_messages, "stream": True},
+        provider_payload,
         api_key=api_key,
     ):
         yield event

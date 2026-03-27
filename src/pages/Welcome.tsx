@@ -43,11 +43,11 @@ import { toast } from '@/components/ui/sonner';
 import { getSavedResponseStyleLabel } from '@/lib/user-config';
 
 const suggestions = [
-  { icon: FileText, label: 'Create slides' },
+  { icon: FileText, label: 'Review code' },
   { icon: GlobeIcon, label: 'Build website' },
-  { icon: Monitor, label: 'Develop apps' },
-  { icon: Wand2, label: 'Design' },
-  { icon: MoreHorizontal, label: 'More' },
+  { icon: Monitor, label: 'Fix a bug' },
+  { icon: Wand2, label: 'Write tests' },
+  { icon: MoreHorizontal, label: 'Refactor safely' },
 ];
 
 type NotificationTarget = 'browser-system' | 'skills' | 'connectors';

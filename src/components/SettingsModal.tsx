@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { X, Eye, EyeOff, Calendar, Mail, Database, Globe, User, Puzzle, Plug, Layers, Key, Shield, Camera, Monitor, Plus, Trash2, Check, ExternalLink, Settings, Bot } from 'lucide-react';
+import { X, Eye, EyeOff, Calendar, Mail, Database, Globe, User, Puzzle, Plug, Layers, Key, Shield, Camera, Monitor, Plus, Trash2, Check, ExternalLink, Settings, Bot, Sparkles, Wrench } from 'lucide-react';
 import { useStore } from '@/store/useStore';
-import { MODEL_PROVIDERS } from './ModelSelector';
+import { MODEL_PROVIDERS, getReasoningEffortOptions, supportsReasoningEffort, type ReasoningEffort } from './ModelSelector';
 import ConnectorConfigModal from './chat/ConnectorConfigModal';
 import ConnectorLogo from './chat/ConnectorLogo';
 import RemoteControlPanel from './settings/RemoteControlPanel';
@@ -24,7 +24,7 @@ const sidebarSections: { label: string; key: Section; icon: typeof Key }[] = [
   { label: 'Browser & System', key: 'browser-system', icon: Globe },
   { label: 'Capture', key: 'capture', icon: Camera },
   { label: 'Safety', key: 'safety', icon: Shield },
-  { label: 'Scheduled tasks', key: 'scheduled', icon: Calendar },
+  { label: 'Automations', key: 'scheduled', icon: Calendar },
   { label: 'Mail', key: 'mail', icon: Mail },
   { label: 'Data controls', key: 'data', icon: Database },
   { label: 'Cloud browser', key: 'cloud-browser', icon: Globe },
@@ -44,6 +44,27 @@ interface ScheduledTask {
   enabled: boolean;
 }
 
+const AUTOMATION_TEMPLATES: Array<{ label: string; cron: string; prompt: string; icon: typeof Sparkles }> = [
+  {
+    label: 'Morning repo review',
+    cron: '0 9 * * 1-5',
+    prompt: 'Review the current repo state, summarize risky diffs, failing tests, and the most important next coding task.',
+    icon: Sparkles,
+  },
+  {
+    label: 'Dependency audit',
+    cron: '0 10 * * 1',
+    prompt: 'Inspect dependencies, identify outdated or risky packages, and summarize recommended upgrades.',
+    icon: Shield,
+  },
+  {
+    label: 'Regression smoke test',
+    cron: '0 */6 * * *',
+    prompt: 'Run the main build and test smoke checks, summarize failures clearly, and note whether the app is releasable.',
+    icon: Wrench,
+  },
+];
+
 const SettingsModal = () => {
   const open = useStore((s) => s.settingsOpen);
   const setOpen = useStore((s) => s.setSettingsOpen);
@@ -55,6 +76,8 @@ const SettingsModal = () => {
   const setMaxSteps = useStore((s) => s.setMaxSteps);
   const captureInterval = useStore((s) => s.captureInterval);
   const setCaptureInterval = useStore((s) => s.setCaptureInterval);
+  const reasoningEffort = useStore((s) => s.reasoningEffort);
+  const setReasoningEffort = useStore((s) => s.setReasoningEffort);
 
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
@@ -101,6 +124,7 @@ const SettingsModal = () => {
   const [language, setLanguage] = useState('en');
   const [responseStyle, setResponseStyle] = useState('balanced');
   const [systemPrompt, setSystemPrompt] = useState('');
+  const [workProfile, setWorkProfile] = useState('general');
 
   // Skills
   const [skills, setSkills] = useState<AppSkill[]>([]);
@@ -137,6 +161,7 @@ const SettingsModal = () => {
     setTavilyKey(localStorage.getItem('TAVILY_API_KEY') || '');
     setBraveKey(localStorage.getItem('BRAVE_API_KEY') || '');
     setPlaywrightHost(localStorage.getItem('PLAYWRIGHT_HOST') || 'http://localhost:9222');
+    setReasoningEffort((localStorage.getItem('REASONING_EFFORT') as ReasoningEffort | null) || 'medium');
     setPyautoguiEnabled(localStorage.getItem('PYAUTOGUI_ENABLED') !== 'false');
     setAnnotateActions(localStorage.getItem('ANNOTATE_ACTIONS') !== 'false');
     setSaveScreenshots(localStorage.getItem('SAVE_SCREENSHOTS') === 'true');
@@ -172,6 +197,7 @@ const SettingsModal = () => {
     setLanguage(localStorage.getItem('AGENT_LANGUAGE') || 'en');
     setResponseStyle(localStorage.getItem('RESPONSE_STYLE') || 'balanced');
     setSystemPrompt(localStorage.getItem('SYSTEM_PROMPT') || '');
+    setWorkProfile(localStorage.getItem('WORK_PROFILE') || 'general');
 
     // Skills
     try {
@@ -199,6 +225,7 @@ const SettingsModal = () => {
     localStorage.setItem('TAVILY_API_KEY', tavilyKey);
     localStorage.setItem('BRAVE_API_KEY', braveKey);
     localStorage.setItem('PLAYWRIGHT_HOST', playwrightHost);
+    localStorage.setItem('REASONING_EFFORT', reasoningEffort);
     localStorage.setItem('PYAUTOGUI_ENABLED', String(pyautoguiEnabled));
     localStorage.setItem('ANNOTATE_ACTIONS', String(annotateActions));
     localStorage.setItem('SAVE_SCREENSHOTS', String(saveScreenshots));
@@ -222,6 +249,7 @@ const SettingsModal = () => {
     localStorage.setItem('AGENT_LANGUAGE', language);
     localStorage.setItem('RESPONSE_STYLE', responseStyle);
     localStorage.setItem('SYSTEM_PROMPT', systemPrompt);
+    localStorage.setItem('WORK_PROFILE', workProfile);
     saveSkills(skills);
     saveConnectors(connectors);
     localStorage.setItem('WEBHOOK_URL', webhookUrl);
@@ -245,6 +273,7 @@ const SettingsModal = () => {
         savePath,
         maxErrors,
         playwrightHost,
+        reasoningEffort,
         pyautoguiEnabled,
         confirmClick,
         scheduledTasks,
@@ -262,6 +291,7 @@ const SettingsModal = () => {
         agentName,
         language,
         responseStyle,
+        workProfile,
         systemPrompt,
         skills,
         connectors,
@@ -405,6 +435,21 @@ const SettingsModal = () => {
                 ))}
               </select>
             </ConfigRow>
+            {supportsReasoningEffort(model) && (
+              <ConfigRow label="Reasoning effort">
+                <select
+                  value={reasoningEffort}
+                  onChange={(e) => setReasoningEffort(e.target.value as ReasoningEffort)}
+                  className="bg-muted border border-border rounded-md px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring w-full"
+                >
+                  {getReasoningEffortOptions(model).map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </ConfigRow>
+            )}
           </div>
         );
 
@@ -510,8 +555,32 @@ const SettingsModal = () => {
       case 'scheduled':
         return (
           <div className="space-y-4">
-            <h3 className="text-base font-medium text-foreground">Scheduled Tasks</h3>
-            <p className="text-xs text-muted-foreground">Schedule tasks to run automatically at specific intervals.</p>
+            <h3 className="text-base font-medium text-foreground">Automations</h3>
+            <p className="text-xs text-muted-foreground">Codex-style recurring work: queue recurring reviews, audits, and developer workflows.</p>
+
+            <div className="grid gap-2 md:grid-cols-3">
+              {AUTOMATION_TEMPLATES.map(({ label, cron, prompt, icon: Icon }) => (
+                <button
+                  key={label}
+                  onClick={() => {
+                    setNewTaskName(label);
+                    setNewTaskCron(cron);
+                    setNewTaskPrompt(prompt);
+                  }}
+                  className="rounded-xl border border-border bg-muted/50 p-3 text-left transition-colors hover:bg-surface-elevated"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <Icon size={14} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{label}</p>
+                      <p className="text-[11px] font-mono text-muted-foreground">{cron}</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
 
             {/* Existing tasks */}
             {scheduledTasks.length > 0 && (
@@ -668,6 +737,18 @@ const SettingsModal = () => {
                 <option value="creative">Creative</option>
               </select>
             </ConfigRow>
+            <ConfigRow label="Work profile">
+              <select value={workProfile} onChange={(e) => setWorkProfile(e.target.value)} className="bg-muted border border-border rounded-md px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring w-full">
+                <option value="general">General</option>
+                <option value="codex">Codex</option>
+                <option value="reviewer">Reviewer</option>
+                <option value="debugger">Debugger</option>
+                <option value="architect">Architect</option>
+              </select>
+            </ConfigRow>
+            <p className="text-xs text-muted-foreground">
+              Current work profile: {workProfile === 'general' ? 'General' : workProfile === 'codex' ? 'Codex' : workProfile === 'reviewer' ? 'Reviewer' : workProfile === 'debugger' ? 'Debugger' : 'Architect'}
+            </p>
             <div>
               <label className="text-xs text-muted-foreground">Custom system prompt</label>
               <textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} rows={4} placeholder="Add custom instructions for the agent..." className="w-full bg-muted border border-border rounded-md px-3 py-2 text-sm text-foreground mt-1 focus:outline-none focus:ring-1 focus:ring-ring resize-none" />

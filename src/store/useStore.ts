@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { startRun, stopRun, createEventStream, checkHealth, type AgentEvent, type HealthResponse } from '@/lib/api';
-import { isAgentModelSupported } from '@/components/ModelSelector';
+import { isAgentModelSupported, supportsReasoningEffort, type ReasoningEffort } from '@/components/ModelSelector';
 import { buildAgentTask, defaultComposerPreferences, type ComposerPreferences } from '@/lib/user-config';
 import { getCurrentProjectId as loadCurrentProjectId, setCurrentProjectId as persistCurrentProjectId } from '@/lib/projects';
 
@@ -81,6 +81,7 @@ interface AppState {
   elapsedTime: number;
   model: string;
   captureInterval: number;
+  reasoningEffort: ReasoningEffort;
   runId: string | null;
   backendOnline: boolean;
   backendHealth: HealthResponse | null;
@@ -125,6 +126,7 @@ interface AppState {
   setModel: (model: string) => void;
   setMaxSteps: (n: number) => void;
   setCaptureInterval: (ms: number) => void;
+  setReasoningEffort: (effort: ReasoningEffort) => void;
   setBackendOnline: (online: boolean) => void;
   setBackendHealth: (health: HealthResponse | null) => void;
   syncBackendHealth: () => Promise<void>;
@@ -192,6 +194,7 @@ export const useStore = create<AppState>((set, get) => ({
   elapsedTime: 0,
   model: 'claude-sonnet-4-6',
   captureInterval: 1000,
+  reasoningEffort: (typeof window !== 'undefined' && (localStorage.getItem('REASONING_EFFORT') as ReasoningEffort | null)) || 'medium',
   runId: null,
   backendOnline: true,
   backendHealth: null,
@@ -226,6 +229,12 @@ export const useStore = create<AppState>((set, get) => ({
   })),
   setMaxSteps: (n) => set({ maxSteps: Math.max(1, Math.min(100, n)) }),
   setCaptureInterval: (ms) => set({ captureInterval: ms }),
+  setReasoningEffort: (effort) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('REASONING_EFFORT', effort);
+    }
+    set({ reasoningEffort: effort });
+  },
   setBackendOnline: (online) => set({ backendOnline: online }),
   setBackendHealth: (health) => set({ backendHealth: health, backendOnline: !!health }),
   syncBackendHealth: async () => {
@@ -290,7 +299,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   startAgent: async () => {
-    const { task, model, maxSteps, captureInterval, composerPreferences } = get();
+    const { task, model, maxSteps, captureInterval, composerPreferences, reasoningEffort } = get();
     const effectiveTask = buildAgentTask(task, composerPreferences);
 
     const infoEntry: LogEntry = {
@@ -326,12 +335,19 @@ export const useStore = create<AppState>((set, get) => ({
         model,
         max_steps: maxSteps,
         capture_interval_ms: captureInterval,
+        reasoning_effort: supportsReasoningEffort(model) ? reasoningEffort : null,
       });
       set({ runId: run_id, backendOnline: true });
 
       createEventStream(
         run_id,
-        { task: effectiveTask, model, max_steps: maxSteps, capture_interval_ms: captureInterval },
+        {
+          task: effectiveTask,
+          model,
+          max_steps: maxSteps,
+          capture_interval_ms: captureInterval,
+          reasoning_effort: supportsReasoningEffort(model) ? reasoningEffort : null,
+        },
         (event) => get().processEvent(event),
         () => {
           // done handled in processEvent

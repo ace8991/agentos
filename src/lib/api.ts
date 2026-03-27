@@ -1,4 +1,9 @@
-import { MODEL_PROVIDERS, type ModelProvider } from '@/components/ModelSelector';
+import {
+  MODEL_PROVIDERS,
+  supportsReasoningEffort,
+  type ModelProvider,
+  type ReasoningEffort,
+} from '@/components/ModelSelector';
 
 export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
 const BASE = API_BASE_URL;
@@ -36,6 +41,8 @@ function getProviderEndpoint(provider: ModelProvider, baseUrl: string): string {
 export async function chatDirect(
   messages: { role: string; content: string }[],
   modelId: string,
+  reasoningEffort: ReasoningEffort | null,
+  webSearch: boolean,
   onToken: (t: string) => void,
   onDone: () => void,
   onError: (e: string) => void,
@@ -47,7 +54,7 @@ export async function chatDirect(
 
   if (provider.requiresKey && !apiKey) {
     try {
-      await chatStream(messages, modelId, false, onToken, onDone, onError);
+      await chatStream(messages, modelId, webSearch, reasoningEffort, onToken, onDone, onError);
       return;
     } catch {
       onError(`No API key configured for ${provider.name}. Go to Settings → API Keys to add your ${provider.keyName}, or configure the backend server keys.`);
@@ -65,7 +72,7 @@ export async function chatDirect(
     } else {
       // OpenAI-compatible: OpenAI, DeepSeek, Mistral, Groq, LM Studio
       const endpoint = getProviderEndpoint(provider, baseUrl);
-      await streamOpenAICompatible(messages, modelId, apiKey, endpoint, onToken, onDone, onError);
+      await streamOpenAICompatible(messages, modelId, apiKey, endpoint, reasoningEffort, onToken, onDone, onError);
     }
   } catch (err) {
     onError(err instanceof Error ? err.message : 'Chat request failed');
@@ -77,17 +84,22 @@ async function streamOpenAICompatible(
   model: string,
   apiKey: string,
   endpoint: string,
+  reasoningEffort: ReasoningEffort | null,
   onToken: (t: string) => void,
   onDone: () => void,
   onError: (e: string) => void,
 ) {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+  const body: Record<string, unknown> = { model, messages, stream: true };
+  if (supportsReasoningEffort(model) && reasoningEffort && reasoningEffort !== 'none') {
+    body.reasoning_effort = reasoningEffort;
+  }
 
   const r = await fetch(endpoint, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ model, messages, stream: true }),
+    body: JSON.stringify(body),
   });
 
   if (!r.ok) {
@@ -314,6 +326,7 @@ export async function startRun(params: {
   model: string;
   max_steps: number;
   capture_interval_ms: number;
+  reasoning_effort?: ReasoningEffort | null;
 }): Promise<{ run_id: string }> {
   const r = await fetch(`${BASE}/agent/start`, {
     method: 'POST',
@@ -347,7 +360,7 @@ export async function stopRun(run_id: string) {
 
 export function createEventStream(
   run_id: string,
-  params: { task: string; model: string; max_steps: number; capture_interval_ms: number },
+  params: { task: string; model: string; max_steps: number; capture_interval_ms: number; reasoning_effort?: ReasoningEffort | null },
   onEvent: (e: AgentEvent) => void,
   onDone: () => void,
   onError: (msg: string) => void,
@@ -358,6 +371,9 @@ export function createEventStream(
     max_steps: String(params.max_steps),
     capture_interval_ms: String(params.capture_interval_ms),
   });
+  if (params.reasoning_effort) {
+    p.set('reasoning_effort', params.reasoning_effort);
+  }
   const es = new EventSource(`${BASE}/agent/stream/${run_id}?${p}`);
   es.onmessage = (e) => {
     const data: AgentEvent = JSON.parse(e.data);
@@ -390,6 +406,7 @@ export async function chatStream(
   messages: { role: string; content: string }[],
   model: string,
   webSearch: boolean,
+  reasoningEffort: ReasoningEffort | null,
   onToken: (t: string) => void,
   onDone: () => void,
   onError: (e: string) => void,
@@ -397,7 +414,7 @@ export async function chatStream(
   const r = await fetch(`${BASE}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, model, web_search: webSearch }),
+    body: JSON.stringify({ messages, model, web_search: webSearch, reasoning_effort: reasoningEffort || undefined }),
   });
   if (!r.body) { onError('No response body'); return; }
   const reader = r.body.getReader();

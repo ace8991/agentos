@@ -24,6 +24,7 @@ class RunState:
     model: str
     max_steps: int
     capture_interval_ms: int
+    reasoning_effort: Optional[str]
     created_at: float
     started: bool = False
 
@@ -42,7 +43,7 @@ def cleanup_stale_runs() -> None:
         _active_runs.pop(run_id, None)
 
 
-def create_run(task: str, model: str, max_steps: int, capture_interval_ms: int) -> str:
+def create_run(task: str, model: str, max_steps: int, capture_interval_ms: int, reasoning_effort: Optional[str] = None) -> str:
     cleanup_stale_runs()
     run_id = str(uuid.uuid4())
     _active_runs[run_id] = RunState(
@@ -51,6 +52,7 @@ def create_run(task: str, model: str, max_steps: int, capture_interval_ms: int) 
         model=model,
         max_steps=max_steps,
         capture_interval_ms=capture_interval_ms,
+        reasoning_effort=reasoning_effort,
         created_at=time.monotonic(),
     )
     return run_id
@@ -81,6 +83,7 @@ async def run_agent(
     model: str | None = None,
     max_steps: int | None = None,
     capture_interval_ms: int | None = None,
+    reasoning_effort: Optional[str] = None,
 ) -> AsyncGenerator[str, None]:
     state = _active_runs.get(run_id)
     if not state:
@@ -93,6 +96,7 @@ async def run_agent(
     model = model or state.model
     max_steps = max_steps or state.max_steps
     capture_interval_ms = capture_interval_ms or state.capture_interval_ms
+    reasoning_effort = reasoning_effort or state.reasoning_effort
 
     history: list[dict] = []
     memory: dict = {}
@@ -124,7 +128,7 @@ async def run_agent(
             reasoning, action = await asyncio.to_thread(
                 think_and_act,
                 task, screenshot_b64, step, max_steps,
-                history, memory, model, last_tool_result,
+                history, memory, model, last_tool_result, reasoning_effort,
             )
         except Exception as e:
             consecutive_errors += 1

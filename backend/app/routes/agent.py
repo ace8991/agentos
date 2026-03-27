@@ -22,6 +22,7 @@ async def start_agent(req: StartRequest):
         model=req.model,
         max_steps=req.max_steps,
         capture_interval_ms=req.capture_interval_ms,
+        reasoning_effort=req.reasoning_effort,
     )
     return {"run_id": run_id}
 
@@ -42,6 +43,7 @@ async def stream_agent(
     model: str | None = None,
     max_steps: int | None = None,
     capture_interval_ms: int | None = None,
+    reasoning_effort: str | None = None,
 ):
     """
     SSE stream for a given run_id.
@@ -59,6 +61,8 @@ async def stream_agent(
         raise HTTPException(400, "max_steps must match the values used in /agent/start")
     if capture_interval_ms is not None and capture_interval_ms != state.capture_interval_ms:
         raise HTTPException(400, "capture_interval_ms must match the values used in /agent/start")
+    if reasoning_effort is not None and reasoning_effort != state.reasoning_effort:
+        raise HTTPException(400, "reasoning_effort must match the values used in /agent/start")
 
     return StreamingResponse(
         runner.run_agent(
@@ -67,6 +71,7 @@ async def stream_agent(
             model=state.model,
             max_steps=state.max_steps,
             capture_interval_ms=state.capture_interval_ms,
+            reasoning_effort=state.reasoning_effort,
         ),
         media_type="text/event-stream",
         headers={

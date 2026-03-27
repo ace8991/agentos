@@ -2,12 +2,15 @@ from pydantic import BaseModel
 from typing import Any, Literal, Optional
 from enum import Enum
 
+ReasoningEffort = Literal["none", "minimal", "low", "medium", "high", "xhigh"]
+
 
 class StartRequest(BaseModel):
     task: str
     model: str = "claude-sonnet-4-6"
     max_steps: int = 20
     capture_interval_ms: int = 1000
+    reasoning_effort: Optional[ReasoningEffort] = None
 
 
 class StopRequest(BaseModel):
@@ -23,6 +26,7 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     model: str
     web_search: bool = False
+    reasoning_effort: Optional[ReasoningEffort] = None
 
 
 class ModelInfo(BaseModel):

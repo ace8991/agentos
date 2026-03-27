@@ -31,6 +31,8 @@ const AGENT_REQUEST_PATTERNS = [
   /\b(site web|navigue|ouvrir|ouvre|va sur|aller sur|clique|cherche sur|recherche sur|remplis|telecharge|interagis)\b/i,
   /\b(terminal|shell|commande|command line|bash|powershell|console)\b/i,
   /\b(desktop|ordinateur|computer|screen|screenshot|fichier local|local file)\b/i,
+  /\b(repo|repository|git|github|pull request|pr\b|commit|branch|diff|patch|refactor|debug|bug|test|failing test|lint|stack trace|codebase|review code)\b/i,
+  /\b(code review|fix bug|ecris un test|ecrire un test|corrige le bug|analyse le repo|refactorise|debugge)\b/i,
 ];
 
 const shouldRouteToAgent = (text: string, backendOnline: boolean, webResearchEnabled: boolean) => {
@@ -70,6 +72,7 @@ const ChatPanel = () => {
   const setComposerPreferences = useStore((s) => s.setComposerPreferences);
   const backendOnline = useStore((s) => s.backendOnline);
   const backendHealth = useStore((s) => s.backendHealth);
+  const reasoningEffort = useStore((s) => s.reasoningEffort);
   const currentProjectId = useStore((s) => s.currentProjectId);
   const incognitoMode = useStore((s) => s.incognitoMode);
   const setIncognitoMode = useStore((s) => s.setIncognitoMode);
@@ -246,6 +249,8 @@ const ChatPanel = () => {
     await chatDirect(
       messages,
       model,
+      reasoningEffort,
+      composerPreferences.webResearch,
       (token) => {
         assistantBufferRef.current += token;
         useStore.setState((state) => ({
