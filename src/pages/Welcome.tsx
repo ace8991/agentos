@@ -248,9 +248,16 @@ const Welcome = () => {
       <TaskSidebar />
 
       <div className="flex-1 flex flex-col h-screen min-w-0 relative overflow-hidden">
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-[1.03]"
-          style={{ backgroundImage: 'url(/images/hero-bg.png)' }}
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,#6679a6_0%,#3a334c_48%,#121520_100%)]" />
+        <img
+          src="/images/hero-bg-agentos.svg"
+          alt=""
+          aria-hidden="true"
+          loading="eager"
+          decoding="async"
+          fetchPriority="high"
+          className="absolute inset-0 h-full w-full object-cover object-center scale-[1.015] select-none"
+          draggable={false}
         />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_24%,rgba(67,176,255,0.24),transparent_28%),radial-gradient(circle_at_78%_18%,rgba(255,192,120,0.18),transparent_26%),radial-gradient(circle_at_50%_72%,rgba(156,139,255,0.10),transparent_30%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,14,24,0.12)_0%,rgba(10,14,24,0.42)_100%)]" />
