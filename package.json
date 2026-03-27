@@ -1,7 +1,8 @@
 {
-  "name": "vite_react_shadcn_ts",
+  "name": "agentos-pro",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "Premium desktop AI workspace with a Vite frontend and FastAPI backend.",
   "type": "module",
   "scripts": {
     "dev": "vite",
