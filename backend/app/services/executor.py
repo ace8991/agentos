@@ -5,7 +5,9 @@ any desktop action and returns a clear error if called from cloud mode.
 
 import asyncio
 import logging
+import os
 import subprocess
+import sys
 import time
 
 from app.config import is_tool_available
@@ -148,12 +150,32 @@ def _shell(cmd):
     if not cmd:
         return {"success": False, "description": "no command"}
     try:
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+        if sys.platform.startswith("win"):
+            powershell = os.environ.get("ComSpec", r"C:\Windows\System32\cmd.exe")
+            powershell = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
+            result = subprocess.run(
+                [
+                    powershell,
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-Command",
+                    cmd,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=45,
+            )
+        else:
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=45)
+        stdout = (result.stdout or "").replace("\x00", "")
+        stderr = (result.stderr or "").replace("\x00", "")
+        summary = (stdout or stderr or "").strip()[:120]
         return {
             "success": result.returncode == 0,
-            "stdout": result.stdout[:2000],
-            "stderr": result.stderr[:400],
-            "description": f"Exit {result.returncode}: {result.stdout[:100]}",
+            "stdout": stdout[:2000],
+            "stderr": stderr[:400],
+            "description": f"Exit {result.returncode}: {summary}",
         }
     except subprocess.TimeoutExpired:
         return {"success": False, "description": "timed out"}

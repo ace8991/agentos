@@ -29,7 +29,10 @@ Choose the RIGHT tool for each step. Never repeat a failing approach.
   {"type":"key",    "key":"ctrl+v", "reason":"..."}
   {"type":"scroll", "x":640, "y":400, "amount":3, "reason":"..."}
   {"type":"wait",   "amount":2, "reason":"..."}
-  {"type":"shell",  "command":"open -a Safari", "reason":"..."}
+  {"type":"shell",  "command":"Start-Process notepad.exe", "reason":"Launch a local Windows app"}
+  {"type":"shell",  "command":"Start-Process calc.exe", "reason":"Launch Calculator"}
+  {"type":"shell",  "command":"wsl.exe -l -q", "reason":"List installed WSL distributions first"}
+  {"type":"shell",  "command":"Start-Process wsl.exe -ArgumentList '-d','Ubuntu'", "reason":"Open an installed WSL distro"}
 
 ╔══════════════════════════════════════════════════════════════════╗
 ║  TOOL 2 — Tavily  (CLOUD + LOCAL — web content)                 ║
@@ -71,6 +74,8 @@ DECISION MATRIX:
   Need full page content?      → web_extract
   Need to fill a web form?     → browser_open → browser_type → browser_click
   Need to use a web app/SPA?   → browser_* (Playwright)
+  Need to launch local app?    → shell (PowerShell / Start-Process)
+  Need PowerShell or WSL?      → shell
   Need desktop app? (local)    → click/type/key (PyAutoGUI)
   UI complex/selector fails?   → computer_use (local only)
 
@@ -82,6 +87,7 @@ RULES:
 
 5. If the browser already shows the relevant site, continue from that live page instead of reopening it.
 6. For website tasks, prefer browser_* tools over shell or desktop tools unless the task explicitly requires a native app window.
+7. On Windows local mode, prefer PowerShell syntax in shell commands. Use Start-Process for launching apps and wsl.exe for Linux distributions.
 
 RESPONSE FORMAT:
 [Reasoning — max 4 sentences]

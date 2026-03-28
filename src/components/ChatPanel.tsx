@@ -31,8 +31,8 @@ const AGENT_REQUEST_PATTERNS = [
   /https?:\/\//i,
   /\b(site|website|browser|page web|page|url|navigate|open|visit|click|scroll|fill|form|download|upload)\b/i,
   /\b(site web|navigue|ouvrir|ouvre|va sur|aller sur|clique|cherche sur|recherche sur|remplis|telecharge|interagis)\b/i,
-  /\b(terminal|shell|commande|command line|bash|powershell|console)\b/i,
-  /\b(desktop|ordinateur|computer|screen|screenshot|fichier local|local file)\b/i,
+  /\b(terminal|shell|commande|command line|bash|powershell|console|cmd|invite de commande|wsl|ubuntu|kali|kali linux)\b/i,
+  /\b(desktop|ordinateur|computer|screen|screenshot|fichier local|local file|application|app locale|app local|lancer une app|launch app|ouvrir une application|start process)\b/i,
   /\b(repo|repository|git|github|pull request|pr\b|commit|branch|diff|patch|refactor|debug|bug|test|failing test|lint|stack trace|codebase|review code)\b/i,
   /\b(code review|fix bug|ecris un test|ecrire un test|corrige le bug|analyse le repo|refactorise|debugge)\b/i,
 ];
