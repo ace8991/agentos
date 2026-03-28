@@ -13,6 +13,7 @@ export default tseslint.config(
       "backend/.venv",
       "backend/**/__pycache__",
       "**/*.pyc",
+      "**/*.timestamp-*.mjs",
     ],
   },
   {

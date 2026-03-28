@@ -482,19 +482,6 @@ const Welcome = () => {
           </div>
         </div>
 
-        <div className="relative z-10 flex justify-center pt-6 md:pt-8">
-          <div className="flex items-center gap-2 text-xs rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 backdrop-blur-md">
-            <span className="text-white/55">Free plan</span>
-            <span className="text-white/20">|</span>
-            <button
-              onClick={() => toast.message('Billing workspace is next on the roadmap.')}
-              className="text-accent hover:text-accent/80 transition-colors font-medium"
-            >
-              Start free trial
-            </button>
-          </div>
-        </div>
-
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 md:px-8 -mt-2 md:-mt-4">
           <div className="w-full max-w-3xl text-center">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.08] px-4 py-2 text-[11px] uppercase tracking-[0.18em] text-white/65 backdrop-blur-md">

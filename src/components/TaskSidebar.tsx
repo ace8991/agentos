@@ -1,13 +1,12 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  Plus, Search, Settings, SlidersHorizontal, BookOpen, Bot, FolderPlus,
+  Plus, Search, Settings, BookOpen, Bot, FolderPlus,
   Share2, ChevronRight, Plug, Globe, PanelLeftClose, PanelLeftOpen,
-  BarChart3, Clock, Trash2, Menu, X
+  Menu, X
 } from 'lucide-react';
 import { useStore, type HistoryRun } from '@/store/useStore';
 import HexLogo from './HexLogo';
-import SidebarModeSwitch from './sidebar/SidebarModeSwitch';
 import SidebarToolStatus from './sidebar/SidebarToolStatus';
 import { getCurrentProject, loadProjects, PROJECTS_UPDATED_EVENT, type AppProject } from '@/lib/projects';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -36,7 +35,6 @@ const TaskSidebar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [agentsOpen, setAgentsOpen] = useState(false);
-  const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [projects, setProjects] = useState<AppProject[]>(() => loadProjects());
@@ -64,14 +62,6 @@ const TaskSidebar = () => {
     navigate('/dashboard');
   };
 
-  const handleClearHistory = () => {
-    if (!window.confirm('Clear the local task history in this browser?')) {
-      return;
-    }
-    useStore.setState({ history: [] });
-    toast.success('Task history cleared');
-  };
-
   const handleShare = async () => {
     const shareText = 'Try AgentOS for autonomous workflows and AI-powered task execution.';
     const shareUrl = window.location.origin;
@@ -90,8 +80,7 @@ const TaskSidebar = () => {
   };
 
   const filteredHistory = history
-    .filter((r) => !searchQuery || r.task.toLowerCase().includes(searchQuery.toLowerCase()))
-    .filter((r) => !filterStatus || r.status === filterStatus);
+    .filter((r) => !searchQuery || r.task.toLowerCase().includes(searchQuery.toLowerCase()));
 
   const sidebarContent = (
     <div className="flex flex-col h-full">
@@ -118,9 +107,6 @@ const TaskSidebar = () => {
           </button>
         )}
       </div>
-
-      {/* Mode switcher */}
-      <SidebarModeSwitch />
 
       {/* Main navigation */}
       <div className="px-3 py-2 space-y-0.5">
@@ -273,45 +259,6 @@ const TaskSidebar = () => {
           />
         </div>
       )}
-
-      <div className="px-3 pt-3 pb-1">
-        <div className="flex items-center justify-between px-3">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">All tasks</span>
-          <div className="flex items-center gap-1">
-            {history.length > 0 && (
-              <button
-                onClick={handleClearHistory}
-                className="text-muted-foreground hover:text-destructive transition-colors p-0.5"
-                title="Clear history"
-              >
-                <Trash2 size={12} />
-              </button>
-            )}
-            <button
-              onClick={() => setFilterStatus(filterStatus ? null : 'done')}
-              className={`transition-colors p-0.5 ${filterStatus ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Filter tasks"
-            >
-              <SlidersHorizontal size={13} />
-            </button>
-          </div>
-        </div>
-        {filterStatus && (
-          <div className="flex gap-1 px-3 mt-1.5">
-            {['done', 'error', 'running'].map((s) => (
-              <button
-                key={s}
-                onClick={() => setFilterStatus(filterStatus === s ? null : s)}
-                className={`text-[10px] px-2 py-0.5 rounded-full capitalize transition-colors ${
-                  filterStatus === s ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-thin px-3 py-1 space-y-0.5">
         {filteredHistory.length === 0 && (
