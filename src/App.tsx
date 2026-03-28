@@ -17,11 +17,26 @@ const RuntimeSync = () => {
   const syncBackendHealth = useStore((s) => s.syncBackendHealth);
 
   useEffect(() => {
-    syncBackendHealth();
-    const interval = window.setInterval(() => {
-      syncBackendHealth();
-    }, 15000);
-    return () => window.clearInterval(interval);
+    let cancelled = false;
+    let timeoutId: number | null = null;
+
+    const probe = async () => {
+      await syncBackendHealth();
+      if (cancelled) {
+        return;
+      }
+      const delay = useStore.getState().backendOnline ? 15000 : 60000;
+      timeoutId = window.setTimeout(probe, delay);
+    };
+
+    void probe();
+
+    return () => {
+      cancelled = true;
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
   }, [syncBackendHealth]);
 
   return null;

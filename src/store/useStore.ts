@@ -84,6 +84,7 @@ interface AppState {
   reasoningEffort: ReasoningEffort;
   runId: string | null;
   backendOnline: boolean;
+  backendChecked: boolean;
   backendHealth: HealthResponse | null;
   errorMessage: string | null;
   activeThread: ActiveThread;
@@ -196,7 +197,8 @@ export const useStore = create<AppState>((set, get) => ({
   captureInterval: 1000,
   reasoningEffort: (typeof window !== 'undefined' && (localStorage.getItem('REASONING_EFFORT') as ReasoningEffort | null)) || 'medium',
   runId: null,
-  backendOnline: true,
+  backendOnline: false,
+  backendChecked: false,
   backendHealth: null,
   errorMessage: null,
   activeThread: null,
@@ -235,14 +237,14 @@ export const useStore = create<AppState>((set, get) => ({
     }
     set({ reasoningEffort: effort });
   },
-  setBackendOnline: (online) => set({ backendOnline: online }),
-  setBackendHealth: (health) => set({ backendHealth: health, backendOnline: !!health }),
+  setBackendOnline: (online) => set({ backendOnline: online, backendChecked: true }),
+  setBackendHealth: (health) => set({ backendHealth: health, backendOnline: !!health, backendChecked: true }),
   syncBackendHealth: async () => {
     try {
       const health = await checkHealth();
-      set({ backendHealth: health, backendOnline: true });
+      set({ backendHealth: health, backendOnline: true, backendChecked: true });
     } catch {
-      set({ backendHealth: null, backendOnline: false });
+      set({ backendHealth: null, backendOnline: false, backendChecked: true });
     }
   },
   setActiveThread: (thread) => set({ activeThread: thread }),

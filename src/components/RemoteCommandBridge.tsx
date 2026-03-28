@@ -7,6 +7,7 @@ const AUTO_EXECUTE_KEY = 'REMOTE_AUTO_EXECUTE_LOCAL';
 
 const RemoteCommandBridge = () => {
   const backendOnline = useStore((s) => s.backendOnline);
+  const backendChecked = useStore((s) => s.backendChecked);
   const backendHealth = useStore((s) => s.backendHealth);
   const status = useStore((s) => s.status);
   const setTask = useStore((s) => s.setTask);
@@ -17,7 +18,7 @@ const RemoteCommandBridge = () => {
   const notifiedPendingRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!backendOnline) {
+    if (!backendChecked || !backendOnline) {
       return;
     }
 
@@ -67,7 +68,7 @@ const RemoteCommandBridge = () => {
     poll();
     const interval = window.setInterval(poll, 5000);
     return () => window.clearInterval(interval);
-  }, [backendHealth?.mode, backendOnline, reset, setActiveThread, setTask, startAgent, status]);
+  }, [backendChecked, backendHealth?.mode, backendOnline, reset, setActiveThread, setTask, startAgent, status]);
 
   useEffect(() => {
     const activeCommandId = activeCommandIdRef.current;
