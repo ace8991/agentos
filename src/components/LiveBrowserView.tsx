@@ -17,8 +17,25 @@ interface LiveBrowserViewProps {
   onClose?: () => void;
 }
 
-const WS_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000')
-  .replace('http://', 'ws://').replace('https://', 'wss://');
+const resolveWsBase = () => {
+  const configuredBase = import.meta.env.VITE_API_BASE_URL?.trim();
+  const browserHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+  const fallbackBase = `http://${browserHost}:8000`;
+  const rawBase = configuredBase || fallbackBase;
+
+  try {
+    const url = new URL(rawBase);
+    if (['localhost', '127.0.0.1'].includes(url.hostname) && browserHost) {
+      url.hostname = browserHost;
+    }
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return rawBase.replace('http://', 'ws://').replace('https://', 'wss://');
+  }
+};
+
+const WS_BASE = resolveWsBase();
 
 const LiveBrowserView = ({ runId, isRunning, currentReasoning, onClose }: LiveBrowserViewProps) => {
   const [frame, setFrame] = useState<BrowserFrame | null>(null);
@@ -31,7 +48,7 @@ const LiveBrowserView = ({ runId, isRunning, currentReasoning, onClose }: LiveBr
   const connect = useCallback(() => {
     if (!runId || !isRunning) return;
     wsRef.current?.close();
-    const ws = new WebSocket(`${WS_BASE}/browser/stream/${runId}`);
+    const ws = new WebSocket(`${WS_BASE}/browser/stream/${runId}?fps=10`);
     wsRef.current = ws;
     ws.onopen = () => setConnected(true);
     ws.onclose = () => {
@@ -46,7 +63,9 @@ const LiveBrowserView = ({ runId, isRunning, currentReasoning, onClose }: LiveBr
         if (data.type === 'frame' && data.screenshot_b64 && imgRef.current) {
           imgRef.current.src = `data:image/jpeg;base64,${data.screenshot_b64}`;
         }
-      } catch {}
+      } catch {
+        // Ignore malformed live-browser events and keep the current frame.
+      }
     };
   }, [runId, isRunning]);
 
@@ -99,7 +118,7 @@ const LiveBrowserView = ({ runId, isRunning, currentReasoning, onClose }: LiveBr
         {!hasFrame && isRunning && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#0e0e16]">
             <div className="w-7 h-7 border-2 border-primary/30 border-t-primary rounded-full animate-spin"/>
-            <span className="text-xs text-muted-foreground">Opening browser...</span>
+            <span className="text-xs text-muted-foreground">{frame?.message || 'Opening browser...'}</span>
           </div>
         )}
         {/* AI reasoning bubble */}

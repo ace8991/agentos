@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Globe, Hand, Maximize2, Minimize2, Monitor, Terminal } from 'lucide-react';
+import { Globe, Hand, Maximize2, Minimize2, Monitor, Terminal, Wifi } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import ActionAnnotationOverlay from './ActionAnnotationOverlay';
+import LiveBrowserView from './LiveBrowserView';
 import StepProgressBar from './StepProgressBar';
 
-type Tab = 'browser' | 'terminal';
+type Tab = 'live' | 'browser' | 'terminal';
 
 interface ExecutionScreenProps {
   forceMobile?: boolean;
@@ -20,10 +21,11 @@ const ExecutionScreen = ({ forceMobile }: ExecutionScreenProps) => {
   const currentStep = useStore((s) => s.currentStep);
   const maxSteps = useStore((s) => s.maxSteps);
   const elapsedTime = useStore((s) => s.elapsedTime);
+  const runId = useStore((s) => s.runId);
   const takeoverRequested = useStore((s) => s.takeoverRequested);
   const releaseTakeover = useStore((s) => s.releaseTakeover);
   const lastSurface = useStore((s) => s.lastSurface);
-  const [activeTab, setActiveTab] = useState<Tab>('browser');
+  const [activeTab, setActiveTab] = useState<Tab>('live');
   const [expanded, setExpanded] = useState(false);
 
   const isRunning = status === 'running';
@@ -34,6 +36,7 @@ const ExecutionScreen = ({ forceMobile }: ExecutionScreenProps) => {
   const hasBrowserActivity = isLive && (browserEntries.length > 0 || !!browserUrl || !!browserTitle);
   const hasTerminalActivity = isLive && terminalEntries.length > 0;
   const visibleTabs = [
+    hasBrowserActivity ? 'live' : null,
     hasBrowserActivity ? 'browser' : null,
     hasTerminalActivity ? 'terminal' : null,
   ].filter(Boolean) as Tab[];
@@ -44,7 +47,7 @@ const ExecutionScreen = ({ forceMobile }: ExecutionScreenProps) => {
       return;
     }
     if (lastSurface === 'browser' && hasBrowserActivity) {
-      setActiveTab('browser');
+      setActiveTab('live');
       return;
     }
     if (!hasBrowserActivity && hasTerminalActivity) {
@@ -52,7 +55,7 @@ const ExecutionScreen = ({ forceMobile }: ExecutionScreenProps) => {
       return;
     }
     if (hasBrowserActivity) {
-      setActiveTab('browser');
+      setActiveTab('live');
     }
   }, [hasBrowserActivity, hasTerminalActivity, lastSurface]);
 
@@ -66,6 +69,7 @@ const ExecutionScreen = ({ forceMobile }: ExecutionScreenProps) => {
     return null;
   }
 
+  const latestEntry = entries[0];
   const latestRelevantEntry = activeTab === 'terminal' ? terminalEntries[0] : browserEntries[0];
   const currentAction = latestRelevantEntry?.toolLabel || (isRunning ? 'Processing...' : '');
 
@@ -80,6 +84,17 @@ const ExecutionScreen = ({ forceMobile }: ExecutionScreenProps) => {
       <div className="flex items-center justify-between border-b border-border px-3 py-2.5 md:px-4">
         {visibleTabs.length > 1 ? (
           <div className="flex items-center gap-1">
+            <button
+              onClick={() => setActiveTab('live')}
+              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                activeTab === 'live'
+                  ? 'border border-red-500/20 bg-red-500/10 text-red-400'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Wifi size={13} className={isRunning ? 'animate-pulse' : undefined} />
+              Live
+            </button>
             <button
               onClick={() => setActiveTab('browser')}
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
@@ -138,7 +153,13 @@ const ExecutionScreen = ({ forceMobile }: ExecutionScreenProps) => {
       )}
 
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        {activeTab === 'browser' && hasBrowserActivity ? (
+        {activeTab === 'live' && hasBrowserActivity ? (
+          <LiveBrowserView
+            runId={runId}
+            isRunning={isRunning || isPaused}
+            currentReasoning={latestEntry?.reasoning || ''}
+          />
+        ) : activeTab === 'browser' && hasBrowserActivity ? (
           <div className="relative flex h-full w-full items-center justify-center bg-muted">
             {currentScreenshot ? (
               <>

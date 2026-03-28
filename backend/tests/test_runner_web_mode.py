@@ -155,6 +155,71 @@ class RunnerWebModeTests(unittest.TestCase):
         done_events = [event for event in events if event["type"] == "done"]
         self.assertTrue(done_events)
 
+    def test_web_mode_does_not_fall_back_to_desktop_capture(self) -> None:
+        run_id = runner.create_run(
+            task="verify amazon order history",
+            model="gpt-5.4",
+            max_steps=2,
+            capture_interval_ms=100,
+        )
+
+        bootstrap_payload = {
+            "success": True,
+            "description": "Prepared browser workspace on Amazon order history.",
+            "url": "https://www.amazon.com/gp/css/order-history",
+            "bootstrap_url": "https://www.amazon.com/gp/css/order-history",
+            "bootstrap_source": "amazon-orders",
+            "screenshot_b64": "Ym9vdHN0cmFw",
+            "text_preview": "Amazon order history",
+        }
+        snapshot_payload = {
+            "success": True,
+            "description": "Snapshot of Amazon order history",
+            "url": "https://www.amazon.com/gp/css/order-history",
+            "title": "Your Orders",
+            "screenshot_b64": "c25hcHNob3Q=",
+            "text_preview": "Latest Amazon order status",
+        }
+
+        async def collect_events():
+            events = []
+            async for chunk in runner.run_agent(run_id):
+                payload = json.loads(chunk.removeprefix("data: ").strip())
+                events.append(payload)
+            return events
+
+        with patch(
+            "app.services.runner.browser_svc.bootstrap_browser_task",
+            new=AsyncMock(return_value=bootstrap_payload),
+        ), patch(
+            "app.services.runner.browser_svc.browser_live_state",
+            new=AsyncMock(return_value=None),
+        ), patch(
+            "app.services.runner.browser_svc.session_exists",
+            return_value=True,
+        ), patch(
+            "app.services.runner.browser_svc.browser_snapshot",
+            new=AsyncMock(return_value=snapshot_payload),
+        ), patch(
+            "app.services.runner.browser_svc.close_session",
+            new=AsyncMock(return_value=None),
+        ), patch(
+            "app.services.runner.capture_screenshot",
+            side_effect=AssertionError("desktop capture should not be used in web mode"),
+        ), patch(
+            "app.services.runner.think_and_act",
+            side_effect=[
+                (
+                    "Continue using the in-app browser session",
+                    AgentAction(type=ActionType.DONE, reason="Verified the latest order in-browser."),
+                ),
+            ],
+        ):
+            events = asyncio.run(collect_events())
+
+        done_events = [event for event in events if event["type"] == "done"]
+        self.assertTrue(done_events)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Globe, Hand, Link2, Radio, Terminal, Wand2 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
+import LiveBrowserView from '@/components/LiveBrowserView';
 
 type SurfaceTab = 'browser' | 'terminal';
 
@@ -15,7 +16,6 @@ const excerpt = (value: string | undefined, max = 210) => {
 const LiveSessionCard = () => {
   const status = useStore((s) => s.status);
   const entries = useStore((s) => s.entries);
-  const currentScreenshot = useStore((s) => s.currentScreenshot);
   const browserUrl = useStore((s) => s.browserUrl);
   const browserTitle = useStore((s) => s.browserTitle);
   const lastSurface = useStore((s) => s.lastSurface);
@@ -24,6 +24,7 @@ const LiveSessionCard = () => {
   const maxSteps = useStore((s) => s.maxSteps);
   const elapsedTime = useStore((s) => s.elapsedTime);
   const task = useStore((s) => s.task);
+  const runId = useStore((s) => s.runId);
   const [activeTab, setActiveTab] = useState<SurfaceTab>('browser');
 
   const isLive = status === 'running' || status === 'paused';
@@ -153,27 +154,13 @@ const LiveSessionCard = () => {
                 </div>
 
                 <div className="relative bg-[#f4f6fb]">
-                  {currentScreenshot ? (
-                    <img
-                      src={`data:image/jpeg;base64,${currentScreenshot}`}
-                      alt="Live browser session"
-                      className="h-[250px] w-full bg-[#f4f6fb] object-contain md:h-[370px]"
+                  <div className="h-[250px] md:h-[370px]">
+                    <LiveBrowserView
+                      runId={runId}
+                      isRunning={isLive}
+                      currentReasoning={overlayCopy}
                     />
-                  ) : (
-                    <div className="flex h-[250px] items-center justify-center bg-[#111520] text-xs text-white/50 md:h-[370px]">
-                      Preparing live browser view...
-                    </div>
-                  )}
-
-                  {overlayCopy && (
-                    <div className="pointer-events-none absolute bottom-4 right-4 max-w-[78%] rounded-2xl border border-white/10 bg-black/70 px-4 py-3 text-[12px] leading-relaxed text-white/92 shadow-[0_18px_45px_rgba(0,0,0,0.35)] backdrop-blur-xl md:max-w-[52%] md:text-[13px]">
-                      <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-200/78">
-                        <Wand2 size={11} />
-                        Why this step
-                      </div>
-                      {overlayCopy}
-                    </div>
-                  )}
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-3 border-t border-white/8 bg-[#111522] px-4 py-3">

@@ -199,6 +199,7 @@ async def run_agent(
     history: list[dict] = []
     memory: dict = {}
     last_tool_result: Optional[dict] = None
+    last_screenshot_b64 = ""
     consecutive_errors = 0
     MAX_ERRORS = 3
     interval = capture_interval_ms / 1000.0
@@ -212,6 +213,7 @@ async def run_agent(
         web_task_mode = True
         last_tool_result = bootstrap_result
         bootstrap_screenshot = bootstrap_result.get("screenshot_b64", "")
+        last_screenshot_b64 = bootstrap_screenshot or last_screenshot_b64
         if bootstrap_result.get("success"):
             memory["task_surface"] = "browser"
             memory["computer_use_guidance"] = "Use browser_* tools for this task unless a native desktop app is explicitly required."
@@ -259,8 +261,30 @@ async def run_agent(
             browser_state = await browser_svc.browser_live_state(run_id)
             if browser_state and browser_state.get("screenshot_b64"):
                 screenshot_b64 = browser_state["screenshot_b64"]
+                last_screenshot_b64 = screenshot_b64
             else:
-                screenshot_b64 = await asyncio.to_thread(capture_screenshot)
+                browser_session_ready = browser_svc.session_exists(run_id)
+                if web_task_mode or browser_session_ready:
+                    recovery_state = None
+                    if browser_session_ready:
+                        recovery_state = await browser_svc.browser_snapshot(run_id)
+                    elif task:
+                        recovery_state = await browser_svc.bootstrap_browser_task(run_id, task)
+
+                    if recovery_state and recovery_state.get("screenshot_b64"):
+                        screenshot_b64 = recovery_state["screenshot_b64"]
+                        last_screenshot_b64 = screenshot_b64
+                        if recovery_state.get("success"):
+                            last_tool_result = recovery_state
+                            web_task_mode = True
+                            memory["task_surface"] = "browser"
+                    elif last_screenshot_b64:
+                        screenshot_b64 = last_screenshot_b64
+                    else:
+                        raise RuntimeError("Browser session is active but no in-app browser frame is available yet")
+                else:
+                    screenshot_b64 = await asyncio.to_thread(capture_screenshot)
+                    last_screenshot_b64 = screenshot_b64
         except Exception as e:
             consecutive_errors += 1
             if consecutive_errors >= MAX_ERRORS:
@@ -328,6 +352,7 @@ async def run_agent(
 
             if result.get("screenshot_b64"):
                 screenshot_b64 = result["screenshot_b64"]
+                last_screenshot_b64 = screenshot_b64
 
             auto_fallback = result.get("auto_fallback")
             if auto_fallback:
