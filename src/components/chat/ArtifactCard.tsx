@@ -2,22 +2,15 @@ import { useState } from 'react';
 import {
   FileText, Code, Image, Download, Copy, Check, Maximize2, Minimize2,
   ExternalLink, FileCode, FileSpreadsheet, Globe, Terminal as TerminalIcon,
-  Eye
+  Eye, AppWindow, Presentation, FileArchive
 } from 'lucide-react';
-import type { LogEntry } from '@/store/useStore';
-
-export type ArtifactType = 'code' | 'document' | 'image' | 'html' | 'csv' | 'terminal' | 'webpage' | 'markdown';
-
-export interface Artifact {
-  id: string;
-  type: ArtifactType;
-  title: string;
-  content: string;
-  language?: string;
-  url?: string;
-  filename?: string;
-  sourceLabel?: string;
-}
+import {
+  type Artifact,
+  type ArtifactType,
+  getArtifactMimeType,
+  getArtifactPreviewHtml,
+  languageLabels,
+} from '@/lib/artifacts';
 
 const artifactIcons: Record<ArtifactType, typeof FileText> = {
   code: Code,
@@ -28,6 +21,9 @@ const artifactIcons: Record<ArtifactType, typeof FileText> = {
   terminal: TerminalIcon,
   webpage: Globe,
   markdown: FileCode,
+  slides: Presentation,
+  app: AppWindow,
+  pdf: FileArchive,
 };
 
 const artifactColors: Record<ArtifactType, string> = {
@@ -39,22 +35,9 @@ const artifactColors: Record<ArtifactType, string> = {
   terminal: 'border-muted-foreground/30 bg-muted',
   webpage: 'border-primary/30 bg-primary/5',
   markdown: 'border-accent/30 bg-accent/5',
-};
-
-const languageLabels: Record<string, string> = {
-  javascript: 'JavaScript',
-  typescript: 'TypeScript',
-  python: 'Python',
-  html: 'HTML',
-  css: 'CSS',
-  json: 'JSON',
-  bash: 'Bash',
-  sql: 'SQL',
-  rust: 'Rust',
-  go: 'Go',
-  java: 'Java',
-  cpp: 'C++',
-  markdown: 'Markdown',
+  slides: 'border-fuchsia-300/30 bg-fuchsia-400/5',
+  app: 'border-sky-300/30 bg-sky-400/5',
+  pdf: 'border-amber-300/30 bg-amber-400/5',
 };
 
 interface ArtifactCardProps {
@@ -76,9 +59,12 @@ const ArtifactCard = ({ artifact }: ArtifactCardProps) => {
   };
 
   const handleDownload = () => {
-    const ext = artifact.language || (artifact.type === 'html' ? 'html' : artifact.type === 'csv' ? 'csv' : 'txt');
+    const ext =
+      artifact.filename?.split('.').pop() ||
+      artifact.language ||
+      (artifact.type === 'slides' ? 'md' : artifact.type === 'app' ? 'html' : artifact.type === 'csv' ? 'csv' : 'txt');
     const filename = artifact.filename || `${artifact.title.replace(/\s+/g, '-').toLowerCase()}.${ext}`;
-    const blob = new Blob([artifact.content], { type: 'text/plain' });
+    const blob = new Blob([artifact.content], { type: getArtifactMimeType(artifact) });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -95,7 +81,7 @@ const ArtifactCard = ({ artifact }: ArtifactCardProps) => {
   return (
     <div className={`mt-3 rounded-xl border ${borderColor} overflow-hidden transition-all`}>
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border/50">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border/50">
         <div className="flex items-center gap-2 min-w-0">
           <Icon size={14} className="text-muted-foreground shrink-0" />
           <span className="text-xs font-medium text-foreground truncate">{artifact.title}</span>
@@ -106,7 +92,7 @@ const ArtifactCard = ({ artifact }: ArtifactCardProps) => {
           )}
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
-          {artifact.type === 'html' && (
+          {['html', 'app'].includes(artifact.type) && (
             <button
               onClick={() => setPreviewMode(!previewMode)}
               className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
@@ -151,12 +137,20 @@ const ArtifactCard = ({ artifact }: ArtifactCardProps) => {
               className="max-w-full rounded-lg border border-border/30"
             />
           </div>
-        ) : artifact.type === 'html' && previewMode ? (
+        ) : ['html', 'app'].includes(artifact.type) && previewMode ? (
           <div className="p-3">
             <iframe
-              srcDoc={artifact.content}
+              srcDoc={getArtifactPreviewHtml(artifact) || artifact.content}
               className="w-full h-64 rounded-lg border border-border/30 bg-white"
-              sandbox="allow-scripts"
+              sandbox="allow-scripts allow-forms allow-modals"
+              title={artifact.title}
+            />
+          </div>
+        ) : artifact.type === 'pdf' && artifact.url ? (
+          <div className="p-3">
+            <iframe
+              src={artifact.url}
+              className="w-full h-64 rounded-lg border border-border/30 bg-white"
               title={artifact.title}
             />
           </div>
@@ -195,93 +189,3 @@ const ArtifactCard = ({ artifact }: ArtifactCardProps) => {
 };
 
 export default ArtifactCard;
-
-// Helper to parse artifacts from message content
-export function parseArtifacts(content: string): { text: string; artifacts: Artifact[] } {
-  const artifacts: Artifact[] = [];
-  let text = content;
-
-  // Parse ```language\n...\n``` code blocks
-  const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
-  let match;
-  let blockIndex = 0;
-
-  while ((match = codeBlockRegex.exec(content)) !== null) {
-    const lang = match[1] || 'text';
-    const code = match[2].trim();
-
-    // Only create artifacts for substantial code blocks (>3 lines)
-    if (code.split('\n').length > 3) {
-      const type: ArtifactType = lang === 'html' ? 'html' :
-        lang === 'csv' ? 'csv' :
-        lang === 'bash' || lang === 'shell' || lang === 'sh' ? 'terminal' :
-        lang === 'markdown' || lang === 'md' ? 'markdown' : 'code';
-
-      artifacts.push({
-        id: `artifact-${blockIndex}`,
-        type,
-        title: `${languageLabels[lang] || lang} snippet`,
-        content: code,
-        language: lang,
-        filename: undefined,
-      });
-      blockIndex++;
-    }
-  }
-
-  // Remove code blocks from text display if artifacts were created
-  if (artifacts.length > 0) {
-    text = content.replace(codeBlockRegex, (match, lang, code) => {
-      if (code.trim().split('\n').length > 3) {
-        return ''; // Remove, will show as artifact
-      }
-      return match; // Keep small blocks inline
-    }).trim();
-  }
-
-  return { text, artifacts };
-}
-
-export function collectArtifactsFromEntries(entries: LogEntry[]): Artifact[] {
-  const collected: Artifact[] = [];
-
-  for (const entry of [...entries].reverse()) {
-    if (entry.type === 'result' && entry.action) {
-      const { artifacts } = parseArtifacts(entry.action);
-      artifacts.forEach((artifact, index) => {
-        collected.push({
-          ...artifact,
-          id: `${entry.id}-${artifact.id}-${index}`,
-          sourceLabel: entry.toolLabel || `Step ${entry.step || 0}`,
-        });
-      });
-    }
-
-    if (entry.attachments?.length) {
-      entry.attachments.forEach((attachment, index) => {
-        const inferredType: ArtifactType =
-          attachment.type.startsWith('image/')
-            ? 'image'
-            : attachment.type.includes('html')
-            ? 'html'
-            : attachment.type.includes('csv')
-            ? 'csv'
-            : attachment.type.includes('markdown')
-            ? 'markdown'
-            : 'document';
-
-        collected.push({
-          id: `${entry.id}-attachment-${index}`,
-          type: inferredType,
-          title: attachment.name,
-          content: attachment.content || attachment.url || '',
-          url: attachment.url,
-          filename: attachment.name,
-          sourceLabel: entry.toolLabel || `Step ${entry.step || 0}`,
-        });
-      });
-    }
-  }
-
-  return collected;
-}

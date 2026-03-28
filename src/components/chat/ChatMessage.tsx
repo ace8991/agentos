@@ -5,7 +5,8 @@ import {
   Download, Paperclip
 } from 'lucide-react';
 import { type LogEntry, type LogType } from '@/store/useStore';
-import ArtifactCard, { parseArtifacts } from './ArtifactCard';
+import { parseArtifacts } from '@/lib/artifacts';
+import ArtifactCard from './ArtifactCard';
 
 const typeConfig: Record<LogType, { icon: typeof Eye; label: string; color: string }> = {
   perceive: { icon: Eye, label: 'Perceiving', color: 'text-primary' },

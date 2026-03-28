@@ -12,6 +12,7 @@ import ComposerInsertMenu from './chat/ComposerInsertMenu';
 import ConnectorQuickAccess from './chat/ConnectorQuickAccess';
 import ArtifactWorkspaceModal from './chat/ArtifactWorkspaceModal';
 import { chatDirect } from '@/lib/api';
+import { collectArtifactsFromEntries } from '@/lib/artifacts';
 import {
   CONNECTORS_UPDATED_EVENT,
   loadConnectors,
@@ -20,7 +21,6 @@ import {
   type ConnectorState,
 } from '@/lib/connectors';
 import { getBehaviorInstructions, getComposerInstructions, getSavedResponseStyleLabel } from '@/lib/user-config';
-import { collectArtifactsFromEntries } from './chat/ArtifactCard';
 import { buildProjectContext, getCurrentProject, loadProjects, PROJECTS_UPDATED_EVENT, type AppProject } from '@/lib/projects';
 
 const ConnectorConfigModal = lazy(() => import('./chat/ConnectorConfigModal'));
