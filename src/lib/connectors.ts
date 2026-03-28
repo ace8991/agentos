@@ -1,4 +1,6 @@
 export type ConnectorFieldType = 'text' | 'password' | 'url';
+export type ConnectorIntegrationMode = 'native' | 'relay' | 'local' | 'manual';
+export type ConnectorStatus = 'not_configured' | 'saved' | 'verified' | 'ready_relay' | 'ready_local' | 'error';
 
 export interface ConnectorField {
   key: string;
@@ -13,6 +15,7 @@ export interface ConnectorDefinition {
   badge: string;
   type: string;
   category: string;
+  integrationMode: ConnectorIntegrationMode;
   description: string;
   shortAction: string;
   popularityRank?: number;
@@ -25,8 +28,14 @@ export interface ConnectorState {
   id: string;
   name: string;
   type: string;
+  configured: boolean;
   connected: boolean;
   badge: string;
+  integrationMode: ConnectorIntegrationMode;
+  status: ConnectorStatus;
+  statusLabel: string;
+  statusDetail?: string;
+  lastCheckedAt?: string | null;
 }
 
 type ConnectorSeed = Omit<ConnectorDefinition, 'id' | 'badge' | 'fields'> & {
@@ -34,11 +43,15 @@ type ConnectorSeed = Omit<ConnectorDefinition, 'id' | 'badge' | 'fields'> & {
   badge?: string;
   fields?: ConnectorField[];
   setup?: 'credentials' | 'local';
+  integrationMode?: ConnectorIntegrationMode;
 };
 
 const CONNECTORS_STORAGE_KEY = 'CONNECTORS';
 const CONNECTOR_VALUES_PREFIX = 'CONNECTOR_VALUES_';
 export const CONNECTORS_UPDATED_EVENT = 'agentos:connectors-updated';
+
+const RELAY_CONNECTOR_IDS = new Set(['telegram', 'whatsapp']);
+const NATIVE_CONNECTOR_IDS = new Set(['github', 'notion', 'slack', 'jira', 'linear', 'discord']);
 
 const emitConnectorsUpdated = () => {
   if (typeof window !== 'undefined') {
@@ -114,14 +127,79 @@ const seed = (
 
 const buildConnector = (seedValue: ConnectorSeed): ConnectorDefinition => {
   const id = seedValue.id ?? slugify(seedValue.name);
+  const integrationMode =
+    seedValue.integrationMode ??
+    (seedValue.setup === 'local'
+      ? 'local'
+      : RELAY_CONNECTOR_IDS.has(id)
+      ? 'relay'
+      : NATIVE_CONNECTOR_IDS.has(id)
+      ? 'native'
+      : 'manual');
 
   return {
     ...seedValue,
     id,
     badge: seedValue.badge ?? badgeFromName(seedValue.name),
+    integrationMode,
     fields:
       seedValue.fields ??
       (seedValue.setup === 'local' ? localFields(id) : credentialFields(id)),
+  };
+};
+
+const STATUS_LABELS: Record<ConnectorStatus, string> = {
+  not_configured: 'Not configured',
+  saved: 'Saved locally',
+  verified: 'Verified',
+  ready_relay: 'Relay ready',
+  ready_local: 'Local ready',
+  error: 'Needs attention',
+};
+
+const isConnectorStatus = (value: unknown): value is ConnectorStatus =>
+  value === 'not_configured' ||
+  value === 'saved' ||
+  value === 'verified' ||
+  value === 'ready_relay' ||
+  value === 'ready_local' ||
+  value === 'error';
+
+const isReadyStatus = (status: ConnectorStatus) => status === 'verified' || status === 'ready_relay' || status === 'ready_local';
+
+const getSavedStatusDetail = (integrationMode: ConnectorIntegrationMode) => {
+  if (integrationMode === 'relay') {
+    return 'Credentials are saved, but this flow still depends on the inbound relay/webhook bridge.';
+  }
+  if (integrationMode === 'local') {
+    return 'Configuration is saved locally. This connector only becomes active on a local installation.';
+  }
+  if (integrationMode === 'native') {
+    return 'Credentials are saved locally. Run live validation to confirm the provider accepts them.';
+  }
+  return 'Credentials are saved locally, but this catalog entry is not wired to a native runtime yet.';
+};
+
+const buildStateFromDefinition = (
+  connector: ConnectorDefinition,
+  overrides: Partial<ConnectorState> = {},
+): ConnectorState => {
+  const configured = overrides.configured ?? false;
+  const status = overrides.status ?? (configured ? 'saved' : 'not_configured');
+  return {
+    id: connector.id,
+    name: connector.name,
+    type: connector.type,
+    badge: connector.badge,
+    configured,
+    connected: overrides.connected ?? isReadyStatus(status),
+    integrationMode: connector.integrationMode,
+    status,
+    statusLabel: overrides.statusLabel ?? STATUS_LABELS[status],
+    statusDetail:
+      overrides.statusDetail ??
+      (configured ? getSavedStatusDetail(connector.integrationMode) : 'No credentials or endpoint details saved yet.'),
+    lastCheckedAt: overrides.lastCheckedAt ?? null,
   };
 };
 
@@ -556,13 +634,7 @@ export const getConnectorDefinition = (id: string) =>
   CONNECTOR_DEFINITIONS.find((connector) => connector.id === id) ?? null;
 
 export const buildDefaultConnectors = (): ConnectorState[] =>
-  CONNECTOR_DEFINITIONS.map((connector) => ({
-    id: connector.id,
-    name: connector.name,
-    type: connector.type,
-    connected: false,
-    badge: connector.badge,
-  }));
+  CONNECTOR_DEFINITIONS.map((connector) => buildStateFromDefinition(connector));
 
 export const loadConnectorValues = (connectorId: string): Record<string, string> => {
   const definition = getConnectorDefinition(connectorId);
@@ -607,6 +679,12 @@ export const clearConnectorValues = (connectorId: string) => {
   emitConnectorsUpdated();
 };
 
+export const getConnectorStateLabel = (connector: ConnectorState) => connector.statusLabel;
+export const isConnectorReady = (connector: ConnectorState) => connector.connected;
+
+export const mergeConnectorState = (connectors: ConnectorState[], nextState: ConnectorState) =>
+  connectors.map((connector) => (connector.id === nextState.id ? nextState : connector));
+
 export const hasConnectorCredentials = (connectorId: string, values?: Record<string, string>) => {
   const definition = getConnectorDefinition(connectorId);
   if (!definition) {
@@ -633,9 +711,47 @@ export const loadConnectors = (): ConnectorState[] => {
 
         return defaults.map((connector) => {
           const saved = storedMap.get(connector.id);
+          const definition = getConnectorDefinition(connector.id);
+          const configured = hasConnectorCredentials(connector.id);
+          if (!definition) {
+            return {
+              ...connector,
+              configured,
+              connected: configured,
+              status: configured ? 'saved' : 'not_configured',
+              statusLabel: STATUS_LABELS[configured ? 'saved' : 'not_configured'],
+              statusDetail: configured ? 'Credentials are saved locally.' : 'No credentials or endpoint details saved yet.',
+              lastCheckedAt: null,
+            };
+          }
+          const savedStatus = saved?.status;
+          const legacyStatus: ConnectorStatus =
+            isConnectorStatus(savedStatus)
+              ? savedStatus
+              : saved?.connected
+              ? definition.integrationMode === 'relay'
+                ? 'ready_relay'
+                : definition.integrationMode === 'local'
+                ? 'ready_local'
+                : 'verified'
+              : configured
+              ? 'saved'
+              : 'not_configured';
           return {
-            ...connector,
-            connected: saved?.connected ?? hasConnectorCredentials(connector.id),
+            ...buildStateFromDefinition(definition, {
+              configured,
+              status: legacyStatus,
+              connected: isReadyStatus(legacyStatus),
+              statusLabel:
+                typeof saved?.statusLabel === 'string' ? saved.statusLabel : STATUS_LABELS[legacyStatus],
+              statusDetail:
+                typeof saved?.statusDetail === 'string'
+                  ? saved.statusDetail
+                  : configured
+                  ? getSavedStatusDetail(definition.integrationMode)
+                  : 'No credentials or endpoint details saved yet.',
+              lastCheckedAt: typeof saved?.lastCheckedAt === 'string' ? saved.lastCheckedAt : null,
+            }),
           };
         });
       }
@@ -644,10 +760,21 @@ export const loadConnectors = (): ConnectorState[] => {
     // Ignore invalid storage and rebuild from defaults.
   }
 
-  return defaults.map((connector) => ({
-    ...connector,
-    connected: hasConnectorCredentials(connector.id),
-  }));
+  return defaults.map((connector) => {
+    const definition = getConnectorDefinition(connector.id);
+    const configured = hasConnectorCredentials(connector.id);
+    return definition
+      ? buildStateFromDefinition(definition, { configured })
+      : {
+          ...connector,
+          configured,
+          connected: false,
+          status: configured ? 'saved' : 'not_configured',
+          statusLabel: STATUS_LABELS[configured ? 'saved' : 'not_configured'],
+          statusDetail: configured ? 'Credentials are saved locally.' : 'No credentials or endpoint details saved yet.',
+          lastCheckedAt: null,
+        };
+  });
 };
 
 export const saveConnectors = (connectors: ConnectorState[]) => {

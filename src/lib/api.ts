@@ -380,7 +380,11 @@ export function createEventStream(
     onEvent(data);
     if (data.type === 'done' || data.type === 'error') {
       es.close();
-      data.type === 'done' ? onDone() : onError(data.action);
+      if (data.type === 'done') {
+        onDone();
+      } else {
+        onError(data.action);
+      }
     }
   };
   es.onerror = () => {
@@ -512,6 +516,37 @@ export interface RemoteCommand {
   actor?: string | null;
   note?: string | null;
   metadata?: Record<string, unknown>;
+}
+
+export type ConnectorIntegrationMode = 'native' | 'relay' | 'local' | 'manual';
+export type ConnectorValidationStatus = 'not_configured' | 'saved' | 'verified' | 'ready_relay' | 'ready_local' | 'error';
+
+export interface ConnectorValidationResponse {
+  connector_id: string;
+  integration_mode: ConnectorIntegrationMode;
+  status: ConnectorValidationStatus;
+  ready: boolean;
+  message: string;
+  checked_at: string;
+}
+
+export async function validateConnector(connectorId: string, values: Record<string, string>): Promise<ConnectorValidationResponse> {
+  const r = await fetch(`${BASE}/connectors/validate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ connector_id: connectorId, values }),
+  });
+  if (!r.ok) {
+    let detail = `Connector validation failed: ${r.status}`;
+    try {
+      const body = await r.json();
+      if (body?.detail) detail = String(body.detail);
+    } catch {
+      // Keep the status-based message.
+    }
+    throw new Error(detail);
+  }
+  return r.json();
 }
 
 export async function getRemoteConfig(): Promise<RemoteConfig> {

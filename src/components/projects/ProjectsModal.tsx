@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Check,
   FileText,
@@ -52,7 +52,7 @@ const ProjectsModal = ({ open, onClose }: ProjectsModalProps) => {
     [projects, selectedProjectId],
   );
 
-  const syncProjects = () => {
+  const syncProjects = useCallback(() => {
     const nextProjects = loadProjects();
     const activeId = getCurrentProjectId();
     const fallbackId = nextProjects[0]?.id ?? null;
@@ -64,7 +64,7 @@ const ProjectsModal = ({ open, onClose }: ProjectsModalProps) => {
     setProjects(nextProjects);
     setSelectedProjectId(nextSelectedId);
     setDraftProject(copyProject(nextProjects.find((project) => project.id === nextSelectedId) || null));
-  };
+  }, [selectedProjectId]);
 
   useEffect(() => {
     if (!open) return;
@@ -76,7 +76,7 @@ const ProjectsModal = ({ open, onClose }: ProjectsModalProps) => {
     return () => {
       window.removeEventListener(PROJECTS_UPDATED_EVENT, handleProjectsUpdated);
     };
-  }, [open, selectedProjectId]);
+  }, [open, syncProjects]);
 
   useEffect(() => {
     if (!selectedProject) {

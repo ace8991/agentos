@@ -19,6 +19,7 @@ const ConnectorQuickAccess = ({
 }: ConnectorQuickAccessProps) => {
   const visibleConnectors = connectors.slice(0, compact ? 5 : 6);
   const connectedCount = connectors.filter((connector) => connector.connected).length;
+  const configuredCount = connectors.filter((connector) => connector.configured && !connector.connected).length;
 
   return (
     <div className="flex items-center justify-between gap-3 px-1 md:px-2">
@@ -36,7 +37,13 @@ const ConnectorQuickAccess = ({
         className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
       >
         <Link2 size={13} />
-        <span>{connectedCount > 0 ? `${connectedCount} tools connected` : 'Connect your tools'}</span>
+        <span>
+          {connectedCount > 0
+            ? `${connectedCount} tools ready`
+            : configuredCount > 0
+            ? `${configuredCount} saved locally`
+            : 'Connect your tools'}
+        </span>
       </button>
 
       <div className="flex items-center gap-1.5">
@@ -47,9 +54,17 @@ const ConnectorQuickAccess = ({
             className={`h-7 w-7 rounded-[10px] border flex items-center justify-center transition-colors overflow-hidden ${
               connector.connected
                 ? 'border-success/30 bg-success/10 hover:bg-success/15'
+                : connector.configured
+                ? 'border-warning/30 bg-warning/10 hover:bg-warning/15'
                 : 'border-border bg-card/60 hover:bg-surface-elevated'
             }`}
-            title={connector.connected ? `${connector.name} connected` : `Connect ${connector.name}`}
+            title={
+              connector.connected
+                ? `${connector.name} ${connector.statusLabel.toLowerCase()}`
+                : connector.configured
+                ? `${connector.name} saved locally`
+                : `Connect ${connector.name}`
+            }
           >
             <ConnectorLogo
               connectorId={connector.id}

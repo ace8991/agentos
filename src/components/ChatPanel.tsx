@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle, FolderOpen, Ghost, Layers3, Mic, Paperclip, Plus, Send, Square, X } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { useStore, type LogEntry } from '@/store/useStore';
@@ -8,22 +8,24 @@ import ThinkingIndicator from './chat/ThinkingIndicator';
 import TakeoverBanner from './chat/TakeoverBanner';
 import ModelSelector, { isAgentModelSupported } from './ModelSelector';
 import ProviderConfigModal from './ProviderConfigModal';
-import ConnectorConfigModal from './chat/ConnectorConfigModal';
 import ComposerInsertMenu from './chat/ComposerInsertMenu';
-import ConnectorsDirectoryModal from './chat/ConnectorsDirectoryModal';
 import ConnectorQuickAccess from './chat/ConnectorQuickAccess';
 import ArtifactWorkspaceModal from './chat/ArtifactWorkspaceModal';
-import ProjectsModal from './projects/ProjectsModal';
 import { chatDirect } from '@/lib/api';
 import {
   CONNECTORS_UPDATED_EVENT,
   loadConnectors,
+  mergeConnectorState,
   saveConnectors,
   type ConnectorState,
 } from '@/lib/connectors';
 import { getBehaviorInstructions, getComposerInstructions, getSavedResponseStyleLabel } from '@/lib/user-config';
 import { collectArtifactsFromEntries } from './chat/ArtifactCard';
 import { buildProjectContext, getCurrentProject, loadProjects, PROJECTS_UPDATED_EVENT, type AppProject } from '@/lib/projects';
+
+const ConnectorConfigModal = lazy(() => import('./chat/ConnectorConfigModal'));
+const ConnectorsDirectoryModal = lazy(() => import('./chat/ConnectorsDirectoryModal'));
+const ProjectsModal = lazy(() => import('./projects/ProjectsModal'));
 
 const AGENT_REQUEST_PATTERNS = [
   /https?:\/\//i,
@@ -648,31 +650,31 @@ const ChatPanel = () => {
         artifacts={artifacts}
         onClose={() => setArtifactWorkspaceOpen(false)}
       />
-      <ProjectsModal open={projectsOpen} onClose={() => setProjectsOpen(false)} />
-      <ConnectorsDirectoryModal
-        open={directoryOpen}
-        connectors={connectors}
-        onClose={() => setDirectoryOpen(false)}
-        onOpenSettings={() => openSettingsFor('connectors')}
-        onSelectConnector={(id) => {
-          setDirectoryOpen(false);
-          setConfigConnectorId(id);
-        }}
-      />
-      <ConnectorConfigModal
-        connectorId={configConnectorId}
-        onClose={() => setConfigConnectorId(null)}
-        onSave={(id, connected) => {
-          setConnectors((previous) => {
-            const next = previous.map((connector) =>
-              connector.id === id ? { ...connector, connected } : connector,
-            );
-            saveConnectors(next);
-            return next;
-          });
-          setConfigConnectorId(null);
-        }}
-      />
+      <Suspense fallback={null}>
+        <ProjectsModal open={projectsOpen} onClose={() => setProjectsOpen(false)} />
+        <ConnectorsDirectoryModal
+          open={directoryOpen}
+          connectors={connectors}
+          onClose={() => setDirectoryOpen(false)}
+          onOpenSettings={() => openSettingsFor('connectors')}
+          onSelectConnector={(id) => {
+            setDirectoryOpen(false);
+            setConfigConnectorId(id);
+          }}
+        />
+        <ConnectorConfigModal
+          connectorId={configConnectorId}
+          onClose={() => setConfigConnectorId(null)}
+          onSave={(nextState) => {
+            setConnectors((previous) => {
+              const next = mergeConnectorState(previous, nextState);
+              saveConnectors(next);
+              return next;
+            });
+            setConfigConnectorId(null);
+          }}
+        />
+      </Suspense>
     </div>
   );
 };

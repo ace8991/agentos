@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import TaskSidebar from '@/components/TaskSidebar';
 import ChatPanel from '@/components/ChatPanel';
 import ExecutionScreen from '@/components/ExecutionScreen';
-import SettingsModal from '@/components/SettingsModal';
 import BackendOfflineOverlay from '@/components/BackendOfflineOverlay';
 import { useStore } from '@/store/useStore';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Globe, MessageSquare } from 'lucide-react';
+
+const SettingsModal = lazy(() => import('@/components/SettingsModal'));
 
 const Dashboard = () => {
   const task = useStore((s) => s.task);
@@ -62,7 +63,9 @@ const Dashboard = () => {
           )}
         </div>
 
-        <SettingsModal />
+        <Suspense fallback={null}>
+          <SettingsModal />
+        </Suspense>
         <BackendOfflineOverlay />
       </div>
     );
@@ -73,7 +76,9 @@ const Dashboard = () => {
       <TaskSidebar />
       <ChatPanel />
       <ExecutionScreen />
-      <SettingsModal />
+      <Suspense fallback={null}>
+        <SettingsModal />
+      </Suspense>
       <BackendOfflineOverlay />
     </div>
   );

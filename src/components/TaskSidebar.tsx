@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Plus, Search, Settings, SlidersHorizontal, BookOpen, Bot, FolderPlus,
@@ -9,11 +9,12 @@ import { useStore, type HistoryRun } from '@/store/useStore';
 import HexLogo from './HexLogo';
 import SidebarModeSwitch from './sidebar/SidebarModeSwitch';
 import SidebarToolStatus from './sidebar/SidebarToolStatus';
-import ProjectsModal from './projects/ProjectsModal';
 import { getCurrentProject, loadProjects, PROJECTS_UPDATED_EVENT, type AppProject } from '@/lib/projects';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { toast } from '@/components/ui/sonner';
+
+const ProjectsModal = lazy(() => import('./projects/ProjectsModal'));
 
 const statusDot: Record<string, string> = {
   done: 'bg-success',
@@ -376,7 +377,9 @@ const TaskSidebar = () => {
           </button>
         </div>
       </div>
-      <ProjectsModal open={projectsOpen} onClose={() => setProjectsOpen(false)} />
+      <Suspense fallback={null}>
+        <ProjectsModal open={projectsOpen} onClose={() => setProjectsOpen(false)} />
+      </Suspense>
     </div>
   );
 

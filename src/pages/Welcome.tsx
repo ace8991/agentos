@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom';
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell,
@@ -24,23 +24,25 @@ import {
   X,
 } from 'lucide-react';
 import TaskSidebar from '@/components/TaskSidebar';
-import SettingsModal from '@/components/SettingsModal';
-import ConnectorConfigModal from '@/components/chat/ConnectorConfigModal';
 import ComposerInsertMenu from '@/components/chat/ComposerInsertMenu';
-import ConnectorsDirectoryModal from '@/components/chat/ConnectorsDirectoryModal';
 import ConnectorQuickAccess from '@/components/chat/ConnectorQuickAccess';
-import ProjectsModal from '@/components/projects/ProjectsModal';
 import { useStore } from '@/store/useStore';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
   CONNECTORS_UPDATED_EVENT,
   loadConnectors,
+  mergeConnectorState,
   saveConnectors,
   type ConnectorState,
 } from '@/lib/connectors';
 import { getCurrentProject, loadProjects, PROJECTS_UPDATED_EVENT, type AppProject } from '@/lib/projects';
 import { toast } from '@/components/ui/sonner';
 import { getSavedResponseStyleLabel } from '@/lib/user-config';
+
+const SettingsModal = lazy(() => import('@/components/SettingsModal'));
+const ConnectorConfigModal = lazy(() => import('@/components/chat/ConnectorConfigModal'));
+const ConnectorsDirectoryModal = lazy(() => import('@/components/chat/ConnectorsDirectoryModal'));
+const ProjectsModal = lazy(() => import('@/components/projects/ProjectsModal'));
 
 const suggestions = [
   { icon: FileText, label: 'Review code' },
@@ -716,32 +718,32 @@ const Welcome = () => {
         <div className="h-4 md:h-8" />
       </div>
 
-      <SettingsModal />
-      <ProjectsModal open={projectsOpen} onClose={() => setProjectsOpen(false)} />
-      <ConnectorsDirectoryModal
-        open={directoryOpen}
-        connectors={connectors}
-        onClose={() => setDirectoryOpen(false)}
-        onOpenSettings={() => openSettingsFor('connectors')}
-        onSelectConnector={(id) => {
-          setDirectoryOpen(false);
-          setConfigConnectorId(id);
-        }}
-      />
-      <ConnectorConfigModal
-        connectorId={configConnectorId}
-        onClose={() => setConfigConnectorId(null)}
-        onSave={(id, connected) => {
-          setConnectors((previous) => {
-            const next = previous.map((connector) =>
-              connector.id === id ? { ...connector, connected } : connector,
-            );
-            saveConnectors(next);
-            return next;
-          });
-          setConfigConnectorId(null);
-        }}
-      />
+      <Suspense fallback={null}>
+        <SettingsModal />
+        <ProjectsModal open={projectsOpen} onClose={() => setProjectsOpen(false)} />
+        <ConnectorsDirectoryModal
+          open={directoryOpen}
+          connectors={connectors}
+          onClose={() => setDirectoryOpen(false)}
+          onOpenSettings={() => openSettingsFor('connectors')}
+          onSelectConnector={(id) => {
+            setDirectoryOpen(false);
+            setConfigConnectorId(id);
+          }}
+        />
+        <ConnectorConfigModal
+          connectorId={configConnectorId}
+          onClose={() => setConfigConnectorId(null)}
+          onSave={(nextState) => {
+            setConnectors((previous) => {
+              const next = mergeConnectorState(previous, nextState);
+              saveConnectors(next);
+              return next;
+            });
+            setConfigConnectorId(null);
+          }}
+        />
+      </Suspense>
     </div>
   );
 };

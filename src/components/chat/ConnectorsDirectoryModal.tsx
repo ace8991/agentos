@@ -105,6 +105,7 @@ const ConnectorsDirectoryModal = ({
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-3 text-[12px] text-stone-400">
               <span>{connectors.filter((connector) => connector.connected).length} connectes</span>
+              <span>{connectors.filter((connector) => connector.configured && !connector.connected).length} sauves localement</span>
               <span>{CONNECTOR_DEFINITIONS.length} integrations disponibles</span>
             </div>
           </div>
@@ -149,6 +150,7 @@ const ConnectorsDirectoryModal = ({
             {visibleConnectors.map((connector) => {
               const state = connectorStateMap.get(connector.id);
               const isConnected = Boolean(state?.connected);
+              const isConfigured = Boolean(state?.configured);
               const config = getConnectorDefinition(connector.id);
 
               return (
@@ -188,6 +190,14 @@ const ConnectorsDirectoryModal = ({
                           <span>{config.category}</span>
                         </>
                       )}
+                      {state?.statusLabel && (
+                        <>
+                          <span className="text-stone-500">/</span>
+                          <span className={isConnected ? 'text-emerald-300' : isConfigured ? 'text-amber-300' : 'text-stone-400'}>
+                            {state.statusLabel}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -195,6 +205,10 @@ const ConnectorsDirectoryModal = ({
                     {isConnected ? (
                       <div className="h-9 w-9 rounded-[16px] border border-success/25 bg-success/10 text-success flex items-center justify-center shadow-[0_0_0_1px_rgba(74,222,128,0.06)]">
                         <Check size={15} />
+                      </div>
+                    ) : isConfigured ? (
+                      <div className="h-9 min-w-[62px] px-2 rounded-[16px] border border-warning/25 bg-warning/10 text-warning flex items-center justify-center text-[10px] font-medium uppercase tracking-[0.14em]">
+                        Saved
                       </div>
                     ) : (
                       <div className="h-9 w-9 rounded-[16px] border border-white/10 bg-white/[0.04] text-stone-200 flex items-center justify-center group-hover:bg-white/[0.08]">

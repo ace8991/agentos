@@ -166,3 +166,28 @@ class RemoteConfigResponse(BaseModel):
     approval_required: bool
     configured_channels: dict[str, bool]
     inbound_path: str
+
+
+ConnectorIntegrationMode = Literal["native", "relay", "local", "manual"]
+ConnectorValidationStatus = Literal[
+    "not_configured",
+    "saved",
+    "verified",
+    "ready_relay",
+    "ready_local",
+    "error",
+]
+
+
+class ConnectorValidateRequest(BaseModel):
+    connector_id: str
+    values: dict[str, str] = {}
+
+
+class ConnectorValidateResponse(BaseModel):
+    connector_id: str
+    integration_mode: ConnectorIntegrationMode
+    status: ConnectorValidationStatus
+    ready: bool
+    message: str
+    checked_at: str

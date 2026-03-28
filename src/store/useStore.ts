@@ -381,7 +381,9 @@ export const useStore = create<AppState>((set, get) => ({
     if (runId) {
       try {
         await stopRun(runId);
-      } catch {}
+      } catch {
+        // Best effort: the run may already be gone server-side.
+      }
     }
   },
 

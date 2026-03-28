@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { X, Eye, EyeOff, Calendar, Mail, Database, Globe, User, Puzzle, Plug, Layers, Key, Shield, Camera, Monitor, Plus, Trash2, Check, ExternalLink, Settings, Bot, Sparkles, Wrench } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { MODEL_PROVIDERS, getReasoningEffortOptions, supportsReasoningEffort, type ReasoningEffort } from './ModelSelector';
 import ConnectorConfigModal from './chat/ConnectorConfigModal';
 import ConnectorLogo from './chat/ConnectorLogo';
 import RemoteControlPanel from './settings/RemoteControlPanel';
-import { buildDefaultConnectors, loadConnectors, saveConnectors, type ConnectorState } from '@/lib/connectors';
+import { buildDefaultConnectors, loadConnectors, mergeConnectorState, saveConnectors, type ConnectorState } from '@/lib/connectors';
 import { API_BASE_URL } from '@/lib/api';
 import { toast } from '@/components/ui/sonner';
 import { loadSkills, saveSkills, type AppSkill } from '@/lib/user-config';
@@ -216,7 +216,7 @@ const SettingsModal = () => {
     } catch { setWebhookEvents([]); }
 
     setSaved(false);
-  }, [open]);
+  }, [open, setReasoningEffort]);
 
   const saveAll = () => {
     // API keys
@@ -457,7 +457,7 @@ const SettingsModal = () => {
         return (
           <div className="space-y-4">
             <h3 className="text-base font-medium text-foreground">API Keys</h3>
-            <p className="text-xs text-muted-foreground">⚠ Stored in browser localStorage — not encrypted. For production, use a backend proxy.</p>
+            <p className="text-xs text-muted-foreground">Stored in browser localStorage, not encrypted. For production, use a backend proxy.</p>
             <div className="space-y-3">
               <h4 className="text-sm font-medium text-foreground">LLM Providers</h4>
               {MODEL_PROVIDERS.filter((p) => p.requiresKey && p.keyName).map((p) => (
@@ -501,7 +501,7 @@ const SettingsModal = () => {
         return (
           <div className="space-y-4">
             <h3 className="text-base font-medium text-foreground">Browser & System</h3>
-            <p className="text-xs text-muted-foreground">Playwright → web navigation · PyAutoGUI → system control</p>
+            <p className="text-xs text-muted-foreground">Playwright â†’ web navigation Â· PyAutoGUI â†’ system control</p>
             <div>
               <label className="text-xs text-muted-foreground font-mono">PLAYWRIGHT_HOST</label>
               <input
@@ -721,12 +721,12 @@ const SettingsModal = () => {
             <ConfigRow label="Language">
               <select value={language} onChange={(e) => setLanguage(e.target.value)} className="bg-muted border border-border rounded-md px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring w-full">
                 <option value="en">English</option>
-                <option value="fr">Français</option>
-                <option value="es">Español</option>
+                <option value="fr">FranÃ§ais</option>
+                <option value="es">EspaÃ±ol</option>
                 <option value="de">Deutsch</option>
-                <option value="zh">中文</option>
-                <option value="ja">日本語</option>
-                <option value="ar">العربية</option>
+                <option value="zh">ä¸­æ–‡</option>
+                <option value="ja">æ—¥æœ¬èª</option>
+                <option value="ar">Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©</option>
               </select>
             </ConfigRow>
             <ConfigRow label="Response style">
@@ -849,7 +849,7 @@ const SettingsModal = () => {
                     />
                     <div>
                       <p className="text-sm text-foreground">{conn.name}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{conn.type}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{conn.type} Â· {conn.statusLabel}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -864,10 +864,12 @@ const SettingsModal = () => {
                       className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors active:scale-[0.97] ${
                         conn.connected
                           ? 'bg-success/15 text-success hover:bg-success/25'
+                          : conn.configured
+                          ? 'bg-warning/15 text-warning hover:bg-warning/25'
                           : 'bg-surface-elevated text-muted-foreground hover:text-foreground hover:bg-muted'
                       }`}
                     >
-                      {conn.connected ? '✓ Connected' : 'Configure'}
+                      {conn.connected ? 'Ready' : conn.configured ? 'Saved locally' : 'Configure'}
                     </button>
                   </div>
                 </div>
@@ -876,9 +878,9 @@ const SettingsModal = () => {
             <ConnectorConfigModal
               connectorId={configConnectorId}
               onClose={() => setConfigConnectorId(null)}
-              onSave={(id, connected) => {
+              onSave={(nextState) => {
                 setConnectors((prev) => {
-                  const next = prev.map((c) => (c.id === id ? { ...c, connected } : c));
+                  const next = mergeConnectorState(prev, nextState);
                   saveConnectors(next);
                   return next;
                 });
@@ -949,7 +951,7 @@ const SettingsModal = () => {
         className="glass-modal rounded-lg border border-border w-full max-w-3xl mx-3 md:mx-4 max-h-[90vh] md:max-h-[85vh] flex flex-col md:flex-row overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Sidebar — horizontal scroll on mobile, vertical on desktop */}
+        {/* Sidebar â€” horizontal scroll on mobile, vertical on desktop */}
         <div className="md:w-[200px] shrink-0 border-b md:border-b-0 md:border-r border-border bg-card/50 overflow-x-auto md:overflow-x-visible md:overflow-y-auto scrollbar-thin py-2 md:py-2">
           <div className="flex md:flex-col gap-0.5 px-2 md:px-0 min-w-max md:min-w-0">
             {sidebarSections.map((s) => (
@@ -1040,3 +1042,4 @@ const Toggle = ({ label, checked, onChange }: { label: string; checked: boolean;
 );
 
 export default SettingsModal;
+

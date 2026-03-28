@@ -2,17 +2,20 @@ import { useEffect, useMemo, useState } from 'react';
 import { X, Check, ExternalLink, Key, Globe, Shield } from 'lucide-react';
 import {
   clearConnectorValues,
+  type ConnectorState,
   getConnectorDefinition,
   hasConnectorCredentials,
+  loadConnectors,
   loadConnectorValues,
   saveConnectorValues,
 } from '@/lib/connectors';
+import { validateConnector, type ConnectorValidationResponse } from '@/lib/api';
 import ConnectorLogo from './ConnectorLogo';
 
 interface ConnectorConfigModalProps {
   connectorId: string | null;
   onClose: () => void;
-  onSave: (connectorId: string, connected: boolean) => void;
+  onSave: (nextState: ConnectorState) => void;
 }
 
 const ConnectorConfigModal = ({ connectorId, onClose, onSave }: ConnectorConfigModalProps) => {
@@ -24,7 +27,63 @@ const ConnectorConfigModal = ({ connectorId, onClose, onSave }: ConnectorConfigM
   const [showFields, setShowFields] = useState<Record<string, boolean>>({});
   const [saved, setSaved] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
+  const [connectorState, setConnectorState] = useState<ConnectorState | null>(null);
+
+  const buildSavedState = (configured: boolean): ConnectorState | null => {
+    if (!config) return null;
+    const status = configured ? 'saved' : 'not_configured';
+    const statusLabel =
+      status === 'saved'
+        ? 'Saved locally'
+        : 'Not configured';
+    const statusDetail = configured
+      ? config.integrationMode === 'relay'
+        ? 'Credentials are saved, but this connector still depends on the inbound relay/webhook bridge.'
+        : config.integrationMode === 'local'
+        ? 'Configuration is saved locally. This connector only becomes active on a local installation.'
+        : config.integrationMode === 'native'
+        ? 'Credentials are saved locally. Run live validation to confirm the provider accepts them.'
+        : 'Credentials are saved locally, but this catalog entry is not wired to a native runtime yet.'
+      : 'No credentials or endpoint details saved yet.';
+    return {
+      id: config.id,
+      name: config.name,
+      type: config.type,
+      badge: config.badge,
+      integrationMode: config.integrationMode,
+      configured,
+      connected: false,
+      status,
+      statusLabel,
+      statusDetail,
+      lastCheckedAt: null,
+    };
+  };
+
+  const buildValidatedState = (result: ConnectorValidationResponse, configured: boolean): ConnectorState | null => {
+    if (!config) return null;
+    const labelMap: Record<ConnectorValidationResponse['status'], string> = {
+      not_configured: 'Not configured',
+      saved: 'Saved locally',
+      verified: 'Verified',
+      ready_relay: 'Relay ready',
+      ready_local: 'Local ready',
+      error: 'Needs attention',
+    };
+    return {
+      id: config.id,
+      name: config.name,
+      type: config.type,
+      badge: config.badge,
+      integrationMode: result.integration_mode,
+      configured,
+      connected: result.ready,
+      status: result.status,
+      statusLabel: labelMap[result.status],
+      statusDetail: result.message,
+      lastCheckedAt: result.checked_at,
+    };
+  };
 
   useEffect(() => {
     if (!config) {
@@ -32,7 +91,7 @@ const ConnectorConfigModal = ({ connectorId, onClose, onSave }: ConnectorConfigM
       setShowFields({});
       setSaved(false);
       setTesting(false);
-      setTestResult(null);
+      setConnectorState(null);
       return;
     }
 
@@ -40,7 +99,7 @@ const ConnectorConfigModal = ({ connectorId, onClose, onSave }: ConnectorConfigM
     setShowFields({});
     setSaved(false);
     setTesting(false);
-    setTestResult(null);
+    setConnectorState(loadConnectors().find((connector) => connector.id === config.id) ?? null);
   }, [config]);
 
   if (!config) {
@@ -50,24 +109,64 @@ const ConnectorConfigModal = ({ connectorId, onClose, onSave }: ConnectorConfigM
   const isConnected = hasConnectorCredentials(config.id, values);
 
   const handleSave = () => {
+    const previousValues = loadConnectorValues(config.id);
+    const valuesChanged = JSON.stringify(previousValues) !== JSON.stringify(values);
     saveConnectorValues(config.id, values);
-    onSave(config.id, isConnected);
+    const nextState =
+      !valuesChanged && connectorState
+        ? { ...connectorState, configured: isConnected }
+        : buildSavedState(isConnected);
+    if (nextState) {
+      setConnectorState(nextState);
+      onSave(nextState);
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
 
   const handleTest = async () => {
     setTesting(true);
-    setTestResult(null);
-    await new Promise((resolve) => setTimeout(resolve, 900));
-    setTestResult(isConnected ? 'success' : 'error');
-    setTesting(false);
+    try {
+      const result = await validateConnector(config.id, values);
+      const nextState = buildValidatedState(result, isConnected);
+      if (nextState) {
+        setConnectorState(nextState);
+        saveConnectorValues(config.id, values);
+        onSave(nextState);
+      }
+    } catch (error) {
+      const nextState = config
+        ? {
+            id: config.id,
+            name: config.name,
+            type: config.type,
+            badge: config.badge,
+            integrationMode: config.integrationMode,
+            configured: isConnected,
+            connected: false,
+            status: 'error' as const,
+            statusLabel: 'Needs attention',
+            statusDetail: error instanceof Error ? error.message : 'Validation failed.',
+            lastCheckedAt: new Date().toISOString(),
+          }
+        : null;
+      if (nextState) {
+        setConnectorState(nextState);
+        onSave(nextState);
+      }
+    } finally {
+      setTesting(false);
+    }
   };
 
   const handleDisconnect = () => {
     clearConnectorValues(config.id);
     setValues({});
-    onSave(config.id, false);
+    const nextState = buildSavedState(false);
+    if (nextState) {
+      setConnectorState(nextState);
+      onSave(nextState);
+    }
     onClose();
   };
 
@@ -95,13 +194,43 @@ const ConnectorConfigModal = ({ connectorId, onClose, onSave }: ConnectorConfigM
 
           <div
             className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${
-              isConnected
+              connectorState?.connected
                 ? 'bg-success/10 text-success border border-success/20'
+                : connectorState?.status === 'error'
+                ? 'bg-destructive/10 text-destructive border border-destructive/20'
+                : connectorState?.configured
+                ? 'bg-warning/10 text-warning border border-warning/20'
                 : 'bg-muted text-muted-foreground border border-border'
             }`}
           >
-            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-success' : 'bg-muted-foreground'}`} />
-            {isConnected ? 'Connected' : 'Not configured'}
+            <div
+              className={`w-2 h-2 rounded-full ${
+                connectorState?.connected
+                  ? 'bg-success'
+                  : connectorState?.status === 'error'
+                  ? 'bg-destructive'
+                  : connectorState?.configured
+                  ? 'bg-warning'
+                  : 'bg-muted-foreground'
+              }`}
+            />
+            {connectorState?.statusLabel || 'Not configured'}
+          </div>
+
+          <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-medium uppercase tracking-[0.14em] text-[10px] text-muted-foreground/90">
+                {config.integrationMode} flow
+              </span>
+              {connectorState?.lastCheckedAt && (
+                <span>
+                  Checked {new Date(connectorState.lastCheckedAt).toLocaleString()}
+                </span>
+              )}
+            </div>
+            <p className="mt-1.5 leading-relaxed">
+              {connectorState?.statusDetail || 'Save credentials locally, then validate to confirm the real provider state.'}
+            </p>
           </div>
 
           <div className="space-y-3">
@@ -147,20 +276,6 @@ const ConnectorConfigModal = ({ connectorId, onClose, onSave }: ConnectorConfigM
             </a>
           )}
 
-          {testResult && (
-            <div
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${
-                testResult === 'success'
-                  ? 'bg-success/10 text-success border border-success/20'
-                  : 'bg-destructive/10 text-destructive border border-destructive/20'
-              }`}
-            >
-              {testResult === 'success' ? <Check size={12} /> : <X size={12} />}
-              {testResult === 'success'
-                ? 'Credentials saved locally. Connector is ready to use.'
-                : 'Add at least one credential before testing this connector.'}
-            </div>
-          )}
         </div>
 
         <div className="px-5 pb-5 space-y-2">
@@ -173,10 +288,10 @@ const ConnectorConfigModal = ({ connectorId, onClose, onSave }: ConnectorConfigM
               {testing ? (
                 <>
                   <Globe size={13} className="animate-spin" />
-                  Testing...
+                  Validating...
                 </>
               ) : (
-                'Test Connection'
+                'Validate live'
               )}
             </button>
             <button
