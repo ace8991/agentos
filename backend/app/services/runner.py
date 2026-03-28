@@ -32,6 +32,23 @@ class RunState:
 
 _active_runs: dict[str, RunState] = {}
 
+_BROWSER_RECOVERY_ACTIONS = {
+    ActionType.BROWSER_CLICK,
+    ActionType.BROWSER_TYPE,
+    ActionType.BROWSER_SELECT,
+    ActionType.BROWSER_SCROLL,
+    ActionType.BROWSER_WAIT,
+    ActionType.BROWSER_EVAL,
+    ActionType.BROWSER_BACK,
+}
+
+_DESKTOP_RECOVERY_ACTIONS = {
+    ActionType.CLICK,
+    ActionType.TYPE,
+    ActionType.KEY,
+    ActionType.SCROLL,
+}
+
 
 def cleanup_stale_runs() -> None:
     now = time.monotonic()
@@ -76,6 +93,86 @@ def is_run_active(run_id: str) -> bool:
 def get_run(run_id: str) -> RunState | None:
     cleanup_stale_runs()
     return _active_runs.get(run_id)
+
+
+def _fallback_subtask(action: AgentAction) -> str:
+    if action.type == ActionType.CLICK:
+        return f"Click the right UI element near coordinates ({action.x}, {action.y}) and continue the task."
+    if action.type == ActionType.TYPE:
+        return f"Enter the required text '{action.text or ''}' into the correct field and continue the task."
+    if action.type == ActionType.KEY:
+        return f"Use the keyboard shortcut or key '{action.key or ''}' to continue the task."
+    if action.type == ActionType.SCROLL:
+        return "Scroll the current view to reveal the required content and continue the task."
+    return action.reason or "Continue the visible desktop task."
+
+
+async def _apply_automatic_fallback(
+    *,
+    action: AgentAction,
+    result: dict,
+    run_id: str,
+    task: str,
+    web_task_mode: bool,
+) -> dict:
+    if result.get("success"):
+        return result
+
+    description = str(result.get("description") or "")
+
+    if action.type == ActionType.BROWSER_OPEN:
+        fallback = await browser_svc.bootstrap_browser_task(run_id, task)
+        if fallback and fallback.get("success"):
+            fallback["description"] = (
+                f"Browser open failed, so AgentOS switched to a guided live browser workspace for this task. "
+                f"Original error: {description}"
+            )
+            fallback["auto_fallback"] = "browser_bootstrap"
+            fallback["failed_action"] = action.type.value
+            return fallback
+        return result
+
+    if action.type in _BROWSER_RECOVERY_ACTIONS:
+        fallback = await browser_svc.browser_snapshot(run_id)
+        if fallback.get("success"):
+            fallback["description"] = (
+                f"Browser action failed, so AgentOS refreshed the live browser context and continued from the current page. "
+                f"Original error: {description}"
+            )
+            fallback["auto_fallback"] = "browser_snapshot"
+            fallback["failed_action"] = action.type.value
+            return fallback
+        return result
+
+    if action.type == ActionType.COMPUTER_USE and web_task_mode:
+        fallback = await browser_svc.browser_snapshot(run_id)
+        if fallback.get("success"):
+            fallback["description"] = (
+                "Computer Use was unavailable for this web workflow, so AgentOS kept the task inside the browser and refreshed the live page context."
+            )
+            fallback["auto_fallback"] = "browser_snapshot"
+            fallback["failed_action"] = action.type.value
+            return fallback
+        return result
+
+    if action.type in _DESKTOP_RECOVERY_ACTIONS and not web_task_mode:
+        fallback_action = AgentAction(
+            type=ActionType.COMPUTER_USE,
+            subtask=_fallback_subtask(action),
+            cu_max_iterations=3,
+            reason="Automatic fallback from a lower-level desktop control failure",
+        )
+        fallback = await execute(fallback_action, run_id)
+        if fallback.get("success"):
+            fallback["description"] = (
+                f"Primary desktop action failed, so AgentOS switched to the higher-level Computer Use engine automatically. "
+                f"Original error: {description}"
+            )
+            fallback["auto_fallback"] = "computer_use"
+            fallback["failed_action"] = action.type.value
+            return fallback
+
+    return result
 
 
 async def run_agent(
@@ -218,11 +315,31 @@ async def run_agent(
             else:
                 result = await execute(action, run_id)
 
+            result = await _apply_automatic_fallback(
+                action=action,
+                result=result,
+                run_id=run_id,
+                task=task,
+                web_task_mode=web_task_mode,
+            )
+
             last_tool_result = result
             result_desc = result.get("description", "")
 
             if result.get("screenshot_b64"):
                 screenshot_b64 = result["screenshot_b64"]
+
+            auto_fallback = result.get("auto_fallback")
+            if auto_fallback:
+                memory["last_recovery_strategy"] = str(auto_fallback)
+                if auto_fallback in {"browser_bootstrap", "browser_snapshot"}:
+                    web_task_mode = True
+                    memory["task_surface"] = "browser"
+                    memory["computer_use_guidance"] = (
+                        "Stay inside browser_* tools while the live browser workspace is active."
+                    )
+                if auto_fallback == "computer_use":
+                    memory["task_surface"] = "desktop"
 
             if action.type == ActionType.COMPUTER_USE and is_computer_use_unavailable_error(result_desc):
                 computer_use_blocked_reason = (

@@ -1,18 +1,18 @@
 """
-Claude Computer Use service.
-Used as intelligent fallback when Playwright/PyAutoGUI fail or
-when the UI is too complex for standard selectors.
+Dedicated Computer Use engine.
 
-Claude CU returns typed tool_use blocks (computer, text_editor, bash)
-which we translate back into our AgentAction schema.
+This service is intentionally decoupled from the main planner model so the app
+can run with DeepSeek, OpenAI, Google, Mistral, Groq, Ollama, or LM Studio as
+the primary reasoning model while still delegating desktop-control work to a
+specialized Computer Use provider when needed.
 """
-import base64
 import logging
-import re
 from typing import Optional
+
 import anthropic
+
 from app.services.capture import capture_screenshot
-from app.services.executor import _click, _type, _key, _shell
+from app.services.executor import _shell
 from app.services.runtime_config import get_runtime_value
 
 logger = logging.getLogger(__name__)
@@ -35,11 +35,45 @@ COMPUTER_USE_UNAVAILABLE_PATTERNS = (
     "api key",
 )
 
+SUPPORTED_COMPUTER_USE_PROVIDERS = {"auto", "anthropic", "disabled"}
+SUPPORTED_COMPUTER_USE_MODELS = {"claude-opus-4-5", "claude-sonnet-4-6"}
+
+
+def get_computer_use_provider() -> str:
+    provider = (get_runtime_value("COMPUTER_USE_PROVIDER", "auto") or "auto").strip().lower()
+    return provider if provider in SUPPORTED_COMPUTER_USE_PROVIDERS else "auto"
+
+
+def get_computer_use_model() -> str:
+    model = (get_runtime_value("COMPUTER_USE_MODEL", "claude-sonnet-4-6") or "claude-sonnet-4-6").strip()
+    return model if model in SUPPORTED_COMPUTER_USE_MODELS else "claude-sonnet-4-6"
+
+
+def resolve_computer_use_runtime() -> dict[str, str | bool]:
+    provider = get_computer_use_provider()
+    model = get_computer_use_model()
+    enabled = provider != "disabled"
+    uses_anthropic = provider in {"auto", "anthropic"}
+    ready = enabled and uses_anthropic and bool(get_runtime_value("ANTHROPIC_API_KEY"))
+
+    return {
+        "provider": provider,
+        "model": model,
+        "enabled": enabled,
+        "ready": ready,
+        "requires_anthropic": uses_anthropic,
+    }
+
 
 def _client():
+    runtime = resolve_computer_use_runtime()
+    if not runtime["enabled"]:
+        raise ValueError("Computer Use is disabled in Browser & System settings")
+    if runtime["provider"] not in {"auto", "anthropic"}:
+        raise ValueError(f"Computer Use provider '{runtime['provider']}' is not supported yet")
     key = get_runtime_value("ANTHROPIC_API_KEY")
     if not key:
-        raise ValueError("ANTHROPIC_API_KEY not set")
+        raise ValueError("ANTHROPIC_API_KEY not set for the Computer Use engine")
     return anthropic.Anthropic(api_key=key)
 
 
@@ -58,6 +92,14 @@ def run_computer_use(
     Handles the inner tool_use loop autonomously (up to max_iterations).
     Returns a summary dict with success, actions_taken, description.
     """
+    runtime = resolve_computer_use_runtime()
+    if not runtime["enabled"]:
+        return {
+            "success": False,
+            "actions_taken": [],
+            "description": "Computer Use is disabled. Enable a Computer Use engine in Browser & System settings.",
+        }
+
     client = _client()
 
     # Get fresh screenshot if not provided
@@ -109,7 +151,7 @@ def run_computer_use(
         iteration += 1
         try:
             response = client.messages.create(
-                model="claude-opus-4-5",  # CU requires Opus or Sonnet 3.5+
+                model=str(runtime["model"]),
                 max_tokens=1024,
                 system=CU_SYSTEM,
                 tools=tools,

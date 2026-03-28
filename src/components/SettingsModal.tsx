@@ -94,6 +94,8 @@ const SettingsModal = () => {
   const [playwrightHost, setPlaywrightHost] = useState('http://localhost:9222');
   const [pyautoguiEnabled, setPyautoguiEnabled] = useState(true);
   const [confirmClick, setConfirmClick] = useState(false);
+  const [computerUseProvider, setComputerUseProvider] = useState<'auto' | 'anthropic' | 'disabled'>('auto');
+  const [computerUseModel, setComputerUseModel] = useState('claude-sonnet-4-6');
 
   // Scheduled tasks
   const [scheduledTasks, setScheduledTasks] = useState<ScheduledTask[]>([]);
@@ -169,6 +171,8 @@ const SettingsModal = () => {
     setSavePath(localStorage.getItem('SAVE_PATH') || './screenshots');
     setMaxErrors(Number(localStorage.getItem('MAX_ERRORS')) || 3);
     setConfirmClick(localStorage.getItem('CONFIRM_CLICK') === 'true');
+    setComputerUseProvider((localStorage.getItem('COMPUTER_USE_PROVIDER') as 'auto' | 'anthropic' | 'disabled' | null) || 'auto');
+    setComputerUseModel(localStorage.getItem('COMPUTER_USE_MODEL') || 'claude-sonnet-4-6');
 
     // Scheduled tasks
     try {
@@ -235,6 +239,8 @@ const SettingsModal = () => {
     localStorage.setItem('SAVE_PATH', savePath);
     localStorage.setItem('MAX_ERRORS', String(maxErrors));
     localStorage.setItem('CONFIRM_CLICK', String(confirmClick));
+    localStorage.setItem('COMPUTER_USE_PROVIDER', computerUseProvider);
+    localStorage.setItem('COMPUTER_USE_MODEL', computerUseModel);
     localStorage.setItem('SCHEDULED_TASKS', JSON.stringify(scheduledTasks));
     localStorage.setItem('MAIL_ENABLED', String(mailEnabled));
     localStorage.setItem('SMTP_HOST', smtpHost);
@@ -288,6 +294,8 @@ const SettingsModal = () => {
         reasoningEffort,
         pyautoguiEnabled,
         confirmClick,
+        computerUseProvider,
+        computerUseModel,
         scheduledTasks,
         mailEnabled,
         smtpHost,
@@ -523,6 +531,39 @@ const SettingsModal = () => {
               />
             </div>
             <Toggle label="PyAutoGUI enabled" checked={pyautoguiEnabled} onChange={setPyautoguiEnabled} />
+            <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">Computer Use engine</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Used only for desktop-control steps. Your main model can stay on DeepSeek, OpenAI, Groq, or another provider.
+                </p>
+              </div>
+              <ConfigRow label="Provider">
+                <select
+                  value={computerUseProvider}
+                  onChange={(e) => setComputerUseProvider(e.target.value as 'auto' | 'anthropic' | 'disabled')}
+                  className="bg-muted border border-border rounded-md px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring w-full"
+                >
+                  <option value="auto">Auto (use Anthropic when available)</option>
+                  <option value="anthropic">Anthropic dedicated engine</option>
+                  <option value="disabled">Disabled</option>
+                </select>
+              </ConfigRow>
+              <ConfigRow label="Engine model">
+                <select
+                  value={computerUseModel}
+                  onChange={(e) => setComputerUseModel(e.target.value)}
+                  disabled={computerUseProvider === 'disabled'}
+                  className="bg-muted border border-border rounded-md px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring w-full disabled:opacity-50"
+                >
+                  <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
+                  <option value="claude-opus-4-5">Claude Opus 4.5</option>
+                </select>
+              </ConfigRow>
+              <div className="rounded-lg border border-border bg-card/40 px-3 py-2 text-[11px] text-muted-foreground">
+                This engine is separate from your chat/agent planner. Example: keep DeepSeek as your main model, and let desktop-control steps run through Anthropic only when needed.
+              </div>
+            </div>
           </div>
         );
 

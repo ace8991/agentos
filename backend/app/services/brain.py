@@ -59,6 +59,7 @@ Choose the RIGHT tool for each step. Never repeat a failing approach.
   {"type":"computer_use", "subtask":"click the Export button",
    "cu_max_iterations":5, "reason":"..."}
   USE WHEN: PyAutoGUI fails 2+ times, Electron apps, legacy UIs.
+  NOTE: computer_use uses a dedicated desktop-control engine and can be configured separately from the main planner model.
 
 ╔══════════════════════════════════════════════════════════════════╗
 ║  CONTROL                                                         ║

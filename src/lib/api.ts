@@ -22,6 +22,8 @@ const BACKEND_RUNTIME_KEYS = [
       ...MODEL_PROVIDERS.filter((provider) => provider.requiresKey && provider.keyName).map((provider) => provider.keyName!),
       'TAVILY_API_KEY',
       'BRAVE_API_KEY',
+      'COMPUTER_USE_PROVIDER',
+      'COMPUTER_USE_MODEL',
     ],
   ),
 ] as string[];
@@ -544,6 +546,9 @@ export interface HealthResponse {
     deepseek_key?: boolean;
     google_key?: boolean;
     screen_error?: string;
+    computer_use_provider?: string;
+    computer_use_model?: string;
+    computer_use_ready?: boolean;
   };
   providers?: {
     anthropic: boolean;
@@ -558,8 +563,15 @@ export interface HealthResponse {
     supports_desktop: boolean;
     supports_remote_commands: boolean;
     approval_required: boolean;
+    computer_use_provider?: string;
+    computer_use_model?: string;
   };
   remote?: RemoteConfig;
+  computer_use?: {
+    provider?: string;
+    model?: string;
+    ready?: boolean;
+  };
 }
 
 export type RemoteCommandStatus = 'pending' | 'approved' | 'claimed' | 'rejected' | 'completed';

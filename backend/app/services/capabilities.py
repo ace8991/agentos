@@ -2,6 +2,7 @@ import importlib.util
 import platform
 
 from app.config import IS_LOCAL, MODE
+from app.services.computer_use import resolve_computer_use_runtime
 from app.services.remote_control import get_remote_config
 from app.services.runtime_config import has_runtime_value
 
@@ -9,7 +10,8 @@ from app.services.runtime_config import has_runtime_value
 def detect_capabilities() -> dict:
     playwright_available = importlib.util.find_spec("playwright") is not None
     pyautogui_available = IS_LOCAL and importlib.util.find_spec("pyautogui") is not None
-    computer_use_available = IS_LOCAL and pyautogui_available and has_runtime_value("ANTHROPIC_API_KEY")
+    computer_use_runtime = resolve_computer_use_runtime()
+    computer_use_available = IS_LOCAL and pyautogui_available and bool(computer_use_runtime["ready"])
     remote_config = get_remote_config()
 
     return {
@@ -35,6 +37,8 @@ def detect_capabilities() -> dict:
             "supports_desktop": pyautogui_available,
             "supports_remote_commands": remote_config.enabled,
             "approval_required": remote_config.approval_required,
+            "computer_use_provider": computer_use_runtime["provider"],
+            "computer_use_model": computer_use_runtime["model"],
         },
         "remote": remote_config.model_dump(),
         "system": {
@@ -44,5 +48,8 @@ def detect_capabilities() -> dict:
             "openai_key": has_runtime_value("OPENAI_API_KEY"),
             "deepseek_key": has_runtime_value("DEEPSEEK_API_KEY"),
             "google_key": has_runtime_value("GOOGLE_API_KEY"),
+            "computer_use_provider": computer_use_runtime["provider"],
+            "computer_use_model": computer_use_runtime["model"],
+            "computer_use_ready": computer_use_runtime["ready"],
         },
     }
