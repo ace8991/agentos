@@ -8,6 +8,7 @@ from typing import AsyncGenerator, Optional
 
 from app.services.capture import capture_screenshot
 from app.services.brain import think_and_act, extract_memory_updates
+from app.services.computer_use import is_computer_use_unavailable_error
 from app.services.executor import execute
 from app.services import browser as browser_svc
 from app.models.schemas import AgentAction, ActionType
@@ -104,6 +105,52 @@ async def run_agent(
     consecutive_errors = 0
     MAX_ERRORS = 3
     interval = capture_interval_ms / 1000.0
+    bootstrap_done = False
+    web_task_mode = False
+    computer_use_blocked_reason: Optional[str] = None
+
+    bootstrap_result = await browser_svc.bootstrap_browser_task(run_id, task)
+    if bootstrap_result:
+        bootstrap_done = True
+        web_task_mode = True
+        last_tool_result = bootstrap_result
+        bootstrap_screenshot = bootstrap_result.get("screenshot_b64", "")
+        if bootstrap_result.get("success"):
+            memory["task_surface"] = "browser"
+            memory["computer_use_guidance"] = "Use browser_* tools for this task unless a native desktop app is explicitly required."
+        history.append({
+            "step": 0,
+            "action_type": ActionType.BROWSER_OPEN.value,
+            "action": bootstrap_result.get("description", "Prepared browser workspace"),
+            "result": "ok" if bootstrap_result.get("success") else "failed",
+        })
+        if bootstrap_result.get("success"):
+            yield _event(
+                "info",
+                0,
+                bootstrap_result.get("description", "Prepared browser workspace"),
+                "The agent pre-opened the right web workspace so it can continue directly inside the chat instead of spending early steps figuring out which site to open.",
+                bootstrap_screenshot,
+                memory,
+                AgentAction(
+                    type=ActionType.BROWSER_OPEN,
+                    url=bootstrap_result.get("bootstrap_url") or bootstrap_result.get("url"),
+                    reason="Automatic browser bootstrap for a website-oriented task",
+                ),
+                bootstrap_result,
+            )
+        else:
+            consecutive_errors = 1
+            yield _event(
+                "info",
+                0,
+                bootstrap_result.get("description", "Browser bootstrap failed"),
+                "Automatic browser bootstrap failed, so the planner will continue in fallback mode.",
+                bootstrap_screenshot,
+                memory,
+                None,
+                bootstrap_result,
+            )
 
     for step in range(1, max_steps + 1):
         if stop_event.is_set():
@@ -124,6 +171,11 @@ async def run_agent(
             await asyncio.sleep(1); continue
 
         # ── PLAN: LLM decides next action ─────────────────────────────────
+        if bootstrap_done and step == 1 and last_tool_result and last_tool_result.get("success"):
+            browser_text_preview = last_tool_result.get("text_preview")
+            if browser_text_preview and "browser_text_preview" not in memory:
+                memory["browser_text_preview"] = str(browser_text_preview)[:1200]
+
         try:
             reasoning, action = await asyncio.to_thread(
                 think_and_act,
@@ -149,12 +201,35 @@ async def run_agent(
                 yield _event("done", step, action.reason or "Done", reasoning, screenshot_b64, memory)
                 break
 
-            result = await execute(action, run_id)
+            if action.type == ActionType.COMPUTER_USE and web_task_mode:
+                result = {
+                    "success": False,
+                    "description": "Computer Use is disabled for this website workflow. Continue with browser_* tools inside the live browser view.",
+                    "blocked_action": "computer_use",
+                    "fallback": "browser",
+                }
+            elif action.type == ActionType.COMPUTER_USE and computer_use_blocked_reason:
+                result = {
+                    "success": False,
+                    "description": computer_use_blocked_reason,
+                    "blocked_action": "computer_use",
+                    "fallback": "browser" if web_task_mode else "desktop",
+                }
+            else:
+                result = await execute(action, run_id)
+
             last_tool_result = result
             result_desc = result.get("description", "")
 
             if result.get("screenshot_b64"):
                 screenshot_b64 = result["screenshot_b64"]
+
+            if action.type == ActionType.COMPUTER_USE and is_computer_use_unavailable_error(result_desc):
+                computer_use_blocked_reason = (
+                    "Computer Use is unavailable for this run because Anthropic billing or API access is not available. "
+                    "Do not retry computer_use; continue with browser_* or other available tools."
+                )
+                memory["computer_use_guidance"] = computer_use_blocked_reason
 
             if result.get("success"):
                 consecutive_errors = 0

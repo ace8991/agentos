@@ -6,7 +6,7 @@ import ConnectorConfigModal from './chat/ConnectorConfigModal';
 import ConnectorLogo from './chat/ConnectorLogo';
 import RemoteControlPanel from './settings/RemoteControlPanel';
 import { buildDefaultConnectors, loadConnectors, mergeConnectorState, saveConnectors, type ConnectorState } from '@/lib/connectors';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, syncRuntimeConfig } from '@/lib/api';
 import { toast } from '@/components/ui/sonner';
 import { loadSkills, saveSkills, type AppSkill } from '@/lib/user-config';
 const intervals = [
@@ -70,6 +70,7 @@ const SettingsModal = () => {
   const setOpen = useStore((s) => s.setSettingsOpen);
   const section = useStore((s) => s.settingsSection);
   const setSection = useStore((s) => s.setSettingsSection);
+  const syncBackendHealth = useStore((s) => s.syncBackendHealth);
   const model = useStore((s) => s.model);
   const setModel = useStore((s) => s.setModel);
   const maxSteps = useStore((s) => s.maxSteps);
@@ -218,7 +219,9 @@ const SettingsModal = () => {
     setSaved(false);
   }, [open, setReasoningEffort]);
 
-  const saveAll = () => {
+  const backendOnline = useStore((s) => s.backendOnline);
+
+  const saveAll = async () => {
     // API keys
     Object.entries(apiKeys).forEach(([key, value]) => localStorage.setItem(key, value));
     Object.entries(baseUrls).forEach(([id, url]) => localStorage.setItem(`${id.toUpperCase()}_BASE_URL`, url));
@@ -254,6 +257,15 @@ const SettingsModal = () => {
     saveConnectors(connectors);
     localStorage.setItem('WEBHOOK_URL', webhookUrl);
     localStorage.setItem('WEBHOOK_EVENTS', JSON.stringify(webhookEvents));
+
+    if (backendOnline) {
+      try {
+        await syncRuntimeConfig();
+        await syncBackendHealth();
+      } catch {
+        toast.error('Saved locally, but backend runtime sync failed');
+      }
+    }
 
     setSaved(true);
     toast.success('Settings saved');

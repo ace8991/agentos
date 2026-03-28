@@ -1,29 +1,57 @@
+import asyncio
 import json
-import os
 from collections.abc import AsyncGenerator
 
 import httpx
 
 from app.models.schemas import ChatMessage, ChatRequest
 from app.services.model_catalog import get_model
+from app.services.runtime_config import get_runtime_value
+from app.services import web
 
 
 def _sse(payload: dict) -> str:
     return f"data: {json.dumps(payload)}\n\n"
 
 
-def _provider_and_messages(req: ChatRequest) -> tuple[str | None, list[ChatMessage]]:
+async def _provider_and_messages(req: ChatRequest) -> tuple[str | None, list[ChatMessage]]:
     model = get_model(req.model)
     messages = list(req.messages)
     if req.web_search:
-        messages.insert(
-            0,
-            ChatMessage(
-                role="system",
-                content="Web search was requested. If live search context is unavailable, answer with your best knowledge and say that no live search context was injected.",
-            ),
-        )
+        search_query = next((message.content.strip() for message in reversed(messages) if message.role == "user" and message.content.strip()), "")
+        search_context = await _build_search_context(search_query)
+        messages.insert(0, ChatMessage(role="system", content=search_context))
     return (model.provider if model else None), messages
+
+
+async def _build_search_context(query: str) -> str:
+    if not query:
+        return "Web search was requested, but there was no user query to search for. Answer with your best knowledge and say that no live search context was injected."
+
+    result = await asyncio.to_thread(web.web_search, query, 5)
+    if not result.get("success"):
+        description = result.get("description", "No live search context was injected.")
+        return (
+            "Web search was requested, but Tavily search could not be injected. "
+            f"Reason: {description}. Answer with your best knowledge and clearly say live search was unavailable."
+        )
+
+    snippets = []
+    for index, item in enumerate(result.get("results", []), start=1):
+        title = item.get("title", "Untitled result")
+        url = item.get("url", "")
+        snippet = item.get("snippet", "")
+        snippets.append(f"{index}. {title}\nURL: {url}\nSnippet: {snippet}")
+
+    summary = result.get("answer", "")
+    sources = "\n\n".join(snippets) if snippets else "No search results were returned."
+    return (
+        "Use the following live Tavily web research context when answering. "
+        "Prefer these results over stale memory and mention uncertainty if the search context is incomplete.\n\n"
+        f"Query: {query}\n"
+        f"Tavily summary: {summary or 'No summary returned.'}\n\n"
+        f"Sources:\n{sources}"
+    )
 
 
 async def _stream_openai_compatible(
@@ -60,7 +88,7 @@ async def _stream_openai_compatible(
 
 
 async def _stream_anthropic(messages: list[ChatMessage], model: str) -> AsyncGenerator[str, None]:
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    api_key = get_runtime_value("ANTHROPIC_API_KEY")
     if not api_key:
         yield _sse({"type": "error", "content": "ANTHROPIC_API_KEY is not configured on the backend."})
         return
@@ -110,7 +138,7 @@ async def _stream_anthropic(messages: list[ChatMessage], model: str) -> AsyncGen
 
 
 async def _stream_google(messages: list[ChatMessage], model: str) -> AsyncGenerator[str, None]:
-    api_key = os.getenv("GOOGLE_API_KEY")
+    api_key = get_runtime_value("GOOGLE_API_KEY")
     if not api_key:
         yield _sse({"type": "error", "content": "GOOGLE_API_KEY is not configured on the backend."})
         return
@@ -155,7 +183,7 @@ async def _stream_google(messages: list[ChatMessage], model: str) -> AsyncGenera
 
 
 async def _stream_ollama(messages: list[ChatMessage], model: str) -> AsyncGenerator[str, None]:
-    endpoint = f"{os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434').rstrip('/')}/api/chat"
+    endpoint = f"{(get_runtime_value('OLLAMA_BASE_URL', 'http://localhost:11434') or 'http://localhost:11434').rstrip('/')}/api/chat"
     payload = {
         "model": model.replace("ollama/", "", 1),
         "messages": [{"role": message.role, "content": message.content} for message in messages],
@@ -186,7 +214,7 @@ async def _stream_ollama(messages: list[ChatMessage], model: str) -> AsyncGenera
 
 
 async def stream_chat(req: ChatRequest) -> AsyncGenerator[str, None]:
-    provider, messages = _provider_and_messages(req)
+    provider, messages = await _provider_and_messages(req)
     if not provider:
         yield _sse({"type": "error", "content": f"Unsupported model: {req.model}"})
         return
@@ -212,7 +240,7 @@ async def stream_chat(req: ChatRequest) -> AsyncGenerator[str, None]:
         return
 
     if provider == "lmstudio":
-        endpoint = f"{os.getenv('LMSTUDIO_BASE_URL', 'http://localhost:1234').rstrip('/')}/v1/chat/completions"
+        endpoint = f"{(get_runtime_value('LMSTUDIO_BASE_URL', 'http://localhost:1234') or 'http://localhost:1234').rstrip('/')}/v1/chat/completions"
         async for event in _stream_openai_compatible(
             endpoint,
             provider_payload,
@@ -231,7 +259,7 @@ async def stream_chat(req: ChatRequest) -> AsyncGenerator[str, None]:
         yield _sse({"type": "error", "content": f"Unsupported provider: {provider}"})
         return
 
-    api_key = os.getenv(env_name)
+    api_key = get_runtime_value(env_name)
     if not api_key:
         yield _sse({"type": "error", "content": f"{env_name} is not configured on the backend."})
         return

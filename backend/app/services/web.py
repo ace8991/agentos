@@ -1,13 +1,13 @@
-import os
 import logging
 from typing import Optional
+from app.services.runtime_config import get_runtime_value
 
 logger = logging.getLogger(__name__)
 
 
 def _client():
     from tavily import TavilyClient
-    key = os.getenv("TAVILY_API_KEY")
+    key = get_runtime_value("TAVILY_API_KEY")
     if not key:
         raise ValueError("TAVILY_API_KEY not set")
     return TavilyClient(api_key=key)

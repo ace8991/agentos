@@ -8,12 +8,12 @@ which we translate back into our AgentAction schema.
 """
 import base64
 import logging
-import os
 import re
 from typing import Optional
 import anthropic
 from app.services.capture import capture_screenshot
 from app.services.executor import _click, _type, _key, _shell
+from app.services.runtime_config import get_runtime_value
 
 logger = logging.getLogger(__name__)
 
@@ -22,12 +22,30 @@ accomplish the given subtask using the available tools.
 Be precise with coordinates. Prefer clicking over typing when possible.
 Stop as soon as the subtask is complete."""
 
+COMPUTER_USE_UNAVAILABLE_PATTERNS = (
+    "credit balance is too low",
+    "plans & billing",
+    "purchase credits",
+    "insufficient credits",
+    "insufficient_quota",
+    "quota",
+    "billing",
+    "authentication_error",
+    "invalid_api_key",
+    "api key",
+)
+
 
 def _client():
-    key = os.getenv("ANTHROPIC_API_KEY")
+    key = get_runtime_value("ANTHROPIC_API_KEY")
     if not key:
         raise ValueError("ANTHROPIC_API_KEY not set")
     return anthropic.Anthropic(api_key=key)
+
+
+def is_computer_use_unavailable_error(message: str) -> bool:
+    lowered = (message or "").lower()
+    return any(pattern in lowered for pattern in COMPUTER_USE_UNAVAILABLE_PATTERNS)
 
 
 def run_computer_use(

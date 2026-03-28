@@ -298,7 +298,6 @@ const Welcome = () => {
             aria-hidden="true"
             loading="eager"
             decoding="async"
-            fetchPriority="high"
             className={`absolute inset-0 h-full w-full object-cover object-center scale-[1.015] transition-opacity duration-500 select-none ${
               heroReady ? 'opacity-100' : 'opacity-0'
             }`}

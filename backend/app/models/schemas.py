@@ -191,3 +191,11 @@ class ConnectorValidateResponse(BaseModel):
     ready: bool
     message: str
     checked_at: str
+
+
+class RuntimeConfigRequest(BaseModel):
+    values: dict[str, str] = {}
+
+
+class RuntimeConfigResponse(BaseModel):
+    applied: dict[str, bool]

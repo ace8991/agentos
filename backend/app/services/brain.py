@@ -1,8 +1,9 @@
-import json, re, logging, os
+import json, re, logging
 from typing import Optional
 import anthropic
 from app.models.schemas import AgentAction, ActionType
 from app.config import IS_LOCAL, IS_CLOUD
+from app.services.runtime_config import get_runtime_value
 
 logger = logging.getLogger(__name__)
 
@@ -78,15 +79,22 @@ RULES:
 3. Consecutive failures (2+) → escalate to computer_use (local) or try different selector
 4. When done → use done action with clear summary
 
+5. If the browser already shows the relevant site, continue from that live page instead of reopening it.
+6. For website tasks, prefer browser_* tools over shell or desktop tools unless the task explicitly requires a native app window.
+
 RESPONSE FORMAT:
 [Reasoning — max 4 sentences]
 <action>{"type": "...", ...}</action>
 """
 
 def _anthropic():
-    k = os.getenv("ANTHROPIC_API_KEY")
+    k = get_runtime_value("ANTHROPIC_API_KEY")
     if not k: raise ValueError("ANTHROPIC_API_KEY not set")
     return anthropic.Anthropic(api_key=k)
+
+
+def _uses_openai_max_completion_tokens(model: str) -> bool:
+    return model.startswith(("gpt-5", "o1", "o3"))
 
 def parse_action(text: str) -> Optional[AgentAction]:
     m = re.search(r"<action>(.*?)</action>", text, re.DOTALL)
@@ -117,6 +125,13 @@ def think_and_act(
     tool_section = ""
     if last_tool_result:
         tool_section = f"\nLAST TOOL RESULT:\n{json.dumps(last_tool_result, indent=2)[:2500]}\n"
+    browser_ready_section = ""
+    if last_tool_result and last_tool_result.get("bootstrap_source"):
+        browser_ready_section = (
+            "\nBROWSER WORKSPACE READY:\n"
+            f"  Current URL: {last_tool_result.get('url', '(unknown)')}\n"
+            "  Continue from this live browser state instead of reopening the same site.\n"
+        )
     recent_failures = sum(1 for h in recent[-3:] if h.get("result") == "failed")
     escalation = "\nNOTE: 2+ consecutive failures — consider escalating.\n" if recent_failures >= 2 else ""
 
@@ -129,7 +144,7 @@ RECENT ACTIONS:
 
 WORKING MEMORY:
 {memory_text}
-{tool_section}{escalation}
+{tool_section}{browser_ready_section}{escalation}
 Current screen above. What is your next action?"""
 
     model_map = {"claude-sonnet-4-6": "claude-sonnet-4-6", "claude-opus-4-5": "claude-opus-4-5"}
@@ -148,12 +163,11 @@ Current screen above. What is your next action?"""
         text = resp.content[0].text
     elif model.startswith("gpt"):
         from openai import OpenAI
-        key = os.getenv("OPENAI_API_KEY")
+        key = get_runtime_value("OPENAI_API_KEY")
         if not key: raise ValueError("OPENAI_API_KEY not set")
         client = OpenAI(api_key=key)
         payload = {
             "model": model,
-            "max_tokens": 1024,
             "messages": [
                 {"role":"system","content":system},
                 {"role":"user","content":[
@@ -162,6 +176,10 @@ Current screen above. What is your next action?"""
                 ]},
             ],
         }
+        if _uses_openai_max_completion_tokens(model):
+            payload["max_completion_tokens"] = 1024
+        else:
+            payload["max_tokens"] = 1024
         if reasoning_effort:
             payload["reasoning_effort"] = reasoning_effort
         resp = client.chat.completions.create(**payload)

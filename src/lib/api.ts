@@ -5,8 +5,27 @@ import {
   type ReasoningEffort,
 } from '@/components/ModelSelector';
 
-export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
+const getDefaultApiBaseUrl = () => {
+  if (typeof window === 'undefined') {
+    return 'http://localhost:8000';
+  }
+
+  const { protocol, hostname } = window.location;
+  return `${protocol}//${hostname}:8000`;
+};
+
+export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || getDefaultApiBaseUrl()).replace(/\/$/, '');
 const BASE = API_BASE_URL;
+const BACKEND_RUNTIME_KEYS = [
+  ...new Set(
+    [
+      ...MODEL_PROVIDERS.filter((provider) => provider.requiresKey && provider.keyName).map((provider) => provider.keyName!),
+      'TAVILY_API_KEY',
+      'BRAVE_API_KEY',
+    ],
+  ),
+] as string[];
+const BACKEND_RUNTIME_URL_KEYS = ['OLLAMA_BASE_URL', 'LMSTUDIO_BASE_URL'] as const;
 
 // ─── Provider API helpers ────────────────────────────────────────────
 
@@ -51,6 +70,16 @@ export async function chatDirect(
   if (!config) { onError(`Unknown model: ${modelId}`); return; }
 
   const { provider, apiKey, baseUrl } = config;
+
+  if (webSearch) {
+    try {
+      await syncRuntimeConfig();
+      await chatStream(messages, modelId, true, reasoningEffort, onToken, onDone, onError);
+      return;
+    } catch {
+      // Fall back to direct provider chat if the backend is unavailable.
+    }
+  }
 
   if (provider.requiresKey && !apiKey) {
     try {
@@ -439,6 +468,45 @@ export async function chatStream(
     }
   }
   onDone();
+}
+
+export interface RuntimeConfigResponse {
+  applied: Record<string, boolean>;
+}
+
+export function buildRuntimeConfigPayload(): Record<string, string> {
+  if (typeof window === 'undefined') {
+    return {};
+  }
+
+  const values: Record<string, string> = {};
+  for (const key of BACKEND_RUNTIME_KEYS) {
+    const value = localStorage.getItem(key)?.trim();
+    if (value) {
+      values[key] = value;
+    }
+  }
+
+  for (const key of BACKEND_RUNTIME_URL_KEYS) {
+    const value = localStorage.getItem(key)?.trim();
+    if (value) {
+      values[key] = value;
+    }
+  }
+
+  return values;
+}
+
+export async function syncRuntimeConfig(values = buildRuntimeConfigPayload()): Promise<RuntimeConfigResponse> {
+  const r = await fetch(`${BASE}/runtime/config`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values }),
+  });
+  if (!r.ok) {
+    throw new Error(`Runtime config sync failed: ${r.status}`);
+  }
+  return r.json();
 }
 
 // ─── Types ─────────────────────────────────────────────────────────

@@ -1,5 +1,13 @@
 import { create } from 'zustand';
-import { startRun, stopRun, createEventStream, checkHealth, type AgentEvent, type HealthResponse } from '@/lib/api';
+import {
+  startRun,
+  stopRun,
+  createEventStream,
+  checkHealth,
+  syncRuntimeConfig,
+  type AgentEvent,
+  type HealthResponse,
+} from '@/lib/api';
 import { isAgentModelSupported, supportsReasoningEffort, type ReasoningEffort } from '@/components/ModelSelector';
 import { buildAgentTask, defaultComposerPreferences, type ComposerPreferences } from '@/lib/user-config';
 import { getCurrentProjectId as loadCurrentProjectId, setCurrentProjectId as persistCurrentProjectId } from '@/lib/projects';
@@ -186,6 +194,38 @@ const toolLabels: Record<string, string> = {
   code_execute: 'Executing code',
 };
 
+const buildAgentCompletionMessage = (
+  action: string,
+  reasoning: string,
+  memory: MemoryItem[],
+  browserTitle: string | null,
+  browserUrl: string | null,
+) => {
+  const sections: string[] = [];
+
+  sections.push(`Task completed.\n\n${action || 'The workflow finished successfully.'}`);
+
+  if (browserTitle || browserUrl) {
+    sections.push(
+      `Last page:\n${browserTitle || 'Current page'}${browserUrl ? `\n${browserUrl}` : ''}`,
+    );
+  }
+
+  if (memory.length > 0) {
+    const memoryPreview = memory
+      .slice(0, 4)
+      .map((item) => `- ${item.key}: ${item.value}`)
+      .join('\n');
+    sections.push(`Captured context:\n${memoryPreview}`);
+  }
+
+  if (reasoning.trim()) {
+    sections.push(`Final reasoning:\n${reasoning.trim()}`);
+  }
+
+  return sections.join('\n\n');
+};
+
 export const useStore = create<AppState>((set, get) => ({
   mode: 'smart',
   task: '',
@@ -241,7 +281,16 @@ export const useStore = create<AppState>((set, get) => ({
   setBackendHealth: (health) => set({ backendHealth: health, backendOnline: !!health, backendChecked: true }),
   syncBackendHealth: async () => {
     try {
-      const health = await checkHealth();
+      let health = await checkHealth();
+      const shouldSyncRuntime = !get().backendOnline || !get().backendChecked;
+      if (shouldSyncRuntime) {
+        try {
+          await syncRuntimeConfig();
+          health = await checkHealth();
+        } catch {
+          // Keep the initial health result if runtime sync is unavailable.
+        }
+      }
       set({ backendHealth: health, backendOnline: true, backendChecked: true });
     } catch {
       set({ backendHealth: null, backendOnline: false, backendChecked: true });
@@ -332,6 +381,7 @@ export const useStore = create<AppState>((set, get) => ({
     get().startTimer();
 
     try {
+      await syncRuntimeConfig();
       const { run_id } = await startRun({
         task: effectiveTask,
         model,
@@ -476,16 +526,32 @@ export const useStore = create<AppState>((set, get) => ({
     if (event.type === 'done') {
       get().stopTimer();
       const s = get();
+      const completionEntry: LogEntry = {
+        id: crypto.randomUUID(),
+        step: event.step,
+        timestamp: new Date().toISOString(),
+        type: 'result',
+        action: buildAgentCompletionMessage(
+          event.action || 'Done',
+          event.reasoning || '',
+          memoryItems || s.memory,
+          browserTitle || s.browserTitle,
+          browserUrl || s.browserUrl,
+        ),
+        reasoning: event.reasoning || '',
+        toolLabel: 'Agent summary',
+      };
       const run: HistoryRun = {
         run_id: s.runId || crypto.randomUUID(),
         task: s.task,
         date: new Date().toISOString(),
         steps: s.currentStep,
         status: 'done',
-        entries: s.entries,
+        entries: [completionEntry, ...s.entries],
       };
       set((prev) => ({
         status: 'done',
+        entries: [completionEntry, ...prev.entries],
         history: s.incognitoMode ? prev.history : [run, ...prev.history],
       }));
     }
