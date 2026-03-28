@@ -6,8 +6,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useStore } from "@/store/useStore";
 import RemoteCommandBridge from "@/components/RemoteCommandBridge";
+import Welcome from "./pages/Welcome.tsx";
 
-const Welcome = lazy(() => import("./pages/Welcome.tsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
@@ -27,6 +27,14 @@ const RuntimeSync = () => {
   return null;
 };
 
+const RouteFallback = () => (
+  <div className="flex h-screen w-full items-center justify-center bg-[linear-gradient(180deg,#6679a6_0%,#3a334c_48%,#121520_100%)]">
+    <div className="rounded-3xl border border-white/12 bg-black/20 px-5 py-3 text-sm font-medium text-white/88 backdrop-blur-xl">
+      AgentOS is loading...
+    </div>
+  </div>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -35,7 +43,7 @@ const App = () => (
       <BrowserRouter>
         <RuntimeSync />
         <RemoteCommandBridge />
-        <Suspense fallback={<div className="h-screen w-full bg-background" />}>
+        <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<Welcome />} />
             <Route path="/dashboard" element={<Dashboard />} />

@@ -59,7 +59,7 @@ export default {
         pill: "var(--radius-pill)",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ["Segoe UI Variable", "Segoe UI", "system-ui", "sans-serif"],
       },
       keyframes: {
         "accordion-down": {
