@@ -13,6 +13,8 @@ export type ArtifactType =
   | 'app'
   | 'pdf';
 
+export type WorkspaceView = 'preview' | 'code' | 'database' | 'files';
+
 export interface Artifact {
   id: string;
   type: ArtifactType;
@@ -29,6 +31,14 @@ export interface SlideFrame {
   title: string;
   content: string;
   notes?: string;
+}
+
+export interface WorkspaceFileNode {
+  id: string;
+  path: string;
+  name: string;
+  group: 'client' | 'server' | 'database' | 'docs' | 'assets' | 'output';
+  artifact: Artifact;
 }
 
 export const languageLabels: Record<string, string> = {
@@ -53,10 +63,17 @@ export const languageLabels: Record<string, string> = {
 
 const slideTitleHints = /\b(slides?|deck|presentation|pitch|keynote)\b/i;
 const appTitleHints = /\b(app|landing|website|site|snake|game|dashboard|prototype|preview)\b/i;
+const databaseHints = /\b(database|schema|migration|sql|prisma|supabase|postgres|table|tables|model|models)\b/i;
 
 const normalizeNewlines = (value: string) => value.replace(/\r\n/g, '\n');
 
 const getFilenameExtension = (name?: string) => name?.split('.').pop()?.toLowerCase() ?? '';
+const sanitizeFileSegment = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'artifact';
 
 export const isLikelySlidesContent = (content: string, title = '') => {
   const normalized = normalizeNewlines(content);
@@ -115,6 +132,107 @@ export const getArtifactMimeType = (artifact: Artifact) => {
   if (artifact.type === 'image') return 'image/png';
   return 'text/plain';
 };
+
+export const isDatabaseArtifact = (artifact: Artifact) => {
+  const language = artifact.language?.toLowerCase() || '';
+  const extension = getFilenameExtension(artifact.filename);
+  const signature = `${artifact.title} ${artifact.filename || ''} ${artifact.content.slice(0, 320)}`;
+
+  return (
+    ['sql', 'prisma'].includes(language) ||
+    ['sql', 'prisma', 'db', 'sqlite'].includes(extension) ||
+    databaseHints.test(signature) ||
+    /create\s+table|alter\s+table|datasource\s+db|generator\s+client|model\s+\w+\s+\{|\btable\b/i.test(
+      artifact.content,
+    )
+  );
+};
+
+export const getArtifactWorkspacePath = (artifact: Artifact, index = 0) => {
+  if (artifact.filename) return artifact.filename.replace(/\\/g, '/');
+
+  const language = artifact.language?.toLowerCase() || '';
+  const suffix = sanitizeFileSegment(artifact.title);
+  const inferredExtension =
+    getFilenameExtension(artifact.filename) ||
+    artifact.language?.toLowerCase() ||
+    (artifact.type === 'slides'
+      ? 'md'
+      : artifact.type === 'app'
+      ? ['tsx', 'jsx', 'ts', 'js'].includes(language)
+        ? language
+        : 'html'
+      : artifact.type === 'csv'
+      ? 'csv'
+      : artifact.type === 'pdf'
+      ? 'pdf'
+      : artifact.type === 'image'
+      ? 'png'
+      : artifact.type === 'terminal'
+      ? 'txt'
+      : artifact.type === 'markdown'
+      ? 'md'
+      : 'txt');
+
+  if (artifact.type === 'app') {
+    if (['tsx', 'jsx', 'ts', 'js'].includes(language)) {
+      return `client/src/${suffix || 'app'}.${inferredExtension}`;
+    }
+    return `client/index.${inferredExtension}`;
+  }
+  if (artifact.type === 'html') return `client/index.${inferredExtension}`;
+  if (artifact.type === 'slides') return `deliverables/${suffix || 'presentation'}.md`;
+  if (artifact.type === 'markdown' || artifact.type === 'document') return `docs/${suffix || 'document'}.${inferredExtension}`;
+  if (artifact.type === 'csv') return `data/${suffix || `dataset-${index + 1}`}.csv`;
+  if (artifact.type === 'image') return `assets/${suffix || `image-${index + 1}`}.${inferredExtension}`;
+  if (artifact.type === 'pdf') return `deliverables/${suffix || 'document'}.pdf`;
+  if (artifact.type === 'webpage') return `previews/${suffix || 'external-link'}.url`;
+  if (artifact.type === 'terminal') return `logs/${suffix || `run-${index + 1}`}.txt`;
+
+  if (isDatabaseArtifact(artifact)) {
+    return `database/${suffix || `schema-${index + 1}`}.${inferredExtension}`;
+  }
+  if (['tsx', 'jsx', 'ts', 'js', 'css', 'json'].includes(language)) {
+    return `client/src/${suffix || `module-${index + 1}`}.${inferredExtension}`;
+  }
+  if (['python', 'py'].includes(language)) {
+    return `server/${suffix || `script-${index + 1}`}.py`;
+  }
+
+  return `workspace/${suffix || `artifact-${index + 1}`}.${inferredExtension}`;
+};
+
+export const buildWorkspaceFiles = (artifacts: Artifact[]): WorkspaceFileNode[] =>
+  artifacts.map((artifact, index) => {
+    const path = getArtifactWorkspacePath(artifact, index);
+    const [root = 'workspace'] = path.split('/');
+    const group =
+      root === 'client'
+        ? 'client'
+        : root === 'server'
+        ? 'server'
+        : root === 'database'
+        ? 'database'
+        : root === 'docs' || root === 'deliverables'
+        ? 'docs'
+        : root === 'assets' || root === 'previews'
+        ? 'assets'
+        : 'output';
+
+    return {
+      id: artifact.id,
+      path,
+      name: path.split('/').pop() || artifact.title,
+      group,
+      artifact,
+    };
+  });
+
+export const getPrimaryWorkspaceArtifact = (artifacts: Artifact[]) =>
+  artifacts.find((artifact) => ['app', 'html', 'webpage'].includes(artifact.type)) ||
+  artifacts.find((artifact) => artifact.type === 'slides') ||
+  artifacts[0] ||
+  null;
 
 export const getArtifactPreviewHtml = (artifact: Artifact) => {
   if (!['app', 'html'].includes(artifact.type)) return null;
@@ -207,7 +325,7 @@ export const getArtifactSummary = (artifact: Artifact) => {
     .find((line) => line.length > 0 && !line.startsWith('```') && !line.startsWith('#'));
 
   const summary = firstMeaningfulLine || content.slice(0, 180);
-  return summary.length > 120 ? `${summary.slice(0, 119)}…` : summary;
+  return summary.length > 120 ? `${summary.slice(0, 119)}...` : summary;
 };
 
 export const extractOutline = (artifact: Artifact) => {

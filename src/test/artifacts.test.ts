@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildWorkspaceFiles,
   inferArtifactTypeFromAttachment,
   inferArtifactTypeFromCode,
+  isDatabaseArtifact,
   parseArtifacts,
   parseSlides,
 } from '@/lib/artifacts';
@@ -42,5 +44,32 @@ describe('artifact intelligence', () => {
     });
 
     expect(type).toBe('slides');
+  });
+
+  it('detects database artifacts from sql content', () => {
+    expect(
+      isDatabaseArtifact({
+        id: 'db-1',
+        type: 'code',
+        title: 'schema',
+        content: 'create table users (id uuid primary key, email text not null);',
+        language: 'sql',
+      }),
+    ).toBe(true);
+  });
+
+  it('builds a workspace-like file path for app artifacts', () => {
+    const files = buildWorkspaceFiles([
+      {
+        id: 'app-1',
+        type: 'app',
+        title: 'Snake game',
+        content: '<main><canvas></canvas></main>',
+        language: 'html',
+      },
+    ]);
+
+    expect(files[0].path).toBe('client/index.html');
+    expect(files[0].group).toBe('client');
   });
 });

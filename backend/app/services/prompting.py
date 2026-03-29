@@ -26,7 +26,9 @@ def _infer_response_profile(text: str) -> str:
         )
     if any(keyword in lowered for keyword in ("build", "create", "generate", "landing page", "presentation", "slides", "app", "game")):
         return (
-            "For creation tasks, structure the answer around outcome, key deliverables, and the next iteration path."
+            "For creation tasks, behave like a modern app builder. Default to React + Vite + TypeScript + Tailwind CSS for web builds, "
+            "prefer shadcn/ui and Radix UI for polished primitives, and only add a database when the request truly needs persistence or auth. "
+            "Structure the answer around outcome, stack, file structure, key deliverables, preview/runtime notes, and the next iteration path."
         )
     if any(keyword in lowered for keyword in ("fix", "bug", "error", "debug", "issue", "review", "refactor")):
         return (
@@ -40,6 +42,10 @@ def _infer_response_profile(text: str) -> str:
 def build_chat_system_prompt(messages: list[ChatMessage], web_search: bool) -> str:
     latest_user = _latest_user_text(messages)
     profile_guidance = _infer_response_profile(latest_user)
+    creation_request = any(
+        keyword in latest_user.lower()
+        for keyword in ("build", "create", "generate", "website", "landing page", "app", "dashboard", "prototype", "game")
+    )
 
     sections = [
         "You are AgentOS Pro, a premium local-first AI workspace assistant.",
@@ -60,6 +66,18 @@ def build_chat_system_prompt(messages: list[ChatMessage], web_search: bool) -> s
                 "- Prioritize the provided live web context over stale memory.",
                 "- When you rely on search context, cite sources with markdown links.",
                 "- If the live search context is incomplete or unavailable, say so clearly instead of overstating certainty.",
+            ]
+        )
+
+    if creation_request:
+        sections.extend(
+            [
+                "Builder workspace contract:",
+                "- For websites and applications, prefer a Lovable-style web stack: React, Vite, TypeScript, Tailwind CSS.",
+                "- Prefer shadcn/ui and Radix UI patterns for accessible, modern interface primitives when relevant.",
+                "- Deliver outputs that are easy to preview in a workspace: a primary app/page artifact, supporting code artifacts, and database/schema artifacts only when needed.",
+                "- Keep project structure explicit. When code is generated, name files clearly and keep frontend, backend, and database surfaces distinct.",
+                "- If the request is frontend-only, avoid inventing backend or database layers just to make the answer look bigger.",
             ]
         )
 
@@ -154,11 +172,17 @@ AGENT RULES:
 4. If a browser action fails, prefer browser_snapshot or a different selector before escalating.
 5. For file paths on Windows use forward slashes or escaped backslashes.
 6. Always dir_list before file_read to confirm the file exists.
-7. file_read truncates at 100KB — split large files into sections.
+7. file_read truncates at 100KB - split large files into sections.
 8. Use shell for complex multi-step commands, terminal_open to give the user a visible terminal.
 9. If a task is blocked by sign-in, permissions, or missing user context, finish with a clear done summary explaining the exact blocker and next user step.
 10. On Windows local mode, prefer PowerShell syntax in shell commands.
 11. Never output prose outside the required response format.
+
+WEB BUILD RULES:
+- When the user asks to create a website, app, dashboard, landing page, or game, bias the build toward React + Vite + TypeScript + Tailwind CSS.
+- Prefer shadcn/ui and Radix-friendly component structure for polished web interfaces when the task is frontend-heavy.
+- Produce build outputs that are workspace-friendly: a primary previewable artifact, supporting code artifacts, and database/schema artifacts only if the product needs data persistence.
+- Keep project structure clean and explicit so the UI can expose Preview, Code, Database, and Files as separate workspace surfaces.
 
 RESPONSE FORMAT:
 [Reasoning - max 4 short sentences, focused on the next best action]

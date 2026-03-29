@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
-import { FileSearch, Filter, Layers3, Search, Sparkles, X } from 'lucide-react';
-import type { Artifact, ArtifactType } from '@/lib/artifacts';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { ChevronRight, FileSearch, Filter, Layers3, Search, Sparkles, X } from 'lucide-react';
+import type { Artifact, ArtifactType, WorkspaceView } from '@/lib/artifacts';
 import ArtifactPreviewPanel from './ArtifactPreviewPanel';
 
 interface ArtifactWorkspaceModalProps {
   open: boolean;
   artifacts: Artifact[];
+  initialView?: WorkspaceView;
   onClose: () => void;
 }
 
@@ -20,13 +21,14 @@ const filterMap: Record<ArtifactFilter, ArtifactType[]> = {
   media: ['image'],
 };
 
-const ArtifactWorkspaceModal = ({ open, artifacts, onClose }: ArtifactWorkspaceModalProps) => {
+const ArtifactWorkspaceModal = ({ open, artifacts, initialView = 'preview', onClose }: ArtifactWorkspaceModalProps) => {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<ArtifactFilter>('all');
   const [selectedId, setSelectedId] = useState<string | null>(artifacts[0]?.id ?? null);
+  const deferredQuery = useDeferredValue(query);
 
   const filteredArtifacts = useMemo(() => {
-    const loweredQuery = query.trim().toLowerCase();
+    const loweredQuery = deferredQuery.trim().toLowerCase();
     const allowedTypes = filterMap[filter];
 
     return artifacts.filter((artifact) => {
@@ -39,7 +41,7 @@ const ArtifactWorkspaceModal = ({ open, artifacts, onClose }: ArtifactWorkspaceM
 
       return matchesFilter && matchesQuery;
     });
-  }, [artifacts, filter, query]);
+  }, [artifacts, deferredQuery, filter]);
 
   useEffect(() => {
     if (!open) {
@@ -61,12 +63,12 @@ const ArtifactWorkspaceModal = ({ open, artifacts, onClose }: ArtifactWorkspaceM
   }
 
   return (
-    <div className="fixed inset-0 z-[57] flex items-center justify-center bg-black/60 px-3 py-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[57] bg-black/58 backdrop-blur-[2px]" onClick={onClose}>
       <div
-        className="w-full max-w-7xl max-h-[92vh] rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top_left,#252f35_0%,#171a1f_42%,#111317_100%)] text-white overflow-hidden shadow-2xl"
+        className="absolute inset-y-3 right-3 flex w-[min(78vw,1440px)] min-w-[980px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-[32px] border border-white/10 bg-[radial-gradient(circle_at_top_left,#252f35_0%,#171a1f_42%,#111317_100%)] text-white shadow-2xl md:inset-y-4 md:right-4"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 px-5 md:px-8 pt-5 md:pt-7 pb-4 border-b border-white/10">
+        <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 pb-4 pt-5 md:px-8 md:pt-7">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-white/70">
               Artifact Workspace
@@ -87,7 +89,7 @@ const ArtifactWorkspaceModal = ({ open, artifacts, onClose }: ArtifactWorkspaceM
               </span>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 text-white/60 hover:text-white transition-colors">
+          <button onClick={onClose} className="p-1 text-white/60 transition-colors hover:text-white">
             <X size={22} />
           </button>
         </div>
@@ -125,9 +127,9 @@ const ArtifactWorkspaceModal = ({ open, artifacts, onClose }: ArtifactWorkspaceM
           </div>
         </div>
 
-        <div className="flex flex-col lg:flex-row min-h-0 max-h-[calc(92vh-182px)]">
-          <div className="lg:w-[340px] shrink-0 border-b lg:border-b-0 lg:border-r border-white/10 overflow-y-auto">
-            <div className="p-4 md:p-5 space-y-2">
+        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+          <div className="shrink-0 overflow-y-auto border-b border-white/10 lg:w-[330px] lg:border-b-0 lg:border-r">
+            <div className="space-y-2 p-4 md:p-5">
               {filteredArtifacts.map((artifact) => (
                 <button
                   key={artifact.id}
@@ -148,7 +150,7 @@ const ArtifactWorkspaceModal = ({ open, artifacts, onClose }: ArtifactWorkspaceM
                         {artifact.sourceLabel || 'Conversation artifact'}
                       </p>
                     </div>
-                    <div className="h-9 w-9 rounded-xl border border-white/10 bg-white/5 flex items-center justify-center">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5">
                       <Layers3 size={15} className="text-white/75" />
                     </div>
                   </div>
@@ -166,7 +168,7 @@ const ArtifactWorkspaceModal = ({ open, artifacts, onClose }: ArtifactWorkspaceM
             </div>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6">
+          <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
             {selectedArtifact ? (
               <div className="space-y-5">
                 <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
@@ -180,8 +182,13 @@ const ArtifactWorkspaceModal = ({ open, artifacts, onClose }: ArtifactWorkspaceM
                       {selectedArtifact.sourceLabel || selectedArtifact.type}
                     </p>
                   </div>
+                  <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/60 lg:inline-flex">
+                    Workspace
+                    <ChevronRight size={12} />
+                    {initialView}
+                  </div>
                 </div>
-                <ArtifactPreviewPanel artifact={selectedArtifact} />
+                <ArtifactPreviewPanel artifact={selectedArtifact} artifacts={filteredArtifacts} initialView={initialView} />
               </div>
             ) : (
               <div className="h-full min-h-[280px] rounded-3xl border border-white/10 bg-white/[0.03] flex items-center justify-center text-white/60">

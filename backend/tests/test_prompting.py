@@ -31,7 +31,18 @@ class PromptingTests(unittest.TestCase):
         self.assertIn("app_open", prompt)
         self.assertIn("browser_* tools", prompt)
         self.assertIn("dir_list before file_read", prompt)
+        self.assertIn("React + Vite + TypeScript + Tailwind CSS", prompt)
         self.assertIn("done", prompt)
+
+    def test_chat_prompt_adds_builder_stack_guidance(self) -> None:
+        prompt = build_chat_system_prompt(
+            [ChatMessage(role="user", content="create a landing page for a fintech startup")],
+            web_search=False,
+        )
+
+        self.assertIn("Lovable-style web stack", prompt)
+        self.assertIn("shadcn/ui", prompt)
+        self.assertIn("primary app/page artifact", prompt)
 
 
 if __name__ == "__main__":

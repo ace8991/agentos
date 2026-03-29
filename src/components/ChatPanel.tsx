@@ -1,5 +1,5 @@
-import { Suspense, lazy, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Bot, CheckCircle, FolderOpen, Ghost, Layers3, MessageSquareText, Mic, Paperclip, Plus, Send, Square, X } from 'lucide-react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, Bot, CheckCircle, Code2, Database, FolderOpen, Ghost, Layers3, MessageSquareText, Mic, MonitorPlay, Paperclip, Plus, Send, Square, X } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { useStore, type LogEntry } from '@/store/useStore';
 import ChatMessage from './chat/ChatMessage';
@@ -12,7 +12,7 @@ import ComposerInsertMenu from './chat/ComposerInsertMenu';
 import ConnectorQuickAccess from './chat/ConnectorQuickAccess';
 import ArtifactWorkspaceModal from './chat/ArtifactWorkspaceModal';
 import { chatDirect } from '@/lib/api';
-import { collectArtifactsFromEntries } from '@/lib/artifacts';
+import { collectArtifactsFromEntries, type WorkspaceView } from '@/lib/artifacts';
 import {
   CONNECTORS_UPDATED_EVENT,
   loadConnectors,
@@ -27,13 +27,75 @@ const ConnectorConfigModal = lazy(() => import('./chat/ConnectorConfigModal'));
 const ConnectorsDirectoryModal = lazy(() => import('./chat/ConnectorsDirectoryModal'));
 const ProjectsModal = lazy(() => import('./projects/ProjectsModal'));
 
+const AGENT_LOCAL_KEYWORDS = [
+  'mon pc',
+  'mon ordinateur',
+  'sur mon pc',
+  'sur mon ordinateur',
+  'dans mes fichiers',
+  'dans mes documents',
+  'mes fichiers',
+  'mes dossiers',
+  'mon dossier',
+  'passport',
+  'passeport',
+  'fichier',
+  'fichiers',
+  'document important',
+  'document',
+  'documents',
+  'desktop',
+  'downloads',
+  'telechargements',
+  'bureau',
+  'folder',
+  'dir',
+  'directory',
+  'local file',
+  'ouvre notepad',
+  'ouvre calc',
+  'ouvre powershell',
+  'lance powershell',
+  'lance cmd',
+  'terminal',
+  'powershell',
+  'cmd.exe',
+  'wsl',
+  'ubuntu',
+  'kali',
+];
+
+const AGENT_WEB_KEYWORDS = [
+  'amazon',
+  'site',
+  'website',
+  'browser',
+  'web',
+  'navigue',
+  'naviguer',
+  'ouvre le site',
+  'open the site',
+  'sur github',
+  'github.com',
+  'chercher sur',
+  'recherche sur',
+];
+
+const shouldAutoRouteToAgent = (text: string) => {
+  const normalized = text.trim().toLowerCase();
+  if (!normalized) return false;
+
+  return [...AGENT_LOCAL_KEYWORDS, ...AGENT_WEB_KEYWORDS].some((keyword) => normalized.includes(keyword));
+};
+
 const shouldRouteToAgent = (
   text: string,
   mode: ReturnType<typeof useStore.getState>['mode'],
   backendOnline: boolean,
 ) => {
-  if (mode !== 'agent' || !backendOnline) return false;
-  return text.trim().length > 0;
+  if (!backendOnline) return false;
+  if (mode === 'agent') return text.trim().length > 0;
+  return shouldAutoRouteToAgent(text);
 };
 
 const pickSmartAgentModel = (
@@ -79,6 +141,7 @@ const ChatPanel = () => {
   const [directoryOpen, setDirectoryOpen] = useState(false);
   const [configConnectorId, setConfigConnectorId] = useState<string | null>(null);
   const [artifactWorkspaceOpen, setArtifactWorkspaceOpen] = useState(false);
+  const [artifactWorkspaceView, setArtifactWorkspaceView] = useState<WorkspaceView>('preview');
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
@@ -97,7 +160,16 @@ const ChatPanel = () => {
   const isPaused = status === 'paused';
   const chronologicalEntries = [...entries].reverse();
   const artifacts = collectArtifactsFromEntries(entries);
+  const workspaceArtifacts = useMemo(
+    () => artifacts.filter((artifact) => ['app', 'html', 'webpage', 'code', 'slides', 'markdown', 'document', 'csv', 'pdf'].includes(artifact.type)),
+    [artifacts],
+  );
   const currentProject = projects.find((project) => project.id === currentProjectId) || getCurrentProject(projects);
+
+  const openArtifactWorkspace = (view: WorkspaceView) => {
+    setArtifactWorkspaceView(view);
+    setArtifactWorkspaceOpen(true);
+  };
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
@@ -162,17 +234,23 @@ const ChatPanel = () => {
     const text = inputValue.trim();
     if (!text) return;
     setComposerMenuOpen(false);
+    const shouldUseAgent = shouldRouteToAgent(text, mode, backendOnline);
 
     if (mode === 'agent' && !backendOnline) {
       toast.error('Agent mode needs the local backend to be online.');
       return;
     }
 
-    if (shouldRouteToAgent(text, mode, backendOnline)) {
+    if (shouldUseAgent) {
       const executionModel = pickSmartAgentModel(model, backendHealth);
       if (executionModel !== model) {
         setModel(executionModel);
         toast.message(`Switched to ${executionModel} for live tool execution.`);
+      }
+
+      if (mode !== 'agent') {
+        setMode('agent');
+        toast.message('Switched to Agent mode for a local tool or live browser task.');
       }
 
       setTask(text);
@@ -404,7 +482,7 @@ const ChatPanel = () => {
           </button>
           {artifacts.length > 0 && (
             <button
-              onClick={() => setArtifactWorkspaceOpen(true)}
+              onClick={() => openArtifactWorkspace('preview')}
               className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-surface-elevated active:scale-[0.97]"
             >
               <Layers3 size={12} />
@@ -456,6 +534,54 @@ const ChatPanel = () => {
         {(activeThread === 'agent' || (task && (isRunning || isPaused || status === 'done' || status === 'error'))) && (
           <div className="mx-auto mb-4 w-full max-w-[980px]">
             <LiveSessionCard />
+          </div>
+        )}
+
+        {workspaceArtifacts.length > 0 && (
+          <div className="mx-auto mb-4 w-full max-w-[980px] rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.18)]">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
+                <div className="inline-flex items-center gap-2 rounded-full border border-sky-300/14 bg-sky-400/8 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-sky-100/78">
+                  <Layers3 size={12} />
+                  Workspace ready
+                </div>
+                <h3 className="mt-3 text-lg font-semibold tracking-tight text-white">Generated project workspace is ready</h3>
+                <p className="mt-1 max-w-2xl text-sm leading-relaxed text-white/62">
+                  Open a Manus-style workspace to inspect the live preview, review the generated code, check the database layer,
+                  or browse every artifact produced by the agent.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => openArtifactWorkspace('preview')}
+                  className="inline-flex items-center gap-2 rounded-full border border-sky-300/18 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-100 transition-colors hover:bg-sky-400/15"
+                >
+                  <MonitorPlay size={14} />
+                  Preview
+                </button>
+                <button
+                  onClick={() => openArtifactWorkspace('code')}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-medium text-white/72 transition-colors hover:bg-white/[0.08] hover:text-white"
+                >
+                  <Code2 size={14} />
+                  Code
+                </button>
+                <button
+                  onClick={() => openArtifactWorkspace('database')}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-medium text-white/72 transition-colors hover:bg-white/[0.08] hover:text-white"
+                >
+                  <Database size={14} />
+                  Database
+                </button>
+                <button
+                  onClick={() => openArtifactWorkspace('files')}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-medium text-white/72 transition-colors hover:bg-white/[0.08] hover:text-white"
+                >
+                  <FolderOpen size={14} />
+                  Files
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -710,6 +836,7 @@ const ChatPanel = () => {
       <ArtifactWorkspaceModal
         open={artifactWorkspaceOpen}
         artifacts={artifacts}
+        initialView={artifactWorkspaceView}
         onClose={() => setArtifactWorkspaceOpen(false)}
       />
       <Suspense fallback={null}>
