@@ -511,6 +511,26 @@ export async function syncRuntimeConfig(values = buildRuntimeConfigPayload()): P
   return r.json();
 }
 
+export async function downloadWorkspaceArchive(): Promise<void> {
+  const response = await fetch(`${BASE}/workspace/download`);
+  if (!response.ok) {
+    throw new Error(`Workspace download failed: ${response.status}`);
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  const contentDisposition = response.headers.get('Content-Disposition') || '';
+  const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/i);
+
+  anchor.href = url;
+  anchor.download = filenameMatch?.[1] || 'agentos-local-workspace.zip';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
 // ─── Types ─────────────────────────────────────────────────────────
 
 export interface AgentEvent {

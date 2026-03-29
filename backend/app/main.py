@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import agent, browser, chat, connectors, health, models, remote, runtime
+from app.routes import agent, browser, chat, connectors, health, models, remote, runtime, workspace
 
 app = FastAPI(title="AgentOS Backend", version="1.0.0")
 
@@ -30,3 +30,4 @@ app.include_router(chat.router)
 app.include_router(connectors.router, prefix="/connectors")
 app.include_router(remote.router, prefix="/remote")
 app.include_router(runtime.router, prefix="/runtime")
+app.include_router(workspace.router)

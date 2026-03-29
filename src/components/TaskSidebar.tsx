@@ -1,8 +1,8 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Plus, Search, Settings, BookOpen, Bot, FolderPlus,
-  Share2, ChevronRight, Plug, Globe, PanelLeftClose, PanelLeftOpen,
+  Download, ChevronRight, Plug, Globe, PanelLeftClose, PanelLeftOpen,
   Menu, X
 } from 'lucide-react';
 import { useStore, type HistoryRun } from '@/store/useStore';
@@ -12,6 +12,7 @@ import { getCurrentProject, loadProjects, PROJECTS_UPDATED_EVENT, type AppProjec
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { toast } from '@/components/ui/sonner';
+import { downloadWorkspaceArchive } from '@/lib/api';
 
 const ProjectsModal = lazy(() => import('./projects/ProjectsModal'));
 
@@ -39,7 +40,6 @@ const TaskSidebar = () => {
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [projects, setProjects] = useState<AppProject[]>(() => loadProjects());
   const navigate = useNavigate();
-  const location = useLocation();
   const isMobile = useIsMobile();
   const currentProject = projects.find((project) => project.id === currentProjectId) || getCurrentProject(projects);
 
@@ -62,21 +62,13 @@ const TaskSidebar = () => {
     navigate('/dashboard');
   };
 
-  const handleShare = async () => {
-    const shareText = 'Try AgentOS for autonomous workflows and AI-powered task execution.';
-    const shareUrl = window.location.origin;
-
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: 'AgentOS', text: shareText, url: shareUrl });
-        return;
-      } catch {
-        // Fall back to clipboard below if share is cancelled or unavailable.
-      }
+  const handleDownloadLocal = async () => {
+    try {
+      await downloadWorkspaceArchive();
+      toast.success('Downloading AgentOS local workspace');
+    } catch {
+      toast.error('Could not prepare the local download. Make sure the backend is running.');
     }
-
-    await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
-    toast.success('Share link copied to clipboard');
   };
 
   const filteredHistory = history
@@ -291,13 +283,13 @@ const TaskSidebar = () => {
       {/* Referral */}
       <div className="mx-3 mb-2">
         <button
-          onClick={handleShare}
+          onClick={handleDownloadLocal}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary/10 hover:bg-primary/15 transition-colors text-left active:scale-[0.98]"
         >
-          <Share2 size={16} className="text-primary shrink-0" />
+          <Download size={16} className="text-primary shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-foreground">Share AgentOS with a friend</p>
-            <p className="text-xs text-muted-foreground">Get 500 credits each</p>
+            <p className="text-xs font-medium text-foreground">Download AgentOS locally</p>
+            <p className="text-xs text-muted-foreground">Get the complete app workspace as a zip</p>
           </div>
           <ChevronRight size={14} className="text-muted-foreground shrink-0" />
         </button>
