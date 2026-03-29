@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom';
 import { useEffect, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import {
+  Bot,
   Check,
   ChevronRight,
   FolderOpen,
@@ -20,8 +21,10 @@ interface ComposerInsertMenuProps {
   panelRef: RefObject<HTMLDivElement | null>;
   connectedCount: number;
   responseStyleLabel: string;
+  agentModeEnabled?: boolean;
   webSearchEnabled: boolean;
   useStyleEnabled: boolean;
+  onToggleAgentMode?: () => void;
   onAddFiles: () => void;
   onAddImages: () => void;
   onOpenGoogleDrive: () => void;
@@ -39,8 +42,10 @@ const ComposerInsertMenu = ({
   panelRef,
   connectedCount,
   responseStyleLabel,
+  agentModeEnabled = false,
   webSearchEnabled,
   useStyleEnabled,
+  onToggleAgentMode,
   onAddFiles,
   onAddImages,
   onOpenGoogleDrive,
@@ -161,6 +166,14 @@ const ComposerInsertMenu = ({
         <div className="my-1.5 h-px bg-white/10" />
 
         <div className="space-y-0.5">
+          {onToggleAgentMode && (
+            <ToggleRow
+              icon={<Bot size={16} className={agentModeEnabled ? 'text-red-300' : 'text-red-400'} />}
+              title="Agent mode"
+              active={agentModeEnabled}
+              onClick={onToggleAgentMode}
+            />
+          )}
           <ToggleRow
             icon={<Search size={16} className={webSearchEnabled ? 'text-sky-300' : 'text-sky-400'} />}
             title="Web research"

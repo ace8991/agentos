@@ -59,7 +59,36 @@ export interface HistoryRun {
   steps: number;
   status: AgentStatus;
   entries: LogEntry[];
+  thread?: 'chat' | 'agent';
 }
+
+const HISTORY_STORAGE_KEY = 'agentos_history_v2';
+
+const canUseStorage = () => typeof window !== 'undefined';
+
+const createLocalId = () =>
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `local-${Date.now()}`;
+
+const loadHistoryRuns = (): HistoryRun[] => {
+  if (!canUseStorage()) return [];
+  try {
+    const raw = window.localStorage.getItem(HISTORY_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as HistoryRun[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+const persistHistoryRuns = (history: HistoryRun[]) => {
+  if (!canUseStorage()) return;
+  try {
+    window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
+  } catch {
+    // Ignore local persistence issues and keep the in-memory state.
+  }
+};
 
 export type SettingsSection =
   | 'general'
@@ -163,6 +192,8 @@ interface AppState {
   removeMemoryItem: (key: string) => void;
   reset: () => void;
   setViewingHistory: (run: HistoryRun | null) => void;
+  deleteHistoryRun: (runId: string) => void;
+  saveConversationSnapshot: (options?: { label?: string; thread?: 'chat' | 'agent' }) => void;
   startTimer: () => void;
   stopTimer: () => void;
 }
@@ -190,6 +221,7 @@ const toolLabels: Record<string, string> = {
   key: 'Pressing keys',
   wait: 'Waiting',
   computer_use: 'Using desktop controls',
+  file_search: 'Searching local files',
   file_read: 'Reading a file',
   file_write: 'Writing a file',
   code_execute: 'Executing code',
@@ -252,7 +284,7 @@ export const useStore = create<AppState>((set, get) => ({
   browserTitle: null,
   lastSurface: null,
   annotations: [],
-  history: [],
+  history: loadHistoryRuns(),
   viewingHistory: null,
   settingsOpen: false,
   settingsSection: 'general',
@@ -364,6 +396,7 @@ export const useStore = create<AppState>((set, get) => ({
     };
 
     set({
+      mode: 'agent',
       status: 'running',
       activeThread: 'agent',
       currentStep: 0,
@@ -549,17 +582,25 @@ export const useStore = create<AppState>((set, get) => ({
         steps: s.currentStep,
         status: 'done',
         entries: [completionEntry, ...s.entries],
+        thread: 'agent',
       };
-      set((prev) => ({
-        status: 'done',
-        entries: [completionEntry, ...prev.entries],
-        history: s.incognitoMode ? prev.history : [run, ...prev.history],
-      }));
+      set((prev) => {
+        const nextHistory = s.incognitoMode
+          ? prev.history
+          : [run, ...prev.history.filter((item) => item.run_id !== run.run_id)];
+        persistHistoryRuns(nextHistory);
+        return {
+          status: 'done',
+          entries: [completionEntry, ...prev.entries],
+          history: nextHistory,
+        };
+      });
     }
 
     if (event.type === 'error') {
       get().stopTimer();
       set({ status: 'error', errorMessage: event.action || 'Unknown error' });
+      get().saveConversationSnapshot({ label: get().task, thread: get().activeThread || 'agent' });
     }
   },
 
@@ -589,5 +630,50 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
   
-  setViewingHistory: (run) => set({ viewingHistory: run }),
+  setViewingHistory: (run) =>
+    set((state) => ({
+      viewingHistory: run,
+      entries: run ? run.entries : state.entries,
+      task: run?.thread === 'agent' ? run.task : '',
+      activeThread: run?.thread || state.activeThread,
+      status: run ? (run.status === 'running' ? 'done' : run.status) : state.status,
+      currentStep: run?.steps ?? state.currentStep,
+      errorMessage: run?.status === 'error' ? state.errorMessage : null,
+    })),
+  deleteHistoryRun: (runId) =>
+    set((state) => {
+      const nextHistory = state.history.filter((run) => run.run_id !== runId);
+      persistHistoryRuns(nextHistory);
+      const nextViewing = state.viewingHistory?.run_id === runId ? null : state.viewingHistory;
+      return { history: nextHistory, viewingHistory: nextViewing };
+    }),
+  saveConversationSnapshot: (options) =>
+    set((state) => {
+      if (state.incognitoMode || state.entries.length === 0) {
+        return {};
+      }
+
+      const orderedEntries = [...state.entries].reverse();
+      const oldestUserEntry = orderedEntries.find((entry) => entry.type === 'info' && entry.step === 0) || orderedEntries[0];
+      const runId = state.runId || `chat-${oldestUserEntry?.id || createLocalId()}`;
+      const label =
+        options?.label?.trim() ||
+        state.task.trim() ||
+        oldestUserEntry?.action?.trim() ||
+        'Conversation';
+
+      const snapshot: HistoryRun = {
+        run_id: runId,
+        task: label,
+        date: new Date().toISOString(),
+        steps: state.currentStep,
+        status: state.status === 'idle' ? 'done' : state.status,
+        entries: state.entries,
+        thread: options?.thread || state.activeThread || 'chat',
+      };
+
+      const nextHistory = [snapshot, ...state.history.filter((run) => run.run_id !== runId)];
+      persistHistoryRuns(nextHistory);
+      return { history: nextHistory };
+    }),
 }));

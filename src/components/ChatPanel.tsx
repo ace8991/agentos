@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, CheckCircle, FolderOpen, Ghost, Layers3, Mic, Paperclip, Plus, Send, Square, X } from 'lucide-react';
+import { AlertTriangle, Bot, CheckCircle, FolderOpen, Ghost, Layers3, MessageSquareText, Mic, Paperclip, Plus, Send, Square, X } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { useStore, type LogEntry } from '@/store/useStore';
 import ChatMessage from './chat/ChatMessage';
@@ -27,20 +27,13 @@ const ConnectorConfigModal = lazy(() => import('./chat/ConnectorConfigModal'));
 const ConnectorsDirectoryModal = lazy(() => import('./chat/ConnectorsDirectoryModal'));
 const ProjectsModal = lazy(() => import('./projects/ProjectsModal'));
 
-const AGENT_REQUEST_PATTERNS = [
-  /https?:\/\//i,
-  /\b(site|website|browser|page web|page|url|navigate|open|visit|click|scroll|fill|form|download|upload)\b/i,
-  /\b(site web|navigue|ouvrir|ouvre|va sur|aller sur|clique|cherche sur|recherche sur|remplis|telecharge|interagis)\b/i,
-  /\b(terminal|shell|commande|command line|bash|powershell|console|cmd|invite de commande|wsl|ubuntu|kali|kali linux)\b/i,
-  /\b(desktop|ordinateur|computer|screen|screenshot|fichier local|local file|application|app locale|app local|lancer une app|launch app|ouvrir une application|start process)\b/i,
-  /\b(repo|repository|git|github|pull request|pr\b|commit|branch|diff|patch|refactor|debug|bug|test|failing test|lint|stack trace|codebase|review code)\b/i,
-  /\b(code review|fix bug|ecris un test|ecrire un test|corrige le bug|analyse le repo|refactorise|debugge)\b/i,
-];
-
-const shouldRouteToAgent = (text: string, backendOnline: boolean, webResearchEnabled: boolean) => {
-  if (!backendOnline) return false;
-  if (webResearchEnabled) return true;
-  return AGENT_REQUEST_PATTERNS.some((pattern) => pattern.test(text));
+const shouldRouteToAgent = (
+  text: string,
+  mode: ReturnType<typeof useStore.getState>['mode'],
+  backendOnline: boolean,
+) => {
+  if (mode !== 'agent' || !backendOnline) return false;
+  return text.trim().length > 0;
 };
 
 const pickSmartAgentModel = (
@@ -67,6 +60,8 @@ const ChatPanel = () => {
   const elapsedTime = useStore((s) => s.elapsedTime);
   const activeThread = useStore((s) => s.activeThread);
   const setActiveThread = useStore((s) => s.setActiveThread);
+  const mode = useStore((s) => s.mode);
+  const setMode = useStore((s) => s.setMode);
   const model = useStore((s) => s.model);
   const setModel = useStore((s) => s.setModel);
   const openSettingsFor = useStore((s) => s.openSettingsFor);
@@ -168,7 +163,12 @@ const ChatPanel = () => {
     if (!text) return;
     setComposerMenuOpen(false);
 
-    if (shouldRouteToAgent(text, backendOnline, composerPreferences.webResearch)) {
+    if (mode === 'agent' && !backendOnline) {
+      toast.error('Agent mode needs the local backend to be online.');
+      return;
+    }
+
+    if (shouldRouteToAgent(text, mode, backendOnline)) {
       const executionModel = pickSmartAgentModel(model, backendHealth);
       if (executionModel !== model) {
         setModel(executionModel);
@@ -216,7 +216,15 @@ const ChatPanel = () => {
       .filter(Boolean)
       .join('\n\n');
     const projectContext = buildProjectContext(text, currentProject);
-    const systemContext = [behaviorInstructions, projectContext].filter(Boolean).join('\n\n');
+    const workspaceContext = [
+      `Workspace mode: ${mode}`,
+      `Backend: ${backendOnline ? 'online' : 'offline'}`,
+      composerPreferences.webResearch ? 'Web research is enabled.' : '',
+      attachments.length > 0 ? `Attachments: ${attachments.map((file) => file.name).join(', ')}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
+    const systemContext = [behaviorInstructions, projectContext, workspaceContext].filter(Boolean).join('\n\n');
 
     if (systemContext) {
       messages.push({ role: 'system', content: systemContext });
@@ -263,6 +271,7 @@ const ChatPanel = () => {
       },
       () => {
         setChatLoading(false);
+        useStore.getState().saveConversationSnapshot({ label: text, thread: 'chat' });
       },
       (err) => {
         setChatLoading(false);
@@ -271,6 +280,7 @@ const ChatPanel = () => {
             entry.id === assistantId ? { ...entry, type: 'error', action: err } : entry,
           ),
         }));
+        useStore.getState().saveConversationSnapshot({ label: text, thread: 'chat' });
       },
     );
   };
@@ -343,6 +353,30 @@ const ChatPanel = () => {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <div className="hidden items-center gap-1 rounded-full border border-border bg-muted/60 p-1 md:inline-flex">
+            <button
+              onClick={() => setMode('chat')}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                mode !== 'agent'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <MessageSquareText size={12} />
+              Chat
+            </button>
+            <button
+              onClick={() => setMode('agent')}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                mode === 'agent'
+                  ? 'border border-red-500/20 bg-red-500/10 text-red-300'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Bot size={12} className={mode === 'agent' ? 'animate-pulse' : undefined} />
+              Agent
+            </button>
+          </div>
           <button
             onClick={() => setProjectsOpen(true)}
             className={`hidden items-center gap-1.5 rounded-md border px-3 py-1 text-xs transition-colors md:inline-flex ${
@@ -400,8 +434,6 @@ const ChatPanel = () => {
         </div>
       </div>
 
-      <LiveSessionCard />
-
       <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin px-3 py-3 md:px-5 md:py-4">
         {activeThread === 'agent' && task && (
           <div className="mb-2 flex gap-3 py-3">
@@ -417,6 +449,12 @@ const ChatPanel = () => {
 
         {activeThread === 'agent' && task && entries.length > 0 && (
           <div className="my-2 border-t border-border" />
+        )}
+
+        {(activeThread === 'agent' || (task && (isRunning || isPaused || status === 'done' || status === 'error'))) && (
+          <div className="mx-auto mb-4 w-full max-w-[980px]">
+            <LiveSessionCard />
+          </div>
         )}
 
         {chronologicalEntries.map((entry) => {
@@ -472,14 +510,14 @@ const ChatPanel = () => {
             </div>
             <h3 className="mb-1 text-base font-medium text-foreground">What can I help you with?</h3>
             <p className="max-w-xs text-sm text-muted-foreground">
-              Ask a question, open a website, run a workflow, or let the workspace choose the right execution path automatically.
+              Ask a question directly, or switch to Agent mode when you want live browser, terminal, or desktop execution inside the workspace.
             </p>
           </div>
         )}
       </div>
 
       {attachments.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 px-5 pt-2">
+        <div className="mx-auto flex w-full max-w-[980px] flex-wrap items-center gap-2 px-3 pt-2 md:px-5">
           {attachments.map((file, index) => (
             <div key={index} className="flex items-center gap-1.5 rounded-lg border border-border bg-muted px-2.5 py-1 text-xs text-foreground">
               <Paperclip size={11} className="text-muted-foreground" />
@@ -498,7 +536,17 @@ const ChatPanel = () => {
       )}
 
       {(composerPreferences.webResearch || composerPreferences.useStyle) && (
-        <div className="flex flex-wrap items-center gap-2 px-5 pt-2">
+        <div className="mx-auto flex w-full max-w-[980px] flex-wrap items-center gap-2 px-3 pt-2 md:px-5">
+          {mode === 'agent' && (
+            <button
+              onClick={() => setMode('chat')}
+              className="inline-flex items-center gap-1.5 rounded-full border border-red-400/20 bg-red-500/10 px-2.5 py-1 text-[11px] font-medium text-red-200"
+            >
+              <Bot size={11} />
+              Agent mode
+              <X size={11} />
+            </button>
+          )}
           {composerPreferences.webResearch && (
             <button
               onClick={() => setComposerPreferences({ webResearch: false })}
@@ -521,7 +569,7 @@ const ChatPanel = () => {
       )}
 
       {(currentProject || incognitoMode) && (
-        <div className="flex flex-wrap items-center gap-2 px-5 pt-2">
+        <div className="mx-auto flex w-full max-w-[980px] flex-wrap items-center gap-2 px-3 pt-2 md:px-5">
           {currentProject && (
             <button
               onClick={() => setProjectsOpen(true)}
@@ -541,10 +589,20 @@ const ChatPanel = () => {
               <X size={11} />
             </button>
           )}
+          {!composerPreferences.webResearch && !composerPreferences.useStyle && mode === 'agent' && (
+            <button
+              onClick={() => setMode('chat')}
+              className="inline-flex items-center gap-1.5 rounded-full border border-red-400/20 bg-red-500/10 px-2.5 py-1 text-[11px] font-medium text-red-200"
+            >
+              <Bot size={11} />
+              Agent mode
+              <X size={11} />
+            </button>
+          )}
         </div>
       )}
 
-      <div className="px-3 pb-3 pt-2 md:px-5 md:pb-4">
+      <div className="mx-auto w-full max-w-[980px] px-3 pb-3 pt-2 md:px-5 md:pb-4">
         <div className="relative flex items-end gap-2 rounded-xl border border-border bg-muted px-3 py-2.5 transition-shadow focus-within:glow-purple md:gap-3 md:px-4 md:py-3">
           <button
             ref={composerMenuButtonRef}
@@ -560,8 +618,10 @@ const ChatPanel = () => {
             panelRef={composerMenuPanelRef}
             connectedCount={connectors.filter((connector) => connector.connected).length}
             responseStyleLabel={responseStyleLabel}
+            agentModeEnabled={mode === 'agent'}
             webSearchEnabled={composerPreferences.webResearch}
             useStyleEnabled={composerPreferences.useStyle}
+            onToggleAgentMode={() => setMode(mode === 'agent' ? 'chat' : 'agent')}
             onAddFiles={() => {
               setComposerMenuOpen(false);
               fileInputRef.current?.click();

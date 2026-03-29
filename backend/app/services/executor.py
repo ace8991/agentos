@@ -12,9 +12,37 @@ import time
 
 from app.config import is_tool_available
 from app.models.schemas import ActionType, AgentAction
-from app.services import browser, web
+from app.services import browser, filesystem, web
 
 logger = logging.getLogger(__name__)
+
+
+def _describe_exception(exc: Exception, fallback: str = "Tool execution failed") -> str:
+    message = str(exc).strip()
+    return message or exc.__class__.__name__ or fallback
+
+
+def _validate_browser_action(action: AgentAction) -> dict | None:
+    if action.type == ActionType.BROWSER_OPEN and not action.url:
+        return {"success": False, "description": "browser_open requires a url"}
+    if action.type in {
+        ActionType.BROWSER_CLICK,
+        ActionType.BROWSER_TYPE,
+        ActionType.BROWSER_SELECT,
+        ActionType.BROWSER_WAIT,
+    } and not action.selector:
+        return {"success": False, "description": f"{action.type.value} requires a selector"}
+    if action.type == ActionType.BROWSER_TYPE and action.text is None:
+        return {"success": False, "description": "browser_type requires text"}
+    if action.type == ActionType.BROWSER_SELECT and action.value is None:
+        return {"success": False, "description": "browser_select requires a value"}
+    if action.type == ActionType.BROWSER_EVAL and not action.script:
+        return {"success": False, "description": "browser_eval requires a script"}
+    if action.type == ActionType.FILE_SEARCH and not action.query:
+        return {"success": False, "description": "file_search requires a query"}
+    if action.type == ActionType.FILE_READ and not action.path:
+        return {"success": False, "description": "file_read requires a path"}
+    return None
 
 
 def _pyautogui():
@@ -35,6 +63,10 @@ async def execute(action: AgentAction, run_id: str) -> dict:
             "mode_error": True,
         }
 
+    browser_validation_error = _validate_browser_action(action)
+    if browser_validation_error:
+        return browser_validation_error
+
     try:
         if tool == ActionType.WEB_SEARCH:
             return await asyncio.to_thread(web.web_search, action.query, action.max_results or 5)
@@ -44,6 +76,11 @@ async def execute(action: AgentAction, run_id: str) -> dict:
             return await asyncio.to_thread(web.web_qna, action.query)
         if tool == ActionType.WEB_CRAWL:
             return await asyncio.to_thread(web.web_crawl, action.url, action.instructions)
+
+        if tool == ActionType.FILE_SEARCH:
+            return await asyncio.to_thread(filesystem.search_files, action.query, action.path, action.max_results or 8)
+        if tool == ActionType.FILE_READ:
+            return await asyncio.to_thread(filesystem.read_file, action.path)
 
         if tool == ActionType.BROWSER_OPEN:
             return await browser.browser_open(run_id, action.url, action.timeout or 15000)
@@ -97,7 +134,7 @@ async def execute(action: AgentAction, run_id: str) -> dict:
         if exc.__class__.__name__ == "FailSafeException":
             return {"success": False, "description": "Fail-safe triggered, move mouse away from the corner"}
         logger.error("execute(%s): %s", tool, exc)
-        return {"success": False, "description": str(exc)}
+        return {"success": False, "description": _describe_exception(exc)}
 
 
 def _click(x, y):

@@ -23,7 +23,7 @@ MODE: str = _detect_mode()
 IS_LOCAL: bool = MODE == "local"
 IS_CLOUD: bool = MODE == "cloud"
 
-DESKTOP_TOOLS = {"click", "type", "scroll", "key", "wait", "shell", "computer_use"}
+DESKTOP_TOOLS = {"click", "type", "scroll", "key", "wait", "shell", "computer_use", "file_search", "file_read"}
 CLOUD_TOOLS   = {"web_search", "web_extract", "web_qna", "web_crawl",
                  "browser_open", "browser_click", "browser_type", "browser_select",
                  "browser_scroll", "browser_wait", "browser_snapshot",

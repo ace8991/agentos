@@ -54,6 +54,8 @@ class ActionType(str, Enum):
     KEY              = "key"
     WAIT             = "wait"
     SHELL            = "shell"
+    FILE_SEARCH      = "file_search"
+    FILE_READ        = "file_read"
     # Tavily
     WEB_SEARCH       = "web_search"
     WEB_EXTRACT      = "web_extract"
@@ -86,6 +88,7 @@ class AgentAction(BaseModel):
     key: Optional[str] = None
     amount: Optional[int] = None
     command: Optional[str] = None
+    path: Optional[str] = None
     # Tavily
     query: Optional[str] = None
     url: Optional[str] = None

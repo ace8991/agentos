@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { ArrowUpRight, ChevronUp, Globe, MonitorSmartphone, Radio, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
@@ -23,7 +23,6 @@ const extractHost = (url: string | null) => {
 const AgentDockOverlay = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const runId = useStore((s) => s.runId);
   const status = useStore((s) => s.status);
   const task = useStore((s) => s.task);
   const currentStep = useStore((s) => s.currentStep);
@@ -37,7 +36,6 @@ const AgentDockOverlay = () => {
   const stopAgent = useStore((s) => s.stopAgent);
   const [collapsed, setCollapsed] = useState(false);
   const popupRef = useRef<Window | null>(null);
-  const autoOpenedRunRef = useRef<string | null>(null);
 
   const visible = !!task && (status === 'running' || status === 'paused' || status === 'error');
 
@@ -63,18 +61,7 @@ const AgentDockOverlay = () => {
     }
   };
 
-  useEffect(() => {
-    if (!visible || !runId || location.pathname === '/agent-dock') {
-      return;
-    }
-    if (autoOpenedRunRef.current === runId) {
-      return;
-    }
-    autoOpenedRunRef.current = runId;
-    openDockWindow();
-  }, [location.pathname, runId, visible]);
-
-  if (!visible || location.pathname === '/agent-dock') {
+  if (!visible || location.pathname === '/agent-dock' || location.pathname === '/dashboard') {
     return null;
   }
 

@@ -1,4 +1,4 @@
-import { X, Clock } from 'lucide-react';
+import { Clock, Trash2, X } from 'lucide-react';
 import { useStore, type HistoryRun } from '@/store/useStore';
 
 const statusColor: Record<string, string> = {
@@ -13,6 +13,7 @@ const HistorySidebar = () => {
   const setOpen = useStore((s) => s.setHistoryOpen);
   const history = useStore((s) => s.history);
   const setViewing = useStore((s) => s.setViewingHistory);
+  const deleteHistoryRun = useStore((s) => s.deleteHistoryRun);
 
   if (!open) return null;
 
@@ -37,22 +38,33 @@ const HistorySidebar = () => {
           <p className="text-sm text-muted-foreground text-center py-8">No past runs</p>
         )}
         {history.map((run) => (
-          <button
+          <div
             key={run.run_id}
-            onClick={() => handleClick(run)}
-            className="w-full text-left p-3 rounded-lg hover:bg-surface-elevated transition-colors"
+            className="group flex items-start gap-2 rounded-lg p-3 hover:bg-surface-elevated transition-colors"
           >
-            <p className="text-sm text-foreground truncate">{run.task.slice(0, 60)}</p>
-            <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-xs text-muted-foreground">
-                {new Date(run.date).toLocaleDateString()}
-              </span>
-              <span className="text-xs text-muted-foreground tabular-nums">{run.steps} steps</span>
-              <span className={`text-xs px-1.5 py-0.5 rounded-pill ${statusColor[run.status]}`}>
-                {run.status}
-              </span>
-            </div>
-          </button>
+            <button
+              onClick={() => handleClick(run)}
+              className="min-w-0 flex-1 text-left"
+            >
+              <p className="text-sm text-foreground truncate">{run.task.slice(0, 60)}</p>
+              <div className="mt-1.5 flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {new Date(run.date).toLocaleDateString()}
+                </span>
+                <span className="text-xs text-muted-foreground tabular-nums">{run.steps} steps</span>
+                <span className={`rounded-pill px-1.5 py-0.5 text-xs ${statusColor[run.status]}`}>
+                  {run.status}
+                </span>
+              </div>
+            </button>
+            <button
+              onClick={() => deleteHistoryRun(run.run_id)}
+              className="rounded-md p-1.5 text-muted-foreground opacity-0 transition-all hover:bg-background hover:text-foreground group-hover:opacity-100"
+              title="Delete conversation"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
         ))}
       </div>
     </div>

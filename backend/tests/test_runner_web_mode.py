@@ -220,6 +220,140 @@ class RunnerWebModeTests(unittest.TestCase):
         done_events = [event for event in events if event["type"] == "done"]
         self.assertTrue(done_events)
 
+    def test_runner_waits_for_browser_frame_instead_of_failing_immediately(self) -> None:
+        run_id = runner.create_run(
+            task="verify amazon order history",
+            model="gpt-5.4",
+            max_steps=3,
+            capture_interval_ms=100,
+        )
+
+        bootstrap_payload = {
+            "success": False,
+            "description": "Navigation committed, waiting for the first in-app frame.",
+        }
+        snapshot_payload = {
+            "success": True,
+            "description": "Snapshot of Amazon sign-in",
+            "url": "https://www.amazon.com/ap/signin",
+            "title": "Amazon Sign-In",
+            "screenshot_b64": "c25hcHNob3Q=",
+            "text_preview": "Amazon sign-in page",
+        }
+
+        async def collect_events():
+            events = []
+            async for chunk in runner.run_agent(run_id):
+                payload = json.loads(chunk.removeprefix("data: ").strip())
+                events.append(payload)
+            return events
+
+        with patch(
+            "app.services.runner.browser_svc.bootstrap_browser_task",
+            new=AsyncMock(return_value=bootstrap_payload),
+        ), patch(
+            "app.services.runner.browser_svc.session_exists",
+            return_value=True,
+        ), patch(
+            "app.services.runner.browser_svc.browser_live_state",
+            new=AsyncMock(side_effect=[None, None, {"screenshot_b64": "c25hcHNob3Q="}]),
+        ), patch(
+            "app.services.runner.browser_svc.browser_snapshot",
+            new=AsyncMock(side_effect=[
+                {"success": False, "description": "Still synchronizing browser frame"},
+                snapshot_payload,
+            ]),
+        ), patch(
+            "app.services.runner.browser_svc.close_session",
+            new=AsyncMock(return_value=None),
+        ), patch(
+            "app.services.runner.capture_screenshot",
+            side_effect=AssertionError("desktop capture should not be used while browser session is synchronizing"),
+        ), patch(
+            "app.services.runner.think_and_act",
+            side_effect=[
+                (
+                    "Review the Amazon page once it appears",
+                    AgentAction(type=ActionType.DONE, reason="The browser frame synchronized successfully."),
+                ),
+            ],
+        ):
+            events = asyncio.run(collect_events())
+
+        error_events = [event for event in events if event["type"] == "error"]
+        self.assertFalse(error_events)
+        done_events = [event for event in events if event["type"] == "done"]
+        self.assertTrue(done_events)
+
+    def test_browser_first_task_blocks_computer_use_even_if_bootstrap_raises(self) -> None:
+        run_id = runner.create_run(
+            task="verifier ma derniere commande sur amazone",
+            model="gpt-5.4",
+            max_steps=3,
+            capture_interval_ms=100,
+        )
+
+        snapshot_payload = {
+            "success": True,
+            "description": "Recovered browser snapshot after a failed bootstrap.",
+            "url": "https://www.amazon.com/gp/css/order-history",
+            "title": "Amazon Orders",
+            "screenshot_b64": "c25hcHNob3Q=",
+            "text_preview": "Latest Amazon order page",
+        }
+
+        async def collect_events():
+            events = []
+            async for chunk in runner.run_agent(run_id):
+                payload = json.loads(chunk.removeprefix("data: ").strip())
+                events.append(payload)
+            return events
+
+        with patch(
+            "app.services.runner.browser_svc.bootstrap_browser_task",
+            new=AsyncMock(side_effect=NotImplementedError()),
+        ), patch(
+            "app.services.runner.browser_svc.session_exists",
+            return_value=True,
+        ), patch(
+            "app.services.runner.browser_svc.browser_live_state",
+            new=AsyncMock(return_value={"screenshot_b64": "c25hcHNob3Q="}),
+        ), patch(
+            "app.services.runner.browser_svc.browser_snapshot",
+            new=AsyncMock(return_value=snapshot_payload),
+        ), patch(
+            "app.services.runner.browser_svc.close_session",
+            new=AsyncMock(return_value=None),
+        ), patch(
+            "app.services.runner.think_and_act",
+            side_effect=[
+                (
+                    "Try computer use",
+                    AgentAction(type=ActionType.COMPUTER_USE, subtask="inspect latest order"),
+                ),
+                (
+                    "Done after staying in-browser",
+                    AgentAction(type=ActionType.DONE, reason="Verified the latest order from the browser workspace."),
+                ),
+            ],
+        ), patch(
+            "app.services.runner.execute",
+            new=AsyncMock(side_effect=AssertionError("execute() should not run blocked computer_use")),
+        ):
+            events = asyncio.run(collect_events())
+
+        info_events = [event for event in events if event["type"] == "info"]
+        self.assertTrue(info_events)
+        self.assertIn("Browser bootstrap failed", info_events[0]["action"])
+
+        step_events = [event for event in events if event["type"] == "step"]
+        self.assertTrue(step_events)
+        self.assertIn("kept the task inside the browser", step_events[0]["action"])
+        self.assertEqual(step_events[0]["tool_result"].get("auto_fallback"), "browser_snapshot")
+
+        done_events = [event for event in events if event["type"] == "done"]
+        self.assertTrue(done_events)
+
 
 if __name__ == "__main__":
     unittest.main()

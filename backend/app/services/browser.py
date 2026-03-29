@@ -1,16 +1,25 @@
 """
-Playwright + Brave Browser service.
-Manages a single persistent browser session per agent run.
-Defaults to an embedded headless browser so live navigation stays inside the chat UI.
-Brave/headful mode can be enabled explicitly for local debugging.
+Playwright browser service used by the agent.
+
+The browser runs inside a dedicated worker thread so it stays stable on
+Windows/FastAPI, where async Playwright subprocess startup can fail inside the
+main server event loop with blank NotImplementedError crashes.
+
+This keeps the browser fully in-app while avoiding external windows by default.
 """
 
+from __future__ import annotations
+
+import asyncio
 import base64
 import logging
 import os
 import platform
 import re
-from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
+from functools import partial
+from threading import RLock
 from typing import Optional
 from urllib.parse import quote_plus
 
@@ -19,7 +28,6 @@ from app.services.runtime_config import get_runtime_value
 
 logger = logging.getLogger(__name__)
 
-_sessions: dict[str, object] = {}
 _URL_PATTERN = re.compile(r"https?://[^\s]+", re.IGNORECASE)
 _SEARCH_TRIGGER_PATTERN = re.compile(
     r"\b(site|website|page web|page|browser|navigue|navigate|open|ouvre|visit|aller sur|va sur|search|cherche|recherche|acheter|buy|commande|order)\b",
@@ -33,6 +41,15 @@ class BrowserBootstrapPlan:
     url: str
     description: str
     source: str
+
+
+@dataclass
+class BrowserSession:
+    pw: object
+    browser: object
+    context: object
+    page: object
+    lock: RLock = field(default_factory=RLock)
 
 
 _SITE_TARGETS: tuple[dict[str, object], ...] = (
@@ -85,9 +102,17 @@ _SITE_TARGETS: tuple[dict[str, object], ...] = (
     },
 )
 
+_sessions: dict[str, BrowserSession] = {}
+_BROWSER_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="agentos-browser")
+
 
 def _normalize_task(task: str) -> str:
     return re.sub(r"\s+", " ", task or "").strip()
+
+
+def _describe_exception(exc: Exception, fallback: str = "Browser action failed") -> str:
+    message = str(exc).strip()
+    return message or exc.__class__.__name__ or fallback
 
 
 def _extract_explicit_url(task: str) -> Optional[str]:
@@ -142,7 +167,7 @@ def infer_browser_bootstrap(task: str) -> Optional[BrowserBootstrapPlan]:
         query = _infer_search_query(normalized, keywords)
         if matched_target["id"] == "amazon" and _ORDERS_PATTERN.search(lowered):
             return BrowserBootstrapPlan(
-                url=matched_target["orders_url"],
+                url=str(matched_target["orders_url"]),
                 description="Prepared browser workspace on Amazon order history so the agent can inspect your latest orders immediately.",
                 source="amazon-orders",
             )
@@ -173,50 +198,6 @@ def _should_launch_headful() -> bool:
     return not IS_CLOUD and configured in {"1", "true", "yes", "on"}
 
 
-async def _settle_page(page, timeout: int = 2000) -> None:
-    try:
-        await page.wait_for_load_state("domcontentloaded", timeout=timeout)
-    except Exception:
-        pass
-    try:
-        await page.wait_for_timeout(180)
-    except Exception:
-        pass
-
-
-async def _snapshot_page(
-    page,
-    description: str,
-    *,
-    include_text_preview: bool = False,
-    extra: Optional[dict] = None,
-) -> dict:
-    title = await page.title()
-    payload = {
-        "success": True,
-        "url": page.url,
-        "title": title,
-        "description": description,
-    }
-
-    if include_text_preview:
-        text = await page.evaluate(
-            """() => {
-                const el = document.body;
-                return el ? el.innerText.replace(/\\s+/g, ' ').trim().slice(0, 3000) : '';
-            }"""
-        )
-        payload["text_preview"] = text
-
-    jpeg = await page.screenshot(type="jpeg", quality=72)
-    payload["screenshot_b64"] = base64.b64encode(jpeg).decode()
-
-    if extra:
-        payload.update(extra)
-
-    return payload
-
-
 def _brave_path() -> Optional[str]:
     system = platform.system()
     candidates = {
@@ -239,13 +220,57 @@ def _brave_path() -> Optional[str]:
     return None
 
 
-async def get_session(run_id: str):
+def _sync_settle_page(page, timeout: int = 2000) -> None:
+    try:
+        page.wait_for_load_state("domcontentloaded", timeout=timeout)
+    except Exception:
+        pass
+    try:
+        page.wait_for_timeout(180)
+    except Exception:
+        pass
+
+
+def _sync_snapshot_page(
+    page,
+    description: str,
+    *,
+    include_text_preview: bool = False,
+    extra: Optional[dict] = None,
+) -> dict:
+    title = page.title()
+    payload = {
+        "success": True,
+        "url": page.url,
+        "title": title,
+        "description": description,
+    }
+
+    if include_text_preview:
+        text = page.evaluate(
+            """() => {
+                const el = document.body;
+                return el ? el.innerText.replace(/\\s+/g, ' ').trim().slice(0, 3000) : '';
+            }"""
+        )
+        payload["text_preview"] = text
+
+    jpeg = page.screenshot(type="jpeg", quality=72)
+    payload["screenshot_b64"] = base64.b64encode(jpeg).decode()
+
+    if extra:
+        payload.update(extra)
+
+    return payload
+
+
+def _sync_get_session(run_id: str) -> BrowserSession:
     if run_id in _sessions:
         return _sessions[run_id]
 
-    from playwright.async_api import async_playwright
+    from playwright.sync_api import sync_playwright
 
-    pw = await async_playwright().start()
+    pw = sync_playwright().start()
     brave = _brave_path()
     headful = _should_launch_headful()
     launch_kwargs = {
@@ -257,13 +282,13 @@ async def get_session(run_id: str):
     }
 
     if headful and brave:
-        browser = await pw.chromium.launch(executable_path=brave, **launch_kwargs)
+        browser = pw.chromium.launch(executable_path=brave, **launch_kwargs)
         logger.info("Launched headful Brave at %s", brave)
     else:
-        browser = await pw.chromium.launch(**launch_kwargs)
+        browser = pw.chromium.launch(**launch_kwargs)
         logger.info("Launched embedded Chromium browser (%s mode)", "headful" if headful else "headless")
 
-    context = await browser.new_context(
+    context = browser.new_context(
         viewport={"width": 1280, "height": 800},
         user_agent=(
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -271,10 +296,178 @@ async def get_session(run_id: str):
             "Chrome/124.0.0.0 Safari/537.36 Brave/1.65"
         ),
     )
-    page = await context.new_page()
+    page = context.new_page()
+    session = BrowserSession(pw=pw, browser=browser, context=context, page=page)
+    _sessions[run_id] = session
+    return session
 
-    _sessions[run_id] = {"pw": pw, "browser": browser, "context": context, "page": page}
-    return _sessions[run_id]
+
+def _sync_close_session(run_id: str) -> None:
+    session = _sessions.pop(run_id, None)
+    if not session:
+        return
+    with session.lock:
+        try:
+            session.browser.close()
+        finally:
+            session.pw.stop()
+
+
+def _sync_browser_live_state(run_id: str) -> dict | None:
+    session = _sessions.get(run_id)
+    if not session:
+        return None
+    with session.lock:
+        try:
+            return _sync_snapshot_page(session.page, "Live browser view", include_text_preview=False)
+        except Exception as exc:
+            logger.warning("Live browser snapshot failed: %s", _describe_exception(exc))
+            return None
+
+
+def _sync_browser_open(run_id: str, url: str, timeout: int = 15000) -> dict:
+    page = None
+    try:
+        if not url:
+            return {"success": False, "description": "browser_open requires a valid url"}
+        session = _sync_get_session(run_id)
+        with session.lock:
+            page = session.page
+            page.goto(url, wait_until="commit", timeout=timeout)
+            _sync_settle_page(page)
+            return _sync_snapshot_page(page, f"Opened {url}")
+    except Exception as exc:
+        description = _describe_exception(exc, f"Could not open {url}")
+        if page is not None:
+            try:
+                _sync_settle_page(page, timeout=1200)
+                snapshot = _sync_snapshot_page(
+                    page,
+                    f"Opened {url} with a recoverable navigation issue",
+                    extra={"navigation_warning": description},
+                )
+                snapshot["description"] = f"Opened {url} with a recoverable navigation issue: {description}"
+                return snapshot
+            except Exception:
+                pass
+        return {"success": False, "description": description}
+
+
+def _sync_browser_click(run_id: str, selector: str, timeout: int = 8000) -> dict:
+    try:
+        if not selector:
+            return {"success": False, "description": "browser_click requires a selector or visible text target"}
+        session = _sync_get_session(run_id)
+        with session.lock:
+            page = session.page
+            try:
+                page.click(selector, timeout=timeout)
+                _sync_settle_page(page)
+                return _sync_snapshot_page(page, f"Clicked '{selector}'")
+            except Exception as primary_exc:
+                try:
+                    page.get_by_text(selector).first.click(timeout=timeout)
+                    _sync_settle_page(page)
+                    return _sync_snapshot_page(page, f"Clicked text '{selector}'")
+                except Exception:
+                    return {"success": False, "description": _describe_exception(primary_exc)}
+    except Exception as exc:
+        return {"success": False, "description": _describe_exception(exc)}
+
+
+def _sync_browser_type(run_id: str, selector: str, text: str, timeout: int = 8000) -> dict:
+    try:
+        session = _sync_get_session(run_id)
+        with session.lock:
+            page = session.page
+            page.fill(selector, text, timeout=timeout)
+            _sync_settle_page(page)
+            return _sync_snapshot_page(page, f"Typed in '{selector}': {text[:60]}")
+    except Exception as exc:
+        return {"success": False, "description": _describe_exception(exc)}
+
+
+def _sync_browser_select(run_id: str, selector: str, value: str, timeout: int = 8000) -> dict:
+    try:
+        session = _sync_get_session(run_id)
+        with session.lock:
+            page = session.page
+            page.select_option(selector, value=value, timeout=timeout)
+            _sync_settle_page(page)
+            return _sync_snapshot_page(page, f"Selected '{value}' in '{selector}'")
+    except Exception as exc:
+        return {"success": False, "description": _describe_exception(exc)}
+
+
+def _sync_browser_scroll(run_id: str, amount: int = 3) -> dict:
+    try:
+        session = _sync_get_session(run_id)
+        with session.lock:
+            page = session.page
+            px = amount * 300
+            page.evaluate(f"window.scrollBy(0, {px})")
+            _sync_settle_page(page)
+            return _sync_snapshot_page(page, f"Scrolled {px}px")
+    except Exception as exc:
+        return {"success": False, "description": _describe_exception(exc)}
+
+
+def _sync_browser_wait(run_id: str, selector: str, timeout: int = 10000) -> dict:
+    try:
+        session = _sync_get_session(run_id)
+        with session.lock:
+            page = session.page
+            page.wait_for_selector(selector, timeout=timeout)
+            _sync_settle_page(page)
+            return _sync_snapshot_page(page, f"Element visible: '{selector}'")
+    except Exception as exc:
+        return {"success": False, "description": _describe_exception(exc)}
+
+
+def _sync_browser_snapshot(run_id: str) -> dict:
+    try:
+        session = _sync_get_session(run_id)
+        with session.lock:
+            page = session.page
+            return _sync_snapshot_page(
+                page,
+                f"Snapshot of '{page.title()}' at {page.url}",
+                include_text_preview=True,
+            )
+    except Exception as exc:
+        return {"success": False, "description": _describe_exception(exc)}
+
+
+def _sync_browser_eval(run_id: str, script: str) -> dict:
+    try:
+        session = _sync_get_session(run_id)
+        with session.lock:
+            page = session.page
+            result = page.evaluate(script)
+            return _sync_snapshot_page(
+                page,
+                f"JS result: {str(result)[:200]}",
+                extra={"result": str(result)[:1000]},
+            )
+    except Exception as exc:
+        return {"success": False, "description": _describe_exception(exc)}
+
+
+def _sync_browser_back(run_id: str) -> dict:
+    try:
+        session = _sync_get_session(run_id)
+        with session.lock:
+            page = session.page
+            page.go_back()
+            _sync_settle_page(page)
+            return _sync_snapshot_page(page, "Navigated back")
+    except Exception as exc:
+        return {"success": False, "description": _describe_exception(exc)}
+
+
+async def _run_browser_call(fn, *args):
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(_BROWSER_EXECUTOR, partial(fn, *args))
 
 
 def session_exists(run_id: str) -> bool:
@@ -282,19 +475,7 @@ def session_exists(run_id: str) -> bool:
 
 
 async def browser_live_state(run_id: str) -> dict | None:
-    if run_id not in _sessions:
-        return None
-
-    try:
-        session = _sessions[run_id]
-        return await _snapshot_page(
-            session["page"],
-            "Live browser view",
-            include_text_preview=False,
-        )
-    except Exception as exc:
-        logger.warning("Live browser snapshot failed: %s", exc)
-        return None
+    return await _run_browser_call(_sync_browser_live_state, run_id)
 
 
 async def bootstrap_browser_task(run_id: str, task: str) -> dict | None:
@@ -302,135 +483,67 @@ async def bootstrap_browser_task(run_id: str, task: str) -> dict | None:
     if not plan:
         return None
 
-    result = await browser_open(run_id, plan.url)
-    if not result.get("success"):
+    try:
+        result = await browser_open(run_id, plan.url)
+        if not result.get("success"):
+            result["description"] = (
+                f"Browser bootstrap could not open {plan.url}: {result.get('description') or 'unknown navigation issue'}"
+            )
+            return result
+
+        snapshot = await browser_snapshot(run_id)
+        if snapshot.get("success"):
+            snapshot["description"] = plan.description
+            snapshot["bootstrap_source"] = plan.source
+            snapshot["bootstrap_url"] = plan.url
+            return snapshot
+
+        result["description"] = plan.description
+        result["bootstrap_source"] = plan.source
+        result["bootstrap_url"] = plan.url
         return result
-
-    snapshot = await browser_snapshot(run_id)
-    if snapshot.get("success"):
-        snapshot["description"] = plan.description
-        snapshot["bootstrap_source"] = plan.source
-        snapshot["bootstrap_url"] = plan.url
-        return snapshot
-
-    result["description"] = plan.description
-    result["bootstrap_source"] = plan.source
-    result["bootstrap_url"] = plan.url
-    return result
+    except Exception as exc:
+        return {
+            "success": False,
+            "description": f"Browser bootstrap failed while preparing {plan.url}: {_describe_exception(exc)}",
+        }
 
 
 async def close_session(run_id: str):
-    if run_id not in _sessions:
-        return
-    session = _sessions.pop(run_id)
-    try:
-        await session["browser"].close()
-        await session["pw"].stop()
-    except Exception as exc:
-        logger.warning("Browser close error: %s", exc)
+    await _run_browser_call(_sync_close_session, run_id)
 
 
 async def browser_open(run_id: str, url: str, timeout: int = 15000) -> dict:
-    try:
-        session = await get_session(run_id)
-        page = session["page"]
-        await page.goto(url, wait_until="domcontentloaded", timeout=timeout)
-        await _settle_page(page)
-        return await _snapshot_page(page, f"Opened {url}")
-    except Exception as exc:
-        return {"success": False, "description": str(exc)}
+    return await _run_browser_call(_sync_browser_open, run_id, url, timeout)
 
 
 async def browser_click(run_id: str, selector: str, timeout: int = 8000) -> dict:
-    session = await get_session(run_id)
-    page = session["page"]
-    try:
-        await page.click(selector, timeout=timeout)
-        await _settle_page(page)
-        return await _snapshot_page(page, f"Clicked '{selector}'")
-    except Exception as exc:
-        try:
-            await page.get_by_text(selector).first.click(timeout=timeout)
-            await _settle_page(page)
-            return await _snapshot_page(page, f"Clicked text '{selector}'")
-        except Exception:
-            return {"success": False, "description": str(exc)}
+    return await _run_browser_call(_sync_browser_click, run_id, selector, timeout)
 
 
 async def browser_type(run_id: str, selector: str, text: str, timeout: int = 8000) -> dict:
-    try:
-        session = await get_session(run_id)
-        page = session["page"]
-        await page.fill(selector, text, timeout=timeout)
-        await _settle_page(page)
-        return await _snapshot_page(page, f"Typed in '{selector}': {text[:60]}")
-    except Exception as exc:
-        return {"success": False, "description": str(exc)}
+    return await _run_browser_call(_sync_browser_type, run_id, selector, text, timeout)
 
 
 async def browser_select(run_id: str, selector: str, value: str, timeout: int = 8000) -> dict:
-    try:
-        session = await get_session(run_id)
-        page = session["page"]
-        await page.select_option(selector, value=value, timeout=timeout)
-        await _settle_page(page)
-        return await _snapshot_page(page, f"Selected '{value}' in '{selector}'")
-    except Exception as exc:
-        return {"success": False, "description": str(exc)}
+    return await _run_browser_call(_sync_browser_select, run_id, selector, value, timeout)
 
 
 async def browser_scroll(run_id: str, amount: int = 3) -> dict:
-    try:
-        session = await get_session(run_id)
-        page = session["page"]
-        px = amount * 300
-        await page.evaluate(f"window.scrollBy(0, {px})")
-        await _settle_page(page)
-        return await _snapshot_page(page, f"Scrolled {px}px")
-    except Exception as exc:
-        return {"success": False, "description": str(exc)}
+    return await _run_browser_call(_sync_browser_scroll, run_id, amount)
 
 
 async def browser_wait(run_id: str, selector: str, timeout: int = 10000) -> dict:
-    try:
-        session = await get_session(run_id)
-        page = session["page"]
-        await page.wait_for_selector(selector, timeout=timeout)
-        await _settle_page(page)
-        return await _snapshot_page(page, f"Element visible: '{selector}'")
-    except Exception as exc:
-        return {"success": False, "description": str(exc)}
+    return await _run_browser_call(_sync_browser_wait, run_id, selector, timeout)
 
 
 async def browser_snapshot(run_id: str) -> dict:
-    try:
-        session = await get_session(run_id)
-        page = session["page"]
-        return await _snapshot_page(page, f"Snapshot of '{await page.title()}' at {page.url}", include_text_preview=True)
-    except Exception as exc:
-        return {"success": False, "description": str(exc)}
+    return await _run_browser_call(_sync_browser_snapshot, run_id)
 
 
 async def browser_eval(run_id: str, script: str) -> dict:
-    try:
-        session = await get_session(run_id)
-        page = session["page"]
-        result = await page.evaluate(script)
-        return await _snapshot_page(
-            page,
-            f"JS result: {str(result)[:200]}",
-            extra={"result": str(result)[:1000]},
-        )
-    except Exception as exc:
-        return {"success": False, "description": str(exc)}
+    return await _run_browser_call(_sync_browser_eval, run_id, script)
 
 
 async def browser_back(run_id: str) -> dict:
-    try:
-        session = await get_session(run_id)
-        page = session["page"]
-        await page.go_back()
-        await _settle_page(page)
-        return await _snapshot_page(page, "Navigated back")
-    except Exception as exc:
-        return {"success": False, "description": str(exc)}
+    return await _run_browser_call(_sync_browser_back, run_id)

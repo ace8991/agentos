@@ -396,33 +396,88 @@ export function createEventStream(
   onDone: () => void,
   onError: (msg: string) => void,
 ): EventSource {
-  const p = new URLSearchParams({
-    task: params.task,
-    model: params.model,
-    max_steps: String(params.max_steps),
-    capture_interval_ms: String(params.capture_interval_ms),
-  });
-  if (params.reasoning_effort) {
-    p.set('reasoning_effort', params.reasoning_effort);
-  }
-  const es = new EventSource(`${BASE}/agent/stream/${run_id}?${p}`);
-  es.onmessage = (e) => {
-    const data: AgentEvent = JSON.parse(e.data);
-    onEvent(data);
-    if (data.type === 'done' || data.type === 'error') {
-      es.close();
-      if (data.type === 'done') {
-        onDone();
-      } else {
-        onError(data.action);
-      }
+  void params;
+  let es: EventSource | null = null;
+  let settled = false;
+  let reconnectAttempts = 0;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  const maxReconnectAttempts = 2;
+
+  const clearReconnect = () => {
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
     }
   };
-  es.onerror = () => {
-    es.close();
-    onError('Connection lost');
+
+  const closeStream = () => {
+    clearReconnect();
+    if (es) {
+      es.close();
+      es = null;
+    }
   };
-  return es;
+
+  const scheduleReconnect = async () => {
+    if (settled || reconnectAttempts >= maxReconnectAttempts) {
+      settled = true;
+      onError('Connection lost');
+      return;
+    }
+
+    try {
+      const statusResponse = await fetch(`${BASE}/agent/status/${run_id}`);
+      if (!statusResponse.ok) {
+        settled = true;
+        onError('Connection lost');
+        return;
+      }
+
+      const status = (await statusResponse.json()) as { active?: boolean };
+      if (!status.active) {
+        settled = true;
+        onError('Connection lost');
+        return;
+      }
+    } catch {
+      settled = true;
+      onError('Connection lost');
+      return;
+    }
+
+    reconnectAttempts += 1;
+    reconnectTimer = setTimeout(connect, 1200);
+  };
+
+  const connect = () => {
+    if (settled) return;
+    clearReconnect();
+    es = new EventSource(`${BASE}/agent/stream/${run_id}`);
+    es.onmessage = (e) => {
+      const data: AgentEvent = JSON.parse(e.data);
+      onEvent(data);
+      if (data.type === 'done' || data.type === 'error') {
+        settled = true;
+        closeStream();
+        if (data.type === 'done') {
+          onDone();
+        } else {
+          onError(data.action);
+        }
+      }
+    };
+    es.onerror = () => {
+      if (settled) {
+        closeStream();
+        return;
+      }
+      closeStream();
+      void scheduleReconnect();
+    };
+  };
+
+  connect();
+  return es as EventSource;
 }
 
 export async function checkHealth(): Promise<HealthResponse> {

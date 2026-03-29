@@ -1,6 +1,23 @@
+import asyncio
+import sys
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import agent, auth, browser, chat, connectors, health, models, remote, runtime, workspace
+
+
+def _configure_windows_event_loop_policy() -> None:
+    if not sys.platform.startswith("win"):
+        return
+    policy_cls = getattr(asyncio, "WindowsProactorEventLoopPolicy", None)
+    if not policy_cls:
+        return
+    current_policy = asyncio.get_event_loop_policy()
+    if not isinstance(current_policy, policy_cls):
+        asyncio.set_event_loop_policy(policy_cls())
+
+
+_configure_windows_event_loop_policy()
 
 app = FastAPI(title="AgentOS Backend", version="1.0.0")
 

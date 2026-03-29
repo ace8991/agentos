@@ -16,6 +16,8 @@ from app.models.schemas import AgentAction, ActionType
 logger = logging.getLogger(__name__)
 
 STALE_RUN_TTL_SECONDS = 600
+BROWSER_FRAME_SYNC_RETRIES = 4
+BROWSER_FRAME_SYNC_DELAY_SECONDS = 0.35
 
 
 @dataclass
@@ -76,6 +78,10 @@ def create_run(task: str, model: str, max_steps: int, capture_interval_ms: int, 
     return run_id
 
 
+def _is_browser_first_task(task: str | None) -> bool:
+    return bool(task and browser_svc.infer_browser_bootstrap(task))
+
+
 def stop_run(run_id: str) -> bool:
     state = _active_runs.get(run_id)
     if state:
@@ -105,6 +111,38 @@ def _fallback_subtask(action: AgentAction) -> str:
     if action.type == ActionType.SCROLL:
         return "Scroll the current view to reveal the required content and continue the task."
     return action.reason or "Continue the visible desktop task."
+
+
+async def _acquire_browser_screenshot(
+    *,
+    run_id: str,
+    last_screenshot_b64: str,
+    web_task_mode: bool,
+) -> tuple[str, Optional[dict], bool]:
+    browser_mode = browser_svc.session_exists(run_id)
+    recovery_state: Optional[dict] = None
+
+    if not browser_mode:
+        if web_task_mode and last_screenshot_b64:
+            return last_screenshot_b64, None, True
+        return "", None, False
+
+    for attempt in range(BROWSER_FRAME_SYNC_RETRIES):
+        live_state = await browser_svc.browser_live_state(run_id)
+        if live_state and live_state.get("screenshot_b64"):
+            return str(live_state["screenshot_b64"]), live_state, True
+
+        recovery_state = await browser_svc.browser_snapshot(run_id)
+        if recovery_state.get("screenshot_b64"):
+            return str(recovery_state["screenshot_b64"]), recovery_state, True
+
+        if attempt < BROWSER_FRAME_SYNC_RETRIES - 1:
+            await asyncio.sleep(BROWSER_FRAME_SYNC_DELAY_SECONDS)
+
+    if last_screenshot_b64:
+        return last_screenshot_b64, recovery_state, True
+
+    return "", recovery_state, True
 
 
 async def _apply_automatic_fallback(
@@ -204,52 +242,69 @@ async def run_agent(
     MAX_ERRORS = 3
     interval = capture_interval_ms / 1000.0
     bootstrap_done = False
-    web_task_mode = False
+    web_task_mode = _is_browser_first_task(task)
     computer_use_blocked_reason: Optional[str] = None
 
-    bootstrap_result = await browser_svc.bootstrap_browser_task(run_id, task)
-    if bootstrap_result:
-        bootstrap_done = True
-        web_task_mode = True
-        last_tool_result = bootstrap_result
-        bootstrap_screenshot = bootstrap_result.get("screenshot_b64", "")
-        last_screenshot_b64 = bootstrap_screenshot or last_screenshot_b64
-        if bootstrap_result.get("success"):
-            memory["task_surface"] = "browser"
-            memory["computer_use_guidance"] = "Use browser_* tools for this task unless a native desktop app is explicitly required."
-        history.append({
-            "step": 0,
-            "action_type": ActionType.BROWSER_OPEN.value,
-            "action": bootstrap_result.get("description", "Prepared browser workspace"),
-            "result": "ok" if bootstrap_result.get("success") else "failed",
-        })
-        if bootstrap_result.get("success"):
-            yield _event(
-                "info",
-                0,
-                bootstrap_result.get("description", "Prepared browser workspace"),
-                "The agent pre-opened the right web workspace so it can continue directly inside the chat instead of spending early steps figuring out which site to open.",
-                bootstrap_screenshot,
-                memory,
-                AgentAction(
-                    type=ActionType.BROWSER_OPEN,
-                    url=bootstrap_result.get("bootstrap_url") or bootstrap_result.get("url"),
-                    reason="Automatic browser bootstrap for a website-oriented task",
-                ),
-                bootstrap_result,
-            )
-        else:
-            consecutive_errors = 1
-            yield _event(
-                "info",
-                0,
-                bootstrap_result.get("description", "Browser bootstrap failed"),
-                "Automatic browser bootstrap failed, so the planner will continue in fallback mode.",
-                bootstrap_screenshot,
-                memory,
-                None,
-                bootstrap_result,
-            )
+    if web_task_mode:
+        memory["task_surface"] = "browser"
+        memory["computer_use_guidance"] = (
+            "This is a browser-first task. Keep the workflow inside browser_* tools and the in-app live browser view."
+        )
+
+    try:
+        bootstrap_result = await browser_svc.bootstrap_browser_task(run_id, task)
+        if bootstrap_result:
+            bootstrap_done = True
+            web_task_mode = True
+            last_tool_result = bootstrap_result
+            bootstrap_screenshot = bootstrap_result.get("screenshot_b64", "")
+            last_screenshot_b64 = bootstrap_screenshot or last_screenshot_b64
+            if bootstrap_result.get("success"):
+                memory["task_surface"] = "browser"
+                memory["computer_use_guidance"] = "Use browser_* tools for this task unless a native desktop app is explicitly required."
+            history.append({
+                "step": 0,
+                "action_type": ActionType.BROWSER_OPEN.value,
+                "action": bootstrap_result.get("description", "Prepared browser workspace"),
+                "result": "ok" if bootstrap_result.get("success") else "failed",
+            })
+            if bootstrap_result.get("success"):
+                yield _event(
+                    "info",
+                    0,
+                    bootstrap_result.get("description", "Prepared browser workspace"),
+                    "The agent pre-opened the right web workspace so it can continue directly inside the chat instead of spending early steps figuring out which site to open.",
+                    bootstrap_screenshot,
+                    memory,
+                    AgentAction(
+                        type=ActionType.BROWSER_OPEN,
+                        url=bootstrap_result.get("bootstrap_url") or bootstrap_result.get("url"),
+                        reason="Automatic browser bootstrap for a website-oriented task",
+                    ),
+                    bootstrap_result,
+                )
+            else:
+                consecutive_errors = 1
+                yield _event(
+                    "info",
+                    0,
+                    bootstrap_result.get("description", "Browser bootstrap failed"),
+                    "Automatic browser bootstrap failed, so the planner will continue in fallback mode.",
+                    bootstrap_screenshot,
+                    memory,
+                    None,
+                    bootstrap_result,
+                )
+    except Exception as exc:
+        logger.exception("Browser bootstrap failed for run %s", run_id)
+        yield _event(
+            "info",
+            0,
+            f"Browser bootstrap failed: {exc or exc.__class__.__name__}",
+            "AgentOS could not prepare the browser workspace immediately, so it will retry during the live run.",
+            "",
+            memory,
+        )
 
     for step in range(1, max_steps + 1):
         if stop_event.is_set():
@@ -258,33 +313,51 @@ async def run_agent(
 
         # ── PERCEIVE: screenshot ──────────────────────────────────────────
         try:
-            browser_state = await browser_svc.browser_live_state(run_id)
-            if browser_state and browser_state.get("screenshot_b64"):
-                screenshot_b64 = browser_state["screenshot_b64"]
-                last_screenshot_b64 = screenshot_b64
-            else:
-                browser_session_ready = browser_svc.session_exists(run_id)
-                if web_task_mode or browser_session_ready:
-                    recovery_state = None
-                    if browser_session_ready:
-                        recovery_state = await browser_svc.browser_snapshot(run_id)
-                    elif task:
-                        recovery_state = await browser_svc.bootstrap_browser_task(run_id, task)
-
-                    if recovery_state and recovery_state.get("screenshot_b64"):
-                        screenshot_b64 = recovery_state["screenshot_b64"]
-                        last_screenshot_b64 = screenshot_b64
+            browser_session_ready = browser_svc.session_exists(run_id)
+            if web_task_mode or browser_session_ready:
+                if not browser_session_ready and task:
+                    recovery_state = await browser_svc.bootstrap_browser_task(run_id, task)
+                    if recovery_state:
+                        last_tool_result = recovery_state
+                        if recovery_state.get("screenshot_b64"):
+                            last_screenshot_b64 = recovery_state["screenshot_b64"]
                         if recovery_state.get("success"):
-                            last_tool_result = recovery_state
                             web_task_mode = True
                             memory["task_surface"] = "browser"
-                    elif last_screenshot_b64:
-                        screenshot_b64 = last_screenshot_b64
-                    else:
-                        raise RuntimeError("Browser session is active but no in-app browser frame is available yet")
-                else:
-                    screenshot_b64 = await asyncio.to_thread(capture_screenshot)
+                            memory["computer_use_guidance"] = (
+                                "Use browser_* tools for this task unless a native desktop app is explicitly required."
+                            )
+
+                screenshot_b64, recovery_state, browser_mode_active = await _acquire_browser_screenshot(
+                    run_id=run_id,
+                    last_screenshot_b64=last_screenshot_b64,
+                    web_task_mode=web_task_mode,
+                )
+                if browser_mode_active:
+                    web_task_mode = True
+                    memory["task_surface"] = "browser"
+
+                if screenshot_b64:
                     last_screenshot_b64 = screenshot_b64
+                    if recovery_state and recovery_state.get("success"):
+                        last_tool_result = recovery_state
+                else:
+                    status_message = "Live browser workspace is synchronizing..."
+                    if recovery_state and recovery_state.get("description"):
+                        status_message = str(recovery_state.get("description"))
+                    yield _event(
+                        "info",
+                        step,
+                        status_message,
+                        "AgentOS is waiting for the in-app browser frame to become available before continuing the next browser step.",
+                        last_screenshot_b64,
+                        memory,
+                    )
+                    await asyncio.sleep(max(interval, BROWSER_FRAME_SYNC_DELAY_SECONDS))
+                    continue
+            else:
+                screenshot_b64 = await asyncio.to_thread(capture_screenshot)
+                last_screenshot_b64 = screenshot_b64
         except Exception as e:
             consecutive_errors += 1
             if consecutive_errors >= MAX_ERRORS:
@@ -317,69 +390,78 @@ async def run_agent(
         last_tool_result = None
         result_desc = "No action parsed"
 
-        if action:
-            if action.type == ActionType.DONE:
-                yield _event("done", step, action.reason or "Done", reasoning, screenshot_b64, memory)
-                break
+        try:
+            if action:
+                if action.type == ActionType.DONE:
+                    yield _event("done", step, action.reason or "Done", reasoning, screenshot_b64, memory)
+                    break
 
-            if action.type == ActionType.COMPUTER_USE and web_task_mode:
-                result = {
-                    "success": False,
-                    "description": "Computer Use is disabled for this website workflow. Continue with browser_* tools inside the live browser view.",
-                    "blocked_action": "computer_use",
-                    "fallback": "browser",
-                }
-            elif action.type == ActionType.COMPUTER_USE and computer_use_blocked_reason:
-                result = {
-                    "success": False,
-                    "description": computer_use_blocked_reason,
-                    "blocked_action": "computer_use",
-                    "fallback": "browser" if web_task_mode else "desktop",
-                }
-            else:
-                result = await execute(action, run_id)
+                if action.type == ActionType.COMPUTER_USE and web_task_mode:
+                    result = {
+                        "success": False,
+                        "description": "Computer Use is disabled for this website workflow. Stay inside the in-app browser workspace and continue with browser_* tools only.",
+                        "blocked_action": "computer_use",
+                        "fallback": "browser",
+                    }
+                elif action.type == ActionType.COMPUTER_USE and computer_use_blocked_reason:
+                    result = {
+                        "success": False,
+                        "description": computer_use_blocked_reason,
+                        "blocked_action": "computer_use",
+                        "fallback": "browser" if web_task_mode else "desktop",
+                    }
+                else:
+                    result = await execute(action, run_id)
 
-            result = await _apply_automatic_fallback(
-                action=action,
-                result=result,
-                run_id=run_id,
-                task=task,
-                web_task_mode=web_task_mode,
-            )
-
-            last_tool_result = result
-            result_desc = result.get("description", "")
-
-            if result.get("screenshot_b64"):
-                screenshot_b64 = result["screenshot_b64"]
-                last_screenshot_b64 = screenshot_b64
-
-            auto_fallback = result.get("auto_fallback")
-            if auto_fallback:
-                memory["last_recovery_strategy"] = str(auto_fallback)
-                if auto_fallback in {"browser_bootstrap", "browser_snapshot"}:
-                    web_task_mode = True
-                    memory["task_surface"] = "browser"
-                    memory["computer_use_guidance"] = (
-                        "Stay inside browser_* tools while the live browser workspace is active."
-                    )
-                if auto_fallback == "computer_use":
-                    memory["task_surface"] = "desktop"
-
-            if action.type == ActionType.COMPUTER_USE and is_computer_use_unavailable_error(result_desc):
-                computer_use_blocked_reason = (
-                    "Computer Use is unavailable for this run because Anthropic billing or API access is not available. "
-                    "Do not retry computer_use; continue with browser_* or other available tools."
+                result = await _apply_automatic_fallback(
+                    action=action,
+                    result=result,
+                    run_id=run_id,
+                    task=task,
+                    web_task_mode=web_task_mode,
                 )
-                memory["computer_use_guidance"] = computer_use_blocked_reason
 
-            if result.get("success"):
-                consecutive_errors = 0
+                last_tool_result = result
+                result_desc = result.get("description", "")
+
+                if result.get("screenshot_b64"):
+                    screenshot_b64 = result["screenshot_b64"]
+                    last_screenshot_b64 = screenshot_b64
+
+                auto_fallback = result.get("auto_fallback")
+                if auto_fallback:
+                    memory["last_recovery_strategy"] = str(auto_fallback)
+                    if auto_fallback in {"browser_bootstrap", "browser_snapshot"}:
+                        web_task_mode = True
+                        memory["task_surface"] = "browser"
+                        memory["computer_use_guidance"] = (
+                            "Stay inside browser_* tools while the live browser workspace is active."
+                        )
+                    if auto_fallback == "computer_use":
+                        memory["task_surface"] = "desktop"
+
+                if action.type == ActionType.COMPUTER_USE and is_computer_use_unavailable_error(result_desc):
+                    computer_use_blocked_reason = (
+                        "Computer Use is unavailable for this run because Anthropic billing or API access is not available. "
+                        "Do not retry computer_use; continue with browser_* or other available tools."
+                    )
+                    memory["computer_use_guidance"] = computer_use_blocked_reason
+
+                if result.get("success"):
+                    consecutive_errors = 0
+                else:
+                    consecutive_errors += 1
             else:
                 consecutive_errors += 1
-        else:
+                result_desc = "Could not parse action from LLM response"
+        except Exception as exc:
+            logger.exception("Agent action failed unexpectedly for run %s", run_id)
             consecutive_errors += 1
-            result_desc = "Could not parse action from LLM response"
+            result_desc = f"Agent action failed unexpectedly: {exc}"
+            last_tool_result = {
+                "success": False,
+                "description": result_desc,
+            }
 
         history.append({
             "step": step,
@@ -421,7 +503,7 @@ def _event(
         "memory": [{"key": k, "value": str(v)} for k, v in memory.items()],
         "tool_result": tool_result,
         "parsed_action": parsed_action.model_dump() if parsed_action else None,
-    }) + "\n\n"
+    }, default=str) + "\n\n"
 
 
 def _err(msg: str) -> str:
@@ -429,4 +511,4 @@ def _err(msg: str) -> str:
         "type": "error", "step": 0, "action": msg,
         "reasoning": msg, "screenshot_b64": "",
         "memory": [], "tool_result": None, "parsed_action": None,
-    }) + "\n\n"
+    }, default=str) + "\n\n"

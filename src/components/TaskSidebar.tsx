@@ -32,6 +32,7 @@ const TaskSidebar = () => {
   const setSettingsOpen = useStore((s) => s.setSettingsOpen);
   const openSettingsFor = useStore((s) => s.openSettingsFor);
   const setViewingHistory = useStore((s) => s.setViewingHistory);
+  const deleteHistoryRun = useStore((s) => s.deleteHistoryRun);
   const currentProjectId = useStore((s) => s.currentProjectId);
   const authUser = useAuthStore((s) => s.user);
   const setAuthUser = useAuthStore((s) => s.setUser);
@@ -275,21 +276,32 @@ const TaskSidebar = () => {
           </p>
         )}
         {filteredHistory.map((run) => (
-          <button
+          <div
             key={run.run_id}
-            onClick={() => handleTaskClick(run)}
-            className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-surface-elevated transition-colors group"
+            className="group flex items-start gap-2 rounded-lg hover:bg-surface-elevated transition-colors"
           >
-            <div className="flex items-start gap-2.5">
-              <div className={`status-dot mt-1.5 shrink-0 ${statusDot[run.status]}`} />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm text-foreground truncate leading-snug">{run.task}</p>
-                <span className="text-xs text-muted-foreground mt-0.5 block">
-                  {new Date(run.date).toLocaleDateString()} · {run.steps} steps
-                </span>
+            <button
+              onClick={() => handleTaskClick(run)}
+              className="min-w-0 flex-1 px-3 py-2.5 text-left"
+            >
+              <div className="flex items-start gap-2.5">
+                <div className={`status-dot mt-1.5 shrink-0 ${statusDot[run.status]}`} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm leading-snug text-foreground">{run.task}</p>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    {new Date(run.date).toLocaleDateString()} · {run.steps} steps
+                  </span>
+                </div>
               </div>
-            </div>
-          </button>
+            </button>
+            <button
+              onClick={() => deleteHistoryRun(run.run_id)}
+              className="mr-2 mt-2 rounded-md p-1.5 text-muted-foreground opacity-0 transition-all hover:bg-background hover:text-foreground group-hover:opacity-100"
+              title="Delete conversation"
+            >
+              <X size={14} />
+            </button>
+          </div>
         ))}
       </div>
 
