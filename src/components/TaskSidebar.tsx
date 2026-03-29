@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import {
   Plus, Search, Settings, BookOpen, Bot, FolderPlus,
   Download, ChevronRight, Plug, Globe, PanelLeftClose, PanelLeftOpen,
-  Menu, X
+  Menu, X, LogOut
 } from 'lucide-react';
 import { useStore, type HistoryRun } from '@/store/useStore';
+import { useAuthStore } from '@/store/authStore';
 import HexLogo from './HexLogo';
 import SidebarToolStatus from './sidebar/SidebarToolStatus';
 import { getCurrentProject, loadProjects, PROJECTS_UPDATED_EVENT, type AppProject } from '@/lib/projects';
@@ -13,6 +14,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { toast } from '@/components/ui/sonner';
 import { downloadWorkspaceArchive } from '@/lib/api';
+import { logout as logoutSession } from '@/lib/auth';
 
 const ProjectsModal = lazy(() => import('./projects/ProjectsModal'));
 
@@ -31,6 +33,10 @@ const TaskSidebar = () => {
   const openSettingsFor = useStore((s) => s.openSettingsFor);
   const setViewingHistory = useStore((s) => s.setViewingHistory);
   const currentProjectId = useStore((s) => s.currentProjectId);
+  const authUser = useAuthStore((s) => s.user);
+  const setAuthUser = useAuthStore((s) => s.setUser);
+  const setAuthToken = useAuthStore((s) => s.setToken);
+  const setGuestMode = useAuthStore((s) => s.setGuestMode);
   const [collapsed, setCollapsed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,6 +48,7 @@ const TaskSidebar = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const currentProject = projects.find((project) => project.id === currentProjectId) || getCurrentProject(projects);
+  const userInitial = authUser?.display_name?.trim().charAt(0).toUpperCase() || 'A';
 
   useEffect(() => {
     const syncProjects = () => setProjects(loadProjects());
@@ -69,6 +76,15 @@ const TaskSidebar = () => {
     } catch {
       toast.error('Could not prepare the local download. Make sure the backend is running.');
     }
+  };
+
+  const handleLogout = async () => {
+    await logoutSession();
+    setAuthUser(null);
+    setAuthToken(null);
+    setGuestMode(false);
+    setMobileOpen(false);
+    navigate('/auth');
   };
 
   const filteredHistory = history
@@ -316,6 +332,28 @@ const TaskSidebar = () => {
           </button>
         </div>
       </div>
+      <div className="border-t border-border px-3 py-3">
+        <div className="group flex items-center gap-3 rounded-xl border border-border bg-muted/25 px-3 py-2.5">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-500/18 text-sm font-semibold text-violet-300">
+            {userInitial}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-foreground">
+              {authUser?.display_name || 'Guest'}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">
+              {authUser?.email || 'guest@local.agentos'}
+            </p>
+          </div>
+          <button
+            onClick={() => void handleLogout()}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface-elevated hover:text-foreground active:scale-95"
+            title="Log out"
+          >
+            <LogOut size={15} />
+          </button>
+        </div>
+      </div>
       <Suspense fallback={null}>
         <ProjectsModal open={projectsOpen} onClose={() => setProjectsOpen(false)} />
       </Suspense>
@@ -380,6 +418,20 @@ const TaskSidebar = () => {
         </button>
         <button onClick={() => { setCollapsed(false); openSettingsFor('cloud-browser'); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Cloud browser">
           <Globe size={16} />
+        </button>
+        <button
+          onClick={() => void handleLogout()}
+          className="mt-2 flex h-8 w-8 items-center justify-center rounded-full bg-violet-500/18 text-xs font-semibold text-violet-300 hover:bg-violet-500/24"
+          title={authUser?.display_name || 'Guest'}
+        >
+          {userInitial}
+        </button>
+        <button
+          onClick={() => void handleLogout()}
+          className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95"
+          title="Log out"
+        >
+          <LogOut size={16} />
         </button>
       </div>
     );

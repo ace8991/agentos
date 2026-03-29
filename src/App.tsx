@@ -1,15 +1,18 @@
 import { Suspense, lazy, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { getGuestUser, getMe, getStoredUser, getToken, isGuestSession } from "@/lib/auth";
 import { useStore } from "@/store/useStore";
+import { useAuthStore } from "@/store/authStore";
 import RemoteCommandBridge from "@/components/RemoteCommandBridge";
 import AgentDockOverlay from "@/components/AgentDockOverlay";
 import { publishAgentDockSnapshot } from "@/lib/agent-dock-bridge";
 import Welcome from "./pages/Welcome.tsx";
 
+const AuthPage = lazy(() => import("./pages/AuthPage.tsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
 const AgentDockWindow = lazy(() => import("./pages/AgentDockWindow.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
@@ -102,20 +105,87 @@ const RouteFallback = () => (
   </div>
 );
 
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const loading = useAuthStore((s) => s.loading);
+  const user = useAuthStore((s) => s.user);
+  const guestMode = useAuthStore((s) => s.guestMode);
+
+  if (loading) return <RouteFallback />;
+  if (!user && !guestMode) return <Navigate to="/auth" replace />;
+  return <>{children}</>;
+};
+
+const AuthSync = () => {
+  const setUser = useAuthStore((s) => s.setUser);
+  const setToken = useAuthStore((s) => s.setToken);
+  const setLoading = useAuthStore((s) => s.setLoading);
+  const setGuestMode = useAuthStore((s) => s.setGuestMode);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const restore = async () => {
+      const cachedUser = getStoredUser();
+      const cachedToken = getToken();
+
+      try {
+        const user = await getMe();
+        if (cancelled) return;
+
+        if (user) {
+          setGuestMode(false);
+          setUser(user);
+          setToken(getToken());
+          setLoading(false);
+          return;
+        }
+
+        if (isGuestSession()) {
+          setGuestMode(true);
+          setUser(getGuestUser());
+          setToken(null);
+        } else if (cachedUser && cachedToken) {
+          setGuestMode(false);
+          setUser(cachedUser);
+          setToken(cachedToken);
+        } else {
+          setGuestMode(false);
+          setUser(null);
+          setToken(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void restore();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [setGuestMode, setLoading, setToken, setUser]);
+
+  return null;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <AuthSync />
         <RuntimeSync />
         <AgentDockSync />
         <RemoteCommandBridge />
         <Suspense fallback={<RouteFallback />}>
           <AgentDockOverlay />
           <Routes>
-            <Route path="/" element={<Welcome />} />
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/" element={<ProtectedRoute><Welcome /></ProtectedRoute>} />
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/agent-dock" element={<AgentDockWindow />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
