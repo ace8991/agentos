@@ -8,10 +8,23 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from app.services.browser import infer_browser_bootstrap
+from app.services.browser import extract_primary_task, infer_browser_bootstrap
 
 
 class BrowserBootstrapTests(unittest.TestCase):
+    def test_extract_primary_task_ignores_augmented_operating_instructions(self) -> None:
+        task = (
+            "Follow these additional operating instructions:\n"
+            "Enabled skills: Web Browsing\n\n"
+            "Primary task:\n"
+            "analyze repo mwen gen sou github mwen dim konbyen ki piblik"
+        )
+
+        self.assertEqual(
+            extract_primary_task(task),
+            "analyze repo mwen gen sou github mwen dim konbyen ki piblik",
+        )
+
     def test_amazon_order_tasks_open_order_history(self) -> None:
         plan = infer_browser_bootstrap("verifier ma derniere commande amazone")
 

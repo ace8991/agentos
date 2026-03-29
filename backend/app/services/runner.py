@@ -229,6 +229,7 @@ async def run_agent(
     state.started = True
     stop_event = state.stop_event
     task = task or state.task
+    primary_task = browser_svc.extract_primary_task(task)
     model = model or state.model
     max_steps = max_steps or state.max_steps
     capture_interval_ms = capture_interval_ms or state.capture_interval_ms
@@ -242,7 +243,7 @@ async def run_agent(
     MAX_ERRORS = 3
     interval = capture_interval_ms / 1000.0
     bootstrap_done = False
-    web_task_mode = _is_browser_first_task(task)
+    web_task_mode = _is_browser_first_task(primary_task)
     computer_use_blocked_reason: Optional[str] = None
 
     if web_task_mode:
@@ -252,7 +253,7 @@ async def run_agent(
         )
 
     try:
-        bootstrap_result = await browser_svc.bootstrap_browser_task(run_id, task)
+        bootstrap_result = await browser_svc.bootstrap_browser_task(run_id, primary_task)
         if bootstrap_result:
             bootstrap_done = True
             web_task_mode = True
@@ -315,8 +316,8 @@ async def run_agent(
         try:
             browser_session_ready = browser_svc.session_exists(run_id)
             if web_task_mode or browser_session_ready:
-                if not browser_session_ready and task:
-                    recovery_state = await browser_svc.bootstrap_browser_task(run_id, task)
+                if not browser_session_ready and primary_task:
+                    recovery_state = await browser_svc.bootstrap_browser_task(run_id, primary_task)
                     if recovery_state:
                         last_tool_result = recovery_state
                         if recovery_state.get("screenshot_b64"):
@@ -373,7 +374,7 @@ async def run_agent(
         try:
             reasoning, action = await asyncio.to_thread(
                 think_and_act,
-                task, screenshot_b64, step, max_steps,
+                primary_task, screenshot_b64, step, max_steps,
                 history, memory, model, last_tool_result, reasoning_effort,
             )
         except Exception as e:
@@ -417,7 +418,7 @@ async def run_agent(
                     action=action,
                     result=result,
                     run_id=run_id,
-                    task=task,
+                    task=primary_task,
                     web_task_mode=web_task_mode,
                 )
 

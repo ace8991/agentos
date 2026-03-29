@@ -13,6 +13,7 @@ export interface AppSkill {
 export interface ComposerPreferences {
   webResearch: boolean;
   useStyle: boolean;
+  builderMode: boolean;
 }
 
 const SKILLS_STORAGE_KEY = 'SKILLS';
@@ -34,6 +35,7 @@ const WORK_PROFILE_LABELS: Record<string, string> = {
 export const defaultComposerPreferences: ComposerPreferences = {
   webResearch: false,
   useStyle: false,
+  builderMode: false,
 };
 
 const builtinSkills: AppSkill[] = [
@@ -251,6 +253,18 @@ export const getComposerInstructions = (
     sections.push(`Match the saved response style preference: ${responseStyle}.`);
   }
 
+  if (merged.builderMode) {
+    sections.push(
+      [
+        'Builder mode is enabled.',
+        'When the task is to create or improve a website, landing page, product UI, or web application, use a modern builder stack by default: React + Vite + TypeScript + Tailwind CSS.',
+        'Prefer shadcn/ui and Radix UI primitives when they fit the design system.',
+        'Structure the output like a professional builder workspace with clean components, reusable sections, code that is ready for preview, and clear surfaces for preview, code, database, and files.',
+        'Avoid one-off HTML unless the task explicitly asks for a single static file.',
+      ].join(' '),
+    );
+  }
+
   return sections.join('\n').trim();
 };
 
@@ -271,11 +285,13 @@ export const getConnectorInstructions = () => {
 export const buildAgentTask = (
   task: string,
   preferences: Partial<ComposerPreferences> = defaultComposerPreferences,
+  extraContext = '',
 ) => {
   const sections = [
     getBehaviorInstructions(),
     getConnectorInstructions(),
     getComposerInstructions(preferences),
+    extraContext.trim(),
     buildProjectContext(task),
   ].filter(Boolean);
 

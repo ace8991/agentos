@@ -4,6 +4,7 @@ import {
   Bot,
   Check,
   ChevronRight,
+  Code2,
   FolderOpen,
   ImagePlus,
   Layers3,
@@ -22,9 +23,11 @@ interface ComposerInsertMenuProps {
   connectedCount: number;
   responseStyleLabel: string;
   agentModeEnabled?: boolean;
+  builderModeEnabled?: boolean;
   webSearchEnabled: boolean;
   useStyleEnabled: boolean;
   onToggleAgentMode?: () => void;
+  onToggleBuilderMode?: () => void;
   onAddFiles: () => void;
   onAddImages: () => void;
   onOpenGoogleDrive: () => void;
@@ -43,9 +46,11 @@ const ComposerInsertMenu = ({
   connectedCount,
   responseStyleLabel,
   agentModeEnabled = false,
+  builderModeEnabled = false,
   webSearchEnabled,
   useStyleEnabled,
   onToggleAgentMode,
+  onToggleBuilderMode,
   onAddFiles,
   onAddImages,
   onOpenGoogleDrive,
@@ -172,6 +177,14 @@ const ComposerInsertMenu = ({
               title="Agent mode"
               active={agentModeEnabled}
               onClick={onToggleAgentMode}
+            />
+          )}
+          {onToggleBuilderMode && (
+            <ToggleRow
+              icon={<Code2 size={16} className={builderModeEnabled ? 'text-violet-200' : 'text-violet-300'} />}
+              title="Agent builder"
+              active={builderModeEnabled}
+              onClick={onToggleBuilderMode}
             />
           )}
           <ToggleRow

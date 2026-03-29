@@ -7,6 +7,7 @@ import anthropic
 
 from app.config import IS_CLOUD, IS_LOCAL
 from app.models.schemas import ActionType, AgentAction
+from app.services import browser as browser_svc
 from app.services.prompting import build_agent_system_prompt
 from app.services.runtime_config import get_runtime_value
 
@@ -29,7 +30,7 @@ def _uses_openai_max_completion_tokens(model: str) -> bool:
 
 
 def _is_browser_first_task(task: str, memory: dict, last_tool_result: Optional[dict]) -> bool:
-    task_text = (task or "").lower()
+    task_text = browser_svc.extract_primary_task(task).lower()
     if memory.get("task_surface") == "browser":
         return True
     if last_tool_result and (last_tool_result.get("bootstrap_source") or last_tool_result.get("url")):

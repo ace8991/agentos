@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   Eye, Brain, MousePointer, CheckCircle, AlertTriangle, Globe, Terminal,
-  Search, ChevronDown, Info, Loader2, MessageCircleQuestion, FileText,
+  Search, Info, Loader2, MessageCircleQuestion, FileText,
   Download, Paperclip
 } from 'lucide-react';
 import { type LogEntry, type LogType } from '@/store/useStore';
@@ -30,7 +30,6 @@ interface ChatMessageProps {
 }
 
 const ChatMessage = ({ entry, onAskReply }: ChatMessageProps) => {
-  const [expanded, setExpanded] = useState(false);
   const [askInput, setAskInput] = useState('');
   const config = typeConfig[entry.type] || typeConfig.act;
   const Icon = config.icon;
@@ -167,24 +166,8 @@ const ChatMessage = ({ entry, onAskReply }: ChatMessageProps) => {
           </div>
         )}
 
-        {/* Reasoning toggle */}
-        {entry.reasoning && (
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ChevronDown size={12} className={`transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
-            Reasoning
-          </button>
-        )}
-        {expanded && entry.reasoning && (
-          <pre className="mt-2 text-xs font-mono text-muted-foreground bg-muted p-3 rounded-lg whitespace-pre-wrap max-h-40 overflow-y-auto scrollbar-thin">
-            {entry.reasoning}
-          </pre>
-        )}
-
         {/* Tool result */}
-        {entry.tool_result && (
+        {entry.tool_result && entry.type === 'error' && (
           <pre className="mt-2 text-xs font-mono text-secondary/80 bg-muted p-3 rounded-lg whitespace-pre-wrap max-h-28 overflow-y-auto scrollbar-thin">
             {JSON.stringify(entry.tool_result, null, 2)}
           </pre>

@@ -65,7 +65,7 @@ const ArtifactWorkspaceModal = ({ open, artifacts, initialView = 'preview', onCl
   return (
     <div className="fixed inset-0 z-[57] bg-black/58 backdrop-blur-[2px]" onClick={onClose}>
       <div
-        className="absolute inset-y-3 right-3 flex w-[min(78vw,1440px)] min-w-[980px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-[32px] border border-white/10 bg-[radial-gradient(circle_at_top_left,#252f35_0%,#171a1f_42%,#111317_100%)] text-white shadow-2xl md:inset-y-4 md:right-4"
+        className="absolute inset-y-3 right-3 flex w-[calc(100vw-24px)] flex-col overflow-hidden rounded-[32px] border border-white/10 bg-[radial-gradient(circle_at_top_left,#252f35_0%,#171a1f_42%,#111317_100%)] text-white shadow-2xl md:inset-y-4 md:right-4 md:w-[min(52vw,980px)] md:min-w-[720px] md:max-w-[calc(100vw-32px)]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 pb-4 pt-5 md:px-8 md:pt-7">

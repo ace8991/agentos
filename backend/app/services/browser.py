@@ -34,6 +34,7 @@ _SEARCH_TRIGGER_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _ORDERS_PATTERN = re.compile(r"\b(order|commande|orders|commandes|purchase|achat)\b", re.IGNORECASE)
+_PRIMARY_TASK_PATTERN = re.compile(r"primary task:\s*(.+)$", re.IGNORECASE | re.DOTALL)
 
 
 @dataclass(frozen=True)
@@ -110,6 +111,14 @@ def _normalize_task(task: str) -> str:
     return re.sub(r"\s+", " ", task or "").strip()
 
 
+def extract_primary_task(task: str) -> str:
+    normalized = task or ""
+    match = _PRIMARY_TASK_PATTERN.search(normalized)
+    if match:
+        return _normalize_task(match.group(1))
+    return _normalize_task(normalized)
+
+
 def _describe_exception(exc: Exception, fallback: str = "Browser action failed") -> str:
     message = str(exc).strip()
     return message or exc.__class__.__name__ or fallback
@@ -140,7 +149,7 @@ def _infer_search_query(task: str, keywords: tuple[str, ...]) -> str:
 
 
 def infer_browser_bootstrap(task: str) -> Optional[BrowserBootstrapPlan]:
-    normalized = _normalize_task(task)
+    normalized = extract_primary_task(task)
     if not normalized:
         return None
 
@@ -195,7 +204,8 @@ def infer_browser_bootstrap(task: str) -> Optional[BrowserBootstrapPlan]:
 
 def _should_launch_headful() -> bool:
     configured = (get_runtime_value("PLAYWRIGHT_HEADFUL", "false") or "false").strip().lower()
-    return not IS_CLOUD and configured in {"1", "true", "yes", "on"}
+    external = (get_runtime_value("PLAYWRIGHT_EXTERNAL_BROWSER", "false") or "false").strip().lower()
+    return not IS_CLOUD and configured in {"1", "true", "yes", "on"} and external in {"1", "true", "yes", "on"}
 
 
 def _brave_path() -> Optional[str]:

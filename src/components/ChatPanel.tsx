@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Bot, CheckCircle, Code2, Database, FolderOpen, Ghost, Layers3, MessageSquareText, Mic, MonitorPlay, Paperclip, Plus, Send, Square, X } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { useStore, type LogEntry } from '@/store/useStore';
@@ -20,8 +20,15 @@ import {
   saveConnectors,
   type ConnectorState,
 } from '@/lib/connectors';
-import { getBehaviorInstructions, getComposerInstructions, getSavedResponseStyleLabel } from '@/lib/user-config';
+import {
+  getBehaviorInstructions,
+  getComposerInstructions,
+  getSavedResponseStyleLabel,
+  type ComposerPreferences,
+} from '@/lib/user-config';
 import { buildProjectContext, getCurrentProject, loadProjects, PROJECTS_UPDATED_EVENT, type AppProject } from '@/lib/projects';
+import { buildAttachmentContext } from '@/lib/attachment-context';
+import { useSpeechInput } from '@/hooks/useSpeechInput';
 
 const ConnectorConfigModal = lazy(() => import('./chat/ConnectorConfigModal'));
 const ConnectorsDirectoryModal = lazy(() => import('./chat/ConnectorsDirectoryModal'));
@@ -135,6 +142,7 @@ const ChatPanel = () => {
   const currentProjectId = useStore((s) => s.currentProjectId);
   const incognitoMode = useStore((s) => s.incognitoMode);
   const setIncognitoMode = useStore((s) => s.setIncognitoMode);
+  const setPendingTaskContext = useStore((s) => s.setPendingTaskContext);
 
   const [inputValue, setInputValue] = useState('');
   const [configProvider, setConfigProvider] = useState<string | null>(null);
@@ -155,6 +163,13 @@ const ChatPanel = () => {
   const composerMenuPanelRef = useRef<HTMLDivElement>(null);
   const assistantBufferRef = useRef('');
   const responseStyleLabel = getSavedResponseStyleLabel();
+  const appendTranscript = useCallback((transcript: string) => {
+    setInputValue((previous) => `${previous.trimEnd()}${previous.trim() ? ' ' : ''}${transcript}`.trim());
+  }, []);
+  const { supported: speechSupported, listening: speechListening, error: speechError, toggle: toggleSpeechInput } =
+    useSpeechInput({
+      onTranscript: appendTranscript,
+    });
 
   const isRunning = status === 'running';
   const isPaused = status === 'paused';
@@ -230,10 +245,17 @@ const ChatPanel = () => {
     };
   }, []);
 
-  const handleSend = () => {
+  useEffect(() => {
+    if (speechError) {
+      toast.error(speechError);
+    }
+  }, [speechError]);
+
+  const handleSend = async () => {
     const text = inputValue.trim();
     if (!text) return;
     setComposerMenuOpen(false);
+    const attachmentContext = await buildAttachmentContext(attachments);
     const shouldUseAgent = shouldRouteToAgent(text, mode, backendOnline);
 
     if (mode === 'agent' && !backendOnline) {
@@ -253,6 +275,7 @@ const ChatPanel = () => {
         toast.message('Switched to Agent mode for a local tool or live browser task.');
       }
 
+      setPendingTaskContext(attachmentContext);
       setTask(text);
       setActiveThread('agent');
       setInputValue('');
@@ -266,14 +289,15 @@ const ChatPanel = () => {
       return;
     }
 
-    handleChatSend(text);
+    await handleChatSend(text, attachmentContext);
   };
 
-  const handleChatSend = async (text: string) => {
+  const handleChatSend = async (text: string, attachmentContext = '') => {
     if (activeThread === 'agent' && status !== 'running' && status !== 'paused' && entries.length > 0) {
       useStore.getState().reset();
     }
 
+    setPendingTaskContext('');
     setInputValue('');
     setAttachments([]);
     setChatLoading(true);
@@ -298,13 +322,16 @@ const ChatPanel = () => {
     const workspaceContext = [
       `Workspace mode: ${mode}`,
       `Backend: ${backendOnline ? 'online' : 'offline'}`,
+      composerPreferences.builderMode ? 'Agent builder is enabled.' : '',
       composerPreferences.webResearch ? 'Web research is enabled.' : '',
       readyConnectors.length > 0 ? `Connected tools: ${readyConnectors.map((connector) => connector.name).join(', ')}` : '',
       attachments.length > 0 ? `Attachments: ${attachments.map((file) => file.name).join(', ')}` : '',
     ]
       .filter(Boolean)
       .join('\n');
-    const systemContext = [behaviorInstructions, projectContext, workspaceContext].filter(Boolean).join('\n\n');
+    const systemContext = [behaviorInstructions, projectContext, workspaceContext, attachmentContext]
+      .filter(Boolean)
+      .join('\n\n');
 
     if (systemContext) {
       messages.push({ role: 'system', content: systemContext });
@@ -368,7 +395,7 @@ const ChatPanel = () => {
   const handleKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
-      handleSend();
+      void handleSend();
     }
   };
 
@@ -392,7 +419,7 @@ const ChatPanel = () => {
     setAttachments((previous) => previous.filter((_, itemIndex) => itemIndex !== index));
   };
 
-  const handleToggleComposerPreference = (key: 'webResearch' | 'useStyle') => {
+  const handleToggleComposerPreference = (key: keyof Pick<ComposerPreferences, 'webResearch' | 'useStyle' | 'builderMode'>) => {
     setComposerPreferences({ [key]: !composerPreferences[key] });
     setComposerMenuOpen(false);
   };
@@ -663,7 +690,7 @@ const ChatPanel = () => {
         </div>
       )}
 
-      {(composerPreferences.webResearch || composerPreferences.useStyle) && (
+      {(composerPreferences.webResearch || composerPreferences.useStyle || composerPreferences.builderMode) && (
         <div className="mx-auto flex w-full max-w-[980px] flex-wrap items-center gap-2 px-3 pt-2 md:px-5">
           {mode === 'agent' && (
             <button
@@ -672,6 +699,16 @@ const ChatPanel = () => {
             >
               <Bot size={11} />
               Agent mode
+              <X size={11} />
+            </button>
+          )}
+          {composerPreferences.builderMode && (
+            <button
+              onClick={() => setComposerPreferences({ builderMode: false })}
+              className="inline-flex items-center gap-1.5 rounded-full border border-violet-300/16 bg-violet-400/10 px-2.5 py-1 text-[11px] font-medium text-violet-100"
+            >
+              <Code2 size={11} />
+              Agent builder
               <X size={11} />
             </button>
           )}
@@ -717,7 +754,7 @@ const ChatPanel = () => {
               <X size={11} />
             </button>
           )}
-          {!composerPreferences.webResearch && !composerPreferences.useStyle && mode === 'agent' && (
+          {!composerPreferences.webResearch && !composerPreferences.useStyle && !composerPreferences.builderMode && mode === 'agent' && (
             <button
               onClick={() => setMode('chat')}
               className="inline-flex items-center gap-1.5 rounded-full border border-red-400/20 bg-red-500/10 px-2.5 py-1 text-[11px] font-medium text-red-200"
@@ -747,9 +784,11 @@ const ChatPanel = () => {
             connectedCount={connectors.filter((connector) => connector.connected).length}
             responseStyleLabel={responseStyleLabel}
             agentModeEnabled={mode === 'agent'}
+            builderModeEnabled={composerPreferences.builderMode}
             webSearchEnabled={composerPreferences.webResearch}
             useStyleEnabled={composerPreferences.useStyle}
             onToggleAgentMode={() => setMode(mode === 'agent' ? 'chat' : 'agent')}
+            onToggleBuilderMode={() => handleToggleComposerPreference('builderMode')}
             onAddFiles={() => {
               setComposerMenuOpen(false);
               fileInputRef.current?.click();
@@ -806,14 +845,22 @@ const ChatPanel = () => {
               <Paperclip size={16} />
             </button>
             <button
-              onClick={() => toast.message('Voice input UI is ready for the next backend pass.')}
-              className="p-1 text-muted-foreground transition-colors hover:text-foreground active:scale-95"
+              onClick={() => {
+                if (!speechSupported) {
+                  toast.error('Voice input is not supported in this browser.');
+                  return;
+                }
+                toggleSpeechInput();
+              }}
+              className={`p-1 transition-colors active:scale-95 ${
+                speechListening ? 'text-red-300 hover:text-red-200' : 'text-muted-foreground hover:text-foreground'
+              }`}
               title="Voice input"
             >
-              <Mic size={16} />
+              <Mic size={16} className={speechListening ? 'animate-pulse' : undefined} />
             </button>
             <button
-              onClick={handleSend}
+              onClick={() => void handleSend()}
               disabled={!inputValue.trim() || chatLoading || isRunning}
               className="ml-1 flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-30 active:scale-95"
             >

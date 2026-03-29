@@ -128,6 +128,7 @@ interface AppState {
   activeThread: ActiveThread;
   currentProjectId: string | null;
   incognitoMode: boolean;
+  pendingTaskContext: string;
 
   // Log
   entries: LogEntry[];
@@ -172,6 +173,7 @@ interface AppState {
   setActiveThread: (thread: ActiveThread) => void;
   setCurrentProjectId: (projectId: string | null) => void;
   setIncognitoMode: (enabled: boolean) => void;
+  setPendingTaskContext: (context: string) => void;
   setSettingsOpen: (open: boolean) => void;
   setSettingsSection: (section: SettingsSection) => void;
   openSettingsFor: (section: SettingsSection) => void;
@@ -252,10 +254,6 @@ const buildAgentCompletionMessage = (
     sections.push(`Captured context:\n${memoryPreview}`);
   }
 
-  if (reasoning.trim()) {
-    sections.push(`Final reasoning:\n${reasoning.trim()}`);
-  }
-
   return sections.join('\n\n');
 };
 
@@ -277,6 +275,7 @@ export const useStore = create<AppState>((set, get) => ({
   activeThread: null,
   currentProjectId: loadCurrentProjectId(),
   incognitoMode: typeof window !== 'undefined' && localStorage.getItem('INCOGNITO_MODE') === 'true',
+  pendingTaskContext: '',
   entries: [],
   memory: [],
   currentScreenshot: null,
@@ -340,6 +339,7 @@ export const useStore = create<AppState>((set, get) => ({
     }
     set({ incognitoMode: enabled });
   },
+  setPendingTaskContext: (context) => set({ pendingTaskContext: context }),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
   setSettingsSection: (section) => set({ settingsSection: section }),
   openSettingsFor: (section) => set({ settingsOpen: true, settingsSection: section }),
@@ -383,8 +383,8 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   startAgent: async () => {
-    const { task, model, maxSteps, captureInterval, composerPreferences, reasoningEffort } = get();
-    const effectiveTask = buildAgentTask(task, composerPreferences);
+    const { task, model, maxSteps, captureInterval, composerPreferences, reasoningEffort, pendingTaskContext } = get();
+    const effectiveTask = buildAgentTask(task, composerPreferences, pendingTaskContext);
 
     const infoEntry: LogEntry = {
       id: crypto.randomUUID(),
@@ -625,6 +625,7 @@ export const useStore = create<AppState>((set, get) => ({
       errorMessage: null,
       runId: null,
       activeThread: null,
+      pendingTaskContext: '',
       takeoverRequested: false,
       takeoverReason: null,
     });

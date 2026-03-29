@@ -1,9 +1,10 @@
 import { createPortal } from 'react-dom';
-import { Suspense, lazy, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell,
   ChevronDown,
+  Code2,
   FileText,
   FolderOpen,
   Globe as GlobeIcon,
@@ -24,6 +25,8 @@ import {
   X,
 } from 'lucide-react';
 import TaskSidebar from '@/components/TaskSidebar';
+import ModelSelector from '@/components/ModelSelector';
+import ProviderConfigModal from '@/components/ProviderConfigModal';
 import ComposerInsertMenu from '@/components/chat/ComposerInsertMenu';
 import ConnectorQuickAccess from '@/components/chat/ConnectorQuickAccess';
 import { useStore } from '@/store/useStore';
@@ -38,6 +41,8 @@ import {
 import { getCurrentProject, loadProjects, PROJECTS_UPDATED_EVENT, type AppProject } from '@/lib/projects';
 import { toast } from '@/components/ui/sonner';
 import { getSavedResponseStyleLabel } from '@/lib/user-config';
+import { buildAttachmentContext } from '@/lib/attachment-context';
+import { useSpeechInput } from '@/hooks/useSpeechInput';
 
 const SettingsModal = lazy(() => import('@/components/SettingsModal'));
 const ConnectorConfigModal = lazy(() => import('@/components/chat/ConnectorConfigModal'));
@@ -75,6 +80,8 @@ const Welcome = () => {
   const [profileOpen, setProfileOpen] = useState(false);
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
   const setTask = useStore((s) => s.setTask);
+  const setMode = useStore((s) => s.setMode);
+  const setPendingTaskContext = useStore((s) => s.setPendingTaskContext);
   const openSettingsFor = useStore((s) => s.openSettingsFor);
   const composerPreferences = useStore((s) => s.composerPreferences);
   const setComposerPreferences = useStore((s) => s.setComposerPreferences);
@@ -94,6 +101,14 @@ const Welcome = () => {
   const responseStyleLabel = getSavedResponseStyleLabel();
   const [projects, setProjects] = useState<AppProject[]>([]);
   const [projectsOpen, setProjectsOpen] = useState(false);
+  const [configProvider, setConfigProvider] = useState<string | null>(null);
+  const appendTranscript = useCallback((transcript: string) => {
+    setTaskInput((previous) => `${previous.trimEnd()}${previous.trim() ? ' ' : ''}${transcript}`.trim());
+  }, []);
+  const { supported: speechSupported, listening: speechListening, error: speechError, toggle: toggleSpeechInput } =
+    useSpeechInput({
+      onTranscript: appendTranscript,
+    });
 
   useEffect(() => {
     const syncConnectors = () => setConnectors(loadConnectors());
@@ -114,6 +129,12 @@ const Welcome = () => {
       window.removeEventListener(PROJECTS_UPDATED_EVENT, syncProjects);
     };
   }, []);
+
+  useEffect(() => {
+    if (speechError) {
+      toast.error(speechError);
+    }
+  }, [speechError]);
 
   useEffect(() => {
     const isTargetInside = (target: Node, refs: Array<RefObject<HTMLElement | null>>) =>
@@ -187,10 +208,17 @@ const Welcome = () => {
   const unreadCount = notifications.filter((item) => !readNotificationIds.includes(item.id)).length;
 
   const handleStart = () => {
-    if (!taskInput.trim()) return;
-    setTask(taskInput.trim());
-    setComposerMenuOpen(false);
-    navigate('/dashboard');
+    const runStart = async () => {
+      if (!taskInput.trim()) return;
+      const attachmentContext = await buildAttachmentContext(attachments);
+      setPendingTaskContext(attachmentContext);
+      setMode('agent');
+      setTask(taskInput.trim());
+      setComposerMenuOpen(false);
+      navigate('/dashboard');
+    };
+
+    void runStart();
   };
 
   const addAttachments = (files: FileList | File[], kind: 'file' | 'image') => {
@@ -261,7 +289,7 @@ const Welcome = () => {
     setConfigConnectorId(connectorId);
   };
 
-  const handleToggleComposerPreference = (key: 'webResearch' | 'useStyle') => {
+  const handleToggleComposerPreference = (key: 'webResearch' | 'useStyle' | 'builderMode') => {
     setComposerPreferences({ [key]: !composerPreferences[key] });
     setComposerMenuOpen(false);
   };
@@ -523,6 +551,10 @@ const Welcome = () => {
 
           <div className="w-full max-w-3xl mt-7 md:mt-9">
             <div className="rounded-[28px] border border-white/12 bg-[rgba(16,19,29,0.54)] shadow-[0_28px_120px_rgba(5,8,17,0.30)] backdrop-blur-2xl overflow-hidden">
+              <div className="flex items-center justify-between border-b border-white/8 px-4 py-3 md:px-5">
+                <div className="text-[11px] uppercase tracking-[0.18em] text-white/48">Choose a model before you start</div>
+                <ModelSelector onConfigureProvider={setConfigProvider} />
+              </div>
               <div className="px-4 md:px-5 pt-4 md:pt-5 pb-2">
                 <input
                   ref={fileInputRef}
@@ -574,8 +606,18 @@ const Welcome = () => {
                 </div>
               )}
 
-              {(composerPreferences.webResearch || composerPreferences.useStyle) && (
+              {(composerPreferences.webResearch || composerPreferences.useStyle || composerPreferences.builderMode) && (
                 <div className="px-4 md:px-5 pb-2 flex items-center gap-2 flex-wrap">
+                  {composerPreferences.builderMode && (
+                    <button
+                      onClick={() => setComposerPreferences({ builderMode: false })}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-violet-300/16 bg-violet-400/10 px-2.5 py-1 text-[11px] font-medium text-violet-100"
+                    >
+                      <Code2 size={12} />
+                      Agent builder
+                      <X size={11} />
+                    </button>
+                  )}
                   {composerPreferences.webResearch && (
                     <button
                       onClick={() => setComposerPreferences({ webResearch: false })}
@@ -619,8 +661,10 @@ const Welcome = () => {
                     panelRef={composerMenuPanelRef}
                     connectedCount={connectedCount}
                     responseStyleLabel={responseStyleLabel}
+                    builderModeEnabled={composerPreferences.builderMode}
                     webSearchEnabled={composerPreferences.webResearch}
                     useStyleEnabled={composerPreferences.useStyle}
+                    onToggleBuilderMode={() => handleToggleComposerPreference('builderMode')}
                     onAddFiles={() => {
                       setComposerMenuOpen(false);
                       fileInputRef.current?.click();
@@ -657,11 +701,21 @@ const Welcome = () => {
 
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={() => toast.message('Voice input UI is ready for the next backend pass.')}
-                    className="p-2 rounded-xl text-white/55 hover:text-white hover:bg-white/10 transition-colors active:scale-95"
+                    onClick={() => {
+                      if (!speechSupported) {
+                        toast.error('Voice input is not supported in this browser.');
+                        return;
+                      }
+                      toggleSpeechInput();
+                    }}
+                    className={`p-2 rounded-xl transition-colors active:scale-95 ${
+                      speechListening
+                        ? 'bg-red-500/10 text-red-300 hover:text-red-200'
+                        : 'text-white/55 hover:text-white hover:bg-white/10'
+                    }`}
                     title="Voice input"
                   >
-                    <Mic size={16} />
+                    <Mic size={16} className={speechListening ? 'animate-pulse' : undefined} />
                   </button>
                   <button
                     onClick={handleStart}
@@ -729,6 +783,7 @@ const Welcome = () => {
             setConfigConnectorId(null);
           }}
         />
+        <ProviderConfigModal providerId={configProvider} onClose={() => setConfigProvider(null)} />
       </Suspense>
     </div>
   );
