@@ -63,6 +63,7 @@ export interface HistoryRun {
 
 export type SettingsSection =
   | 'general'
+  | 'documentation'
   | 'api-keys'
   | 'browser-system'
   | 'capture'

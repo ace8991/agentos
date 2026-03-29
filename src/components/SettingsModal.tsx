@@ -1,10 +1,11 @@
 ﻿import { useState, useEffect } from 'react';
-import { X, Eye, EyeOff, Calendar, Mail, Database, Globe, User, Puzzle, Plug, Layers, Key, Shield, Camera, Monitor, Plus, Trash2, Check, ExternalLink, Settings, Bot, Sparkles, Wrench } from 'lucide-react';
+import { X, Eye, EyeOff, Calendar, Mail, Database, Globe, User, Puzzle, Plug, Layers, Key, Shield, Camera, Monitor, Plus, Trash2, Check, ExternalLink, Settings, Bot, Sparkles, Wrench, BookText } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { MODEL_PROVIDERS, getReasoningEffortOptions, supportsReasoningEffort, type ReasoningEffort } from './ModelSelector';
 import ConnectorConfigModal from './chat/ConnectorConfigModal';
 import ConnectorLogo from './chat/ConnectorLogo';
 import RemoteControlPanel from './settings/RemoteControlPanel';
+import DocumentationGuide from './settings/DocumentationGuide';
 import { buildDefaultConnectors, loadConnectors, mergeConnectorState, saveConnectors, type ConnectorState } from '@/lib/connectors';
 import { API_BASE_URL, syncRuntimeConfig } from '@/lib/api';
 import { toast } from '@/components/ui/sonner';
@@ -20,6 +21,7 @@ type Section = ReturnType<typeof useStore.getState>['settingsSection'];
 
 const sidebarSections: { label: string; key: Section; icon: typeof Key }[] = [
   { label: 'General', key: 'general', icon: Monitor },
+  { label: 'Documentation', key: 'documentation', icon: BookText },
   { label: 'API Keys', key: 'api-keys', icon: Key },
   { label: 'Browser & System', key: 'browser-system', icon: Globe },
   { label: 'Capture', key: 'capture', icon: Camera },
@@ -472,6 +474,9 @@ const SettingsModal = () => {
             )}
           </div>
         );
+
+      case 'documentation':
+        return <DocumentationGuide />;
 
       case 'api-keys':
         return (
