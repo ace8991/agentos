@@ -216,10 +216,12 @@ const ChatPanel = () => {
       .filter(Boolean)
       .join('\n\n');
     const projectContext = buildProjectContext(text, currentProject);
+    const readyConnectors = connectors.filter((connector) => connector.connected);
     const workspaceContext = [
       `Workspace mode: ${mode}`,
       `Backend: ${backendOnline ? 'online' : 'offline'}`,
       composerPreferences.webResearch ? 'Web research is enabled.' : '',
+      readyConnectors.length > 0 ? `Connected tools: ${readyConnectors.map((connector) => connector.name).join(', ')}` : '',
       attachments.length > 0 ? `Attachments: ${attachments.map((file) => file.name).join(', ')}` : '',
     ]
       .filter(Boolean)

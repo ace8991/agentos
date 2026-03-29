@@ -6,6 +6,7 @@ import httpx
 
 from app.models.schemas import ChatMessage, ChatRequest
 from app.services.model_catalog import get_model
+from app.services.prompting import build_chat_system_prompt
 from app.services.runtime_config import get_runtime_value
 from app.services import web
 
@@ -17,6 +18,9 @@ def _sse(payload: dict) -> str:
 async def _provider_and_messages(req: ChatRequest) -> tuple[str | None, list[ChatMessage]]:
     model = get_model(req.model)
     messages = list(req.messages)
+    backend_system_prompt = build_chat_system_prompt(messages, req.web_search)
+    if backend_system_prompt:
+        messages.insert(0, ChatMessage(role="system", content=backend_system_prompt))
     if req.web_search:
         search_query = next((message.content.strip() for message in reversed(messages) if message.role == "user" and message.content.strip()), "")
         search_context = await _build_search_context(search_query)

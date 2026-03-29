@@ -12,7 +12,7 @@ import time
 
 from app.config import is_tool_available
 from app.models.schemas import ActionType, AgentAction
-from app.services import browser, filesystem, web
+from app.services import browser, filesystem as fs, web
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,22 @@ def _validate_browser_action(action: AgentAction) -> dict | None:
         return {"success": False, "description": "file_search requires a query"}
     if action.type == ActionType.FILE_READ and not action.path:
         return {"success": False, "description": "file_read requires a path"}
+    if action.type in {
+        ActionType.FILE_WRITE,
+        ActionType.FILE_APPEND,
+        ActionType.FILE_DELETE,
+        ActionType.FILE_EXISTS,
+        ActionType.DIR_LIST,
+        ActionType.DIR_CREATE,
+        ActionType.DIR_DELETE,
+    } and not action.path:
+        return {"success": False, "description": f"{action.type.value} requires a path"}
+    if action.type in {ActionType.FILE_MOVE, ActionType.FILE_COPY} and (not action.path or not action.destination):
+        return {"success": False, "description": f"{action.type.value} requires path and destination"}
+    if action.type == ActionType.APP_OPEN and not (action.app_path or action.path):
+        return {"success": False, "description": "app_open requires app_path or path"}
+    if action.type == ActionType.PROCESS_KILL and action.pid is None:
+        return {"success": False, "description": "process_kill requires a pid"}
     return None
 
 
@@ -78,9 +94,9 @@ async def execute(action: AgentAction, run_id: str) -> dict:
             return await asyncio.to_thread(web.web_crawl, action.url, action.instructions)
 
         if tool == ActionType.FILE_SEARCH:
-            return await asyncio.to_thread(filesystem.search_files, action.query, action.path, action.max_results or 8)
+            return await asyncio.to_thread(fs.search_files, action.query, action.path, action.max_results or 8)
         if tool == ActionType.FILE_READ:
-            return await asyncio.to_thread(filesystem.read_file, action.path)
+            return await asyncio.to_thread(fs.file_read, action.path, action.max_bytes)
 
         if tool == ActionType.BROWSER_OPEN:
             return await browser.browser_open(run_id, action.url, action.timeout or 15000)
@@ -126,6 +142,47 @@ async def execute(action: AgentAction, run_id: str) -> dict:
             return await asyncio.to_thread(_wait, action.amount or 1)
         if tool == ActionType.SHELL:
             return await asyncio.to_thread(_shell, action.command)
+        # ── Filesystem actions ─────────────────────────────────────────
+        if tool == ActionType.FILE_WRITE:
+            return await asyncio.to_thread(
+                fs.file_write, action.path, action.content or "", action.encoding or "utf-8"
+            )
+        if tool == ActionType.FILE_APPEND:
+            return await asyncio.to_thread(
+                fs.file_append, action.path, action.content or "", action.encoding or "utf-8"
+            )
+        if tool == ActionType.FILE_DELETE:
+            return await asyncio.to_thread(fs.file_delete, action.path)
+        if tool == ActionType.FILE_MOVE:
+            return await asyncio.to_thread(fs.file_move, action.path, action.destination)
+        if tool == ActionType.FILE_COPY:
+            return await asyncio.to_thread(fs.file_copy, action.path, action.destination)
+        if tool == ActionType.FILE_EXISTS:
+            return await asyncio.to_thread(fs.file_exists, action.path)
+        if tool == ActionType.DIR_LIST:
+            return await asyncio.to_thread(fs.dir_list, action.path)
+        if tool == ActionType.DIR_CREATE:
+            return await asyncio.to_thread(fs.dir_create, action.path)
+        if tool == ActionType.DIR_DELETE:
+            return await asyncio.to_thread(fs.dir_delete, action.path, action.recursive or False)
+
+        # ── System actions ─────────────────────────────────────────────
+        if tool == ActionType.APP_OPEN:
+            return await asyncio.to_thread(
+                fs.app_open, action.app_path or action.path, action.app_args
+            )
+        if tool == ActionType.PROCESS_LIST:
+            return await asyncio.to_thread(fs.process_list)
+        if tool == ActionType.PROCESS_KILL:
+            return await asyncio.to_thread(fs.process_kill, action.pid)
+        if tool == ActionType.SYSTEM_INFO:
+            return await asyncio.to_thread(fs.system_info)
+        if tool == ActionType.CLIPBOARD_GET:
+            return await asyncio.to_thread(fs.clipboard_get)
+        if tool == ActionType.CLIPBOARD_SET:
+            return await asyncio.to_thread(fs.clipboard_set, action.text or "")
+        if tool == ActionType.TERMINAL_OPEN:
+            return await asyncio.to_thread(fs.terminal_open, action.command)
         if tool == ActionType.DONE:
             return {"success": True, "description": "Task completed"}
 

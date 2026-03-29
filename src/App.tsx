@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getGuestUser, getMe, getStoredUser, getToken, isGuestSession } from "@/lib/auth";
+import { syncRuntimeConfig } from "@/lib/api";
 import { useStore } from "@/store/useStore";
 import { useAuthStore } from "@/store/authStore";
 import RemoteCommandBridge from "@/components/RemoteCommandBridge";
@@ -27,6 +28,11 @@ const RuntimeSync = () => {
     let timeoutId: number | null = null;
 
     const probe = async () => {
+      try {
+        await syncRuntimeConfig();
+      } catch {
+        // The backend may be offline; health probing below will surface the current state.
+      }
       await syncBackendHealth();
       if (cancelled) {
         return;

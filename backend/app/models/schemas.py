@@ -54,8 +54,18 @@ class ActionType(str, Enum):
     KEY              = "key"
     WAIT             = "wait"
     SHELL            = "shell"
+    # Filesystem
     FILE_SEARCH      = "file_search"
     FILE_READ        = "file_read"
+    FILE_WRITE       = "file_write"
+    FILE_APPEND      = "file_append"
+    FILE_DELETE      = "file_delete"
+    FILE_MOVE        = "file_move"
+    FILE_COPY        = "file_copy"
+    FILE_EXISTS      = "file_exists"
+    DIR_LIST         = "dir_list"
+    DIR_CREATE       = "dir_create"
+    DIR_DELETE       = "dir_delete"
     # Tavily
     WEB_SEARCH       = "web_search"
     WEB_EXTRACT      = "web_extract"
@@ -74,6 +84,14 @@ class ActionType(str, Enum):
     BROWSER_CLOSE    = "browser_close"
     # Claude Computer Use
     COMPUTER_USE     = "computer_use"
+    # System
+    APP_OPEN         = "app_open"
+    PROCESS_LIST     = "process_list"
+    PROCESS_KILL     = "process_kill"
+    SYSTEM_INFO      = "system_info"
+    CLIPBOARD_GET    = "clipboard_get"
+    CLIPBOARD_SET    = "clipboard_set"
+    TERMINAL_OPEN    = "terminal_open"
     # Control
     DONE             = "done"
     ERROR            = "error"
@@ -104,6 +122,14 @@ class AgentAction(BaseModel):
     cu_max_iterations: Optional[int] = None  # default 5
     # Universal
     reason: Optional[str] = None
+    destination: Optional[str] = None
+    content: Optional[str] = None
+    encoding: Optional[str] = "utf-8"
+    max_bytes: Optional[int] = None
+    app_path: Optional[str] = None
+    app_args: Optional[list[str]] = None
+    pid: Optional[int] = None
+    recursive: Optional[bool] = False
 
 
 class StepEvent(BaseModel):

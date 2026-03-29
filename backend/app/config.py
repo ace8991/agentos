@@ -23,7 +23,19 @@ MODE: str = _detect_mode()
 IS_LOCAL: bool = MODE == "local"
 IS_CLOUD: bool = MODE == "cloud"
 
-DESKTOP_TOOLS = {"click", "type", "scroll", "key", "wait", "shell", "computer_use", "file_search", "file_read"}
+DESKTOP_TOOLS = {
+    "click", "type", "scroll", "key", "wait",
+    "shell", "computer_use",
+    "file_search",
+    # NEW filesystem tools
+    "file_read", "file_write", "file_append", "file_delete",
+    "file_move", "file_copy", "file_exists",
+    "dir_list", "dir_create", "dir_delete",
+    # NEW system tools
+    "app_open", "process_list", "process_kill",
+    "system_info", "clipboard_get", "clipboard_set",
+    "terminal_open",
+}
 CLOUD_TOOLS   = {"web_search", "web_extract", "web_qna", "web_crawl",
                  "browser_open", "browser_click", "browser_type", "browser_select",
                  "browser_scroll", "browser_wait", "browser_snapshot",

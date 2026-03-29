@@ -1,3 +1,4 @@
+import { loadConnectors } from '@/lib/connectors';
 import { buildProjectContext } from '@/lib/projects';
 
 export interface AppSkill {
@@ -253,11 +254,30 @@ export const getComposerInstructions = (
   return sections.join('\n').trim();
 };
 
+export const getConnectorInstructions = () => {
+  const readyConnectors = loadConnectors().filter((connector) => connector.connected);
+  if (readyConnectors.length === 0) {
+    return '';
+  }
+
+  return [
+    'Connected tools ready for use:',
+    ...readyConnectors.slice(0, 8).map(
+      (connector) => `- ${connector.name}: ${connector.statusDetail || connector.statusLabel}`,
+    ),
+  ].join('\n');
+};
+
 export const buildAgentTask = (
   task: string,
   preferences: Partial<ComposerPreferences> = defaultComposerPreferences,
 ) => {
-  const sections = [getBehaviorInstructions(), getComposerInstructions(preferences), buildProjectContext(task)].filter(Boolean);
+  const sections = [
+    getBehaviorInstructions(),
+    getConnectorInstructions(),
+    getComposerInstructions(preferences),
+    buildProjectContext(task),
+  ].filter(Boolean);
 
   if (sections.length === 0) {
     return task;
