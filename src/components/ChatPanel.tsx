@@ -11,7 +11,7 @@ import ProviderConfigModal from './ProviderConfigModal';
 import ComposerInsertMenu from './chat/ComposerInsertMenu';
 import ConnectorQuickAccess from './chat/ConnectorQuickAccess';
 import ArtifactWorkspaceModal from './chat/ArtifactWorkspaceModal';
-import { chatDirect } from '@/lib/api';
+import { chatDirect, createBuilderWorkspace } from '@/lib/api';
 import { collectArtifactsFromEntries, type WorkspaceView } from '@/lib/artifacts';
 import {
   CONNECTORS_UPDATED_EVENT,
@@ -88,11 +88,45 @@ const AGENT_WEB_KEYWORDS = [
   'recherche sur',
 ];
 
+const BUILDER_REQUEST_KEYWORDS = [
+  'create website',
+  'build website',
+  'landing page',
+  'create app',
+  'build app',
+  'dashboard',
+  'presentation',
+  'slides',
+  'build a',
+  'create a',
+  'make a website',
+  'make an app',
+  'portfolio',
+  'saas',
+  'game',
+  'prototype',
+  'site vitrine',
+  'creer un site',
+  'cree un site',
+  'creer une app',
+  'cree une app',
+  'landing',
+  'site web',
+  'application web',
+];
+
 const shouldAutoRouteToAgent = (text: string) => {
   const normalized = text.trim().toLowerCase();
   if (!normalized) return false;
 
   return [...AGENT_LOCAL_KEYWORDS, ...AGENT_WEB_KEYWORDS].some((keyword) => normalized.includes(keyword));
+};
+
+const shouldUseBuilderWorkspace = (text: string, preferences: ComposerPreferences) => {
+  if (preferences.builderMode) return true;
+  const normalized = text.trim().toLowerCase();
+  if (!normalized) return false;
+  return BUILDER_REQUEST_KEYWORDS.some((keyword) => normalized.includes(keyword));
 };
 
 const shouldRouteToAgent = (
@@ -142,7 +176,12 @@ const ChatPanel = () => {
   const currentProjectId = useStore((s) => s.currentProjectId);
   const incognitoMode = useStore((s) => s.incognitoMode);
   const setIncognitoMode = useStore((s) => s.setIncognitoMode);
+  const pendingTaskContext = useStore((s) => s.pendingTaskContext);
   const setPendingTaskContext = useStore((s) => s.setPendingTaskContext);
+  const activeWorkspace = useStore((s) => s.activeWorkspace);
+  const setActiveWorkspace = useStore((s) => s.setActiveWorkspace);
+  const openWorkspacePanel = useStore((s) => s.openWorkspacePanel);
+  const setWorkspacePanelView = useStore((s) => s.setWorkspacePanelView);
 
   const [inputValue, setInputValue] = useState('');
   const [configProvider, setConfigProvider] = useState<string | null>(null);
@@ -186,6 +225,11 @@ const ChatPanel = () => {
     setArtifactWorkspaceOpen(true);
   };
 
+  const openGeneratedWorkspace = (view: WorkspaceView) => {
+    setWorkspacePanelView(view);
+    openWorkspacePanel(view);
+  };
+
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
     const sec = s % 60;
@@ -197,6 +241,21 @@ const ChatPanel = () => {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [entries.length]);
+
+  useEffect(() => {
+    if (!task || status !== 'idle' || activeThread || mode === 'agent') {
+      return;
+    }
+
+    if (shouldUseBuilderWorkspace(task, composerPreferences)) {
+      void handleBuilderSend(task, pendingTaskContext);
+    } else {
+      void handleChatSend(task, pendingTaskContext);
+    }
+    setTask('');
+    setPendingTaskContext('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeThread, mode, pendingTaskContext, status, task]);
 
   useEffect(() => {
     const syncConnectors = () => setConnectors(loadConnectors());
@@ -256,10 +315,21 @@ const ChatPanel = () => {
     if (!text) return;
     setComposerMenuOpen(false);
     const attachmentContext = await buildAttachmentContext(attachments);
+    const shouldUseBuilder = shouldUseBuilderWorkspace(text, composerPreferences);
     const shouldUseAgent = shouldRouteToAgent(text, mode, backendOnline);
 
     if (mode === 'agent' && !backendOnline) {
       toast.error('Agent mode needs the local backend to be online.');
+      return;
+    }
+
+    if (shouldUseBuilder && !backendOnline) {
+      toast.error('Builder mode needs the local backend to be online.');
+      return;
+    }
+
+    if (shouldUseBuilder && backendOnline) {
+      await handleBuilderSend(text, attachmentContext);
       return;
     }
 
@@ -290,6 +360,67 @@ const ChatPanel = () => {
     }
 
     await handleChatSend(text, attachmentContext);
+  };
+
+  const handleBuilderSend = async (text: string, attachmentContext = '') => {
+    setComposerMenuOpen(false);
+    setInputValue('');
+    setAttachments([]);
+    setChatLoading(true);
+    setActiveThread('chat');
+
+    const userEntry: LogEntry = {
+      id: crypto.randomUUID(),
+      step: 0,
+      timestamp: new Date().toISOString(),
+      type: 'info',
+      action: text,
+      reasoning: '',
+    };
+    addLogEntry(userEntry);
+
+    const infoEntryId = crypto.randomUUID();
+    addLogEntry({
+      id: infoEntryId,
+      step: 0,
+      timestamp: new Date().toISOString(),
+      type: 'info',
+      action: 'Builder mode engaged. AgentOS is generating a structured local workspace with preview, code, database, and files surfaces.',
+      reasoning: '',
+      toolLabel: 'Builder',
+    });
+
+    try {
+      const workspace = await createBuilderWorkspace(
+        [text, attachmentContext].filter(Boolean).join('\n\n'),
+      );
+      setActiveWorkspace(workspace);
+      addLogEntry({
+        id: crypto.randomUUID(),
+        step: 0,
+        timestamp: new Date().toISOString(),
+        type: 'result',
+        action: `${workspace.summary}\n\nWorkspace surfaces:\n- Preview\n- Code\n${workspace.database_files.length > 0 ? '- Database\n' : ''}- Files`,
+        reasoning: '',
+        toolLabel: 'Workspace ready',
+      });
+      useStore.getState().saveConversationSnapshot({ label: text, thread: 'chat' });
+      toast.success('Builder workspace generated locally.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Builder workspace failed';
+      addLogEntry({
+        id: crypto.randomUUID(),
+        step: 0,
+        timestamp: new Date().toISOString(),
+        type: 'error',
+        action: message,
+        reasoning: '',
+        toolLabel: 'Builder error',
+      });
+      toast.error(message);
+    } finally {
+      setChatLoading(false);
+    }
   };
 
   const handleChatSend = async (text: string, attachmentContext = '') => {
@@ -507,13 +638,19 @@ const ChatPanel = () => {
             <Ghost size={12} />
             {incognitoMode ? 'Private' : 'Standard'}
           </button>
-          {artifacts.length > 0 && (
+          {(activeWorkspace || artifacts.length > 0) && (
             <button
-              onClick={() => openArtifactWorkspace('preview')}
+              onClick={() => {
+                if (activeWorkspace) {
+                  openGeneratedWorkspace('preview');
+                  return;
+                }
+                openArtifactWorkspace('preview');
+              }}
               className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-surface-elevated active:scale-[0.97]"
             >
               <Layers3 size={12} />
-              Artifacts
+              Workspace
             </button>
           )}
           {isPaused && (
@@ -564,7 +701,7 @@ const ChatPanel = () => {
           </div>
         )}
 
-        {workspaceArtifacts.length > 0 && (
+        {activeWorkspace ? (
           <div className="mx-auto mb-4 w-full max-w-[980px] rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.18)]">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
@@ -572,10 +709,56 @@ const ChatPanel = () => {
                   <Layers3 size={12} />
                   Workspace ready
                 </div>
+                <h3 className="mt-3 text-lg font-semibold tracking-tight text-white">{activeWorkspace.title}</h3>
+                <p className="mt-1 max-w-2xl text-sm leading-relaxed text-white/62">
+                  {activeWorkspace.summary}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => openGeneratedWorkspace('preview')}
+                  className="inline-flex items-center gap-2 rounded-full border border-sky-300/18 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-100 transition-colors hover:bg-sky-400/15"
+                >
+                  <MonitorPlay size={14} />
+                  Preview
+                </button>
+                <button
+                  onClick={() => openGeneratedWorkspace('code')}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-medium text-white/72 transition-colors hover:bg-white/[0.08] hover:text-white"
+                >
+                  <Code2 size={14} />
+                  Code
+                </button>
+                {activeWorkspace.database_files.length > 0 && (
+                  <button
+                    onClick={() => openGeneratedWorkspace('database')}
+                    className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-medium text-white/72 transition-colors hover:bg-white/[0.08] hover:text-white"
+                  >
+                    <Database size={14} />
+                    Database
+                  </button>
+                )}
+                <button
+                  onClick={() => openGeneratedWorkspace('files')}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-medium text-white/72 transition-colors hover:bg-white/[0.08] hover:text-white"
+                >
+                  <FolderOpen size={14} />
+                  Files
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : workspaceArtifacts.length > 0 ? (
+          <div className="mx-auto mb-4 w-full max-w-[980px] rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.18)]">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
+                <div className="inline-flex items-center gap-2 rounded-full border border-sky-300/14 bg-sky-400/8 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-sky-100/78">
+                  <Layers3 size={12} />
+                  Artifact workspace
+                </div>
                 <h3 className="mt-3 text-lg font-semibold tracking-tight text-white">Generated project workspace is ready</h3>
                 <p className="mt-1 max-w-2xl text-sm leading-relaxed text-white/62">
-                  Open a Manus-style workspace to inspect the live preview, review the generated code, check the database layer,
-                  or browse every artifact produced by the agent.
+                  Open the fallback artifact workspace to inspect the live preview, review generated code, or browse artifacts from the conversation.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -610,7 +793,7 @@ const ChatPanel = () => {
               </div>
             </div>
           </div>
-        )}
+        ) : null}
 
         {chronologicalEntries.map((entry) => {
           if (activeThread !== 'agent' && entry.type === 'info' && entry.step === 0) {

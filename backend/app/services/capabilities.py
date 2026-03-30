@@ -3,6 +3,7 @@ import platform
 
 from app.config import IS_LOCAL, MODE
 from app.services.computer_use import resolve_computer_use_runtime
+from app.services.openclaw_hub import get_openclaw_state
 from app.services.remote_control import get_remote_config
 from app.services.runtime_config import has_runtime_value
 
@@ -13,6 +14,7 @@ def detect_capabilities() -> dict:
     computer_use_runtime = resolve_computer_use_runtime()
     computer_use_available = IS_LOCAL and pyautogui_available and bool(computer_use_runtime["ready"])
     remote_config = get_remote_config()
+    openclaw_state = get_openclaw_state()
 
     return {
         "status": "ok",
@@ -41,6 +43,13 @@ def detect_capabilities() -> dict:
             "computer_use_model": computer_use_runtime["model"],
         },
         "remote": remote_config.model_dump(),
+        "openclaw": {
+            "gateway_status": openclaw_state.gateway.status,
+            "connected_devices": openclaw_state.gateway.connected_devices,
+            "configured_channels": sum(1 for channel in openclaw_state.channels if channel.configured),
+            "voice_overlay": openclaw_state.overlays.voice_overlay,
+            "mobile_hud": openclaw_state.overlays.mobile_hud,
+        },
         "system": {
             "os": platform.system(),
             "anthropic_key": has_runtime_value("ANTHROPIC_API_KEY"),

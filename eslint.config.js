@@ -10,6 +10,8 @@ export default tseslint.config(
       "dist",
       "coverage",
       "node_modules",
+      ".tmp_openclaw",
+      ".tmp_openclaw/**",
       "backend/.venv",
       "backend/**/__pycache__",
       "**/*.pyc",

@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { ArrowUpRight, ChevronUp, Globe, MonitorSmartphone, Radio, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
+import { getOpenClawOverlayPrefs } from '@/lib/openclaw';
 
 const formatTime = (seconds: number) => {
   const minutes = Math.floor(seconds / 60);
@@ -43,6 +44,7 @@ const AgentDockOverlay = () => {
     () => entries.find((entry) => entry.type !== 'info') ?? entries[0] ?? null,
     [entries],
   );
+  const overlayPrefs = getOpenClawOverlayPrefs();
 
   const host = extractHost(browserUrl);
 
@@ -61,7 +63,7 @@ const AgentDockOverlay = () => {
     }
   };
 
-  if (!visible || location.pathname === '/agent-dock' || location.pathname === '/dashboard') {
+  if (!visible || !overlayPrefs.floatingDock || location.pathname === '/agent-dock' || location.pathname === '/dashboard') {
     return null;
   }
 
@@ -107,10 +109,15 @@ const AgentDockOverlay = () => {
 
         {!collapsed && (
           <div className="space-y-3 px-4 py-4">
-            <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2 text-[11px] text-white/70">
+            <div className="flex flex-wrap items-center gap-2 text-[11px] text-white/70">
               <span className="truncate rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
                 {host || browserTitle || 'Desktop workflow'}
               </span>
+              {overlayPrefs.voiceOverlay && (
+                <span className="rounded-full border border-cyan-300/18 bg-cyan-400/10 px-2.5 py-1 text-cyan-100">
+                  {overlayPrefs.voiceWake ? 'Voice wake on' : 'Voice ready'}
+                </span>
+              )}
               <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
                 Step {currentStep}/{maxSteps}
               </span>

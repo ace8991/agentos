@@ -14,6 +14,7 @@ from app.models.schemas import (
     RemoteCommandStatus,
     RemoteConfigResponse,
 )
+from app.services.openclaw_hub import get_channel_secret
 
 
 def _utc_now() -> str:
@@ -65,7 +66,10 @@ def _channel_secret(channel: RemoteChannel) -> str:
         RemoteChannel.WHATSAPP: "REMOTE_WHATSAPP_SECRET",
         RemoteChannel.WEBHOOK: "REMOTE_WEBHOOK_SECRET",
     }
-    return os.getenv(mapping[channel], "").strip()
+    env_secret = os.getenv(mapping[channel], "").strip()
+    if env_secret:
+        return env_secret
+    return get_channel_secret(channel.value).strip()
 
 
 def get_remote_config() -> RemoteConfigResponse:

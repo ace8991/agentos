@@ -12,6 +12,12 @@ const SidebarToolStatus = () => {
   const backendHealth = useStore((s) => s.backendHealth);
 
   const toolState = backendHealth?.available_tools;
+  const openclaw = backendHealth?.openclaw as
+    | {
+        gateway_status?: string;
+        connected_devices?: number;
+      }
+    | undefined;
   const runtimeMode = backendHealth?.mode === 'local' ? 'Local mode' : backendHealth?.mode === 'cloud' ? 'Cloud mode' : 'Offline';
 
   return (
@@ -50,6 +56,31 @@ const SidebarToolStatus = () => {
             </span>
           </div>
         ))}
+        <div className="flex items-center justify-between text-xs pt-1">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <div
+              className={`w-1.5 h-1.5 rounded-full ${
+                !backendOnline
+                  ? 'bg-muted-foreground'
+                  : openclaw?.gateway_status === 'ready'
+                  ? 'bg-success'
+                  : 'bg-warning'
+              }`}
+            />
+            <span>OpenClaw gateway</span>
+          </div>
+          <span
+            className={`text-[10px] ${
+              !backendOnline
+                ? 'text-muted-foreground'
+                : openclaw?.gateway_status === 'ready'
+                ? 'text-success'
+                : 'text-warning'
+            }`}
+          >
+            {!backendOnline ? 'Offline' : openclaw?.connected_devices ? `${openclaw.connected_devices} devices` : 'Pairing'}
+          </span>
+        </div>
       </div>
     </div>
   );

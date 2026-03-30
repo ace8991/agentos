@@ -79,6 +79,9 @@ def build_chat_system_prompt(messages: list[ChatMessage], web_search: bool) -> s
                 "- Prefer shadcn/ui and Radix UI patterns for accessible, modern interface primitives when relevant.",
                 "- Deliver outputs that are easy to preview in a workspace: a primary app/page artifact, supporting code artifacts, and database/schema artifacts only when needed.",
                 "- Keep project structure explicit. When code is generated, name files clearly and keep frontend, backend, and database surfaces distinct.",
+                "- Default workspace groups: client, server, database, docs, assets, output.",
+                "- Prefer frontend-only for landing pages and marketing sites. Add backend or database only when auth, persistence, admin workflows, or APIs are part of the request.",
+                "- Make the result ready for a right-side workspace panel with Preview, Code, Database, and Files tabs.",
                 "- If the request is frontend-only, avoid inventing backend or database layers just to make the answer look bigger.",
             ]
         )
@@ -185,6 +188,8 @@ WEB BUILD RULES:
 - Prefer shadcn/ui and Radix-friendly component structure for polished web interfaces when the task is frontend-heavy.
 - Produce build outputs that are workspace-friendly: a primary previewable artifact, supporting code artifacts, and database/schema artifacts only if the product needs data persistence.
 - Keep project structure clean and explicit so the UI can expose Preview, Code, Database, and Files as separate workspace surfaces.
+- Use this grouping when code is generated: client, server, database, docs, assets, output.
+- For landing pages and simple websites, stay frontend-only unless the user explicitly asks for auth, data persistence, or APIs.
 
 RESPONSE FORMAT:
 [Reasoning - max 4 short sentences, focused on the next best action]

@@ -16,8 +16,10 @@ backend/.env
 backend/.venv
 backend/venv
 backend/users.db
+backend/openclaw_state.json
 backend/__pycache__/
 backend/**/*.pyc
+.tmp_openclaw
 
 # Editor directories and files
 .vscode/*

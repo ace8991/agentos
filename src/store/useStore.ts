@@ -6,10 +6,12 @@ import {
   checkHealth,
   syncRuntimeConfig,
   type AgentEvent,
+  type GeneratedWorkspace,
   type HealthResponse,
 } from '@/lib/api';
 import { isAgentModelSupported, supportsReasoningEffort, type ReasoningEffort } from '@/components/ModelSelector';
 import { buildAgentTask, defaultComposerPreferences, type ComposerPreferences } from '@/lib/user-config';
+import type { WorkspaceView } from '@/lib/artifacts';
 import { getCurrentProjectId as loadCurrentProjectId, setCurrentProjectId as persistCurrentProjectId } from '@/lib/projects';
 
 export type AgentMode = 'smart' | 'chat' | 'agent';
@@ -93,6 +95,7 @@ const persistHistoryRuns = (history: HistoryRun[]) => {
 export type SettingsSection =
   | 'general'
   | 'documentation'
+  | 'openclaw-hub'
   | 'api-keys'
   | 'browser-system'
   | 'capture'
@@ -147,6 +150,11 @@ interface AppState {
   history: HistoryRun[];
   viewingHistory: HistoryRun | null;
 
+  // Builder workspace
+  activeWorkspace: GeneratedWorkspace | null;
+  workspacePanelOpen: boolean;
+  workspacePanelView: WorkspaceView;
+
   // Settings
   settingsOpen: boolean;
   settingsSection: SettingsSection;
@@ -180,6 +188,10 @@ interface AppState {
   setHistoryOpen: (open: boolean) => void;
   setComposerPreferences: (preferences: Partial<ComposerPreferences>) => void;
   resetComposerPreferences: () => void;
+  setActiveWorkspace: (workspace: GeneratedWorkspace | null) => void;
+  openWorkspacePanel: (view?: WorkspaceView) => void;
+  closeWorkspacePanel: () => void;
+  setWorkspacePanelView: (view: WorkspaceView) => void;
 
   startAgent: () => Promise<void>;
   stopAgent: () => Promise<void>;
@@ -285,6 +297,9 @@ export const useStore = create<AppState>((set, get) => ({
   annotations: [],
   history: loadHistoryRuns(),
   viewingHistory: null,
+  activeWorkspace: null,
+  workspacePanelOpen: false,
+  workspacePanelView: 'preview',
   settingsOpen: false,
   settingsSection: 'general',
   historyOpen: false,
@@ -349,6 +364,10 @@ export const useStore = create<AppState>((set, get) => ({
       composerPreferences: { ...state.composerPreferences, ...preferences },
     })),
   resetComposerPreferences: () => set({ composerPreferences: defaultComposerPreferences }),
+  setActiveWorkspace: (workspace) => set({ activeWorkspace: workspace }),
+  openWorkspacePanel: (view) => set((state) => ({ workspacePanelOpen: true, workspacePanelView: view || state.workspacePanelView })),
+  closeWorkspacePanel: () => set({ workspacePanelOpen: false }),
+  setWorkspacePanelView: (view) => set({ workspacePanelView: view }),
 
   startTimer: () => {
     const interval = setInterval(() => {
@@ -628,6 +647,8 @@ export const useStore = create<AppState>((set, get) => ({
       pendingTaskContext: '',
       takeoverRequested: false,
       takeoverReason: null,
+      activeWorkspace: null,
+      workspacePanelOpen: false,
     });
   },
   

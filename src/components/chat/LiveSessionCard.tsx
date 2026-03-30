@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import LiveBrowserView from '@/components/LiveBrowserView';
+import { getOpenClawOverlayPrefs } from '@/lib/openclaw';
 
 type SurfaceTab = 'browser' | 'terminal';
 
@@ -48,6 +49,7 @@ const LiveSessionCard = () => {
   const [activeTab, setActiveTab] = useState<SurfaceTab>('browser');
   const [collapsed, setCollapsed] = useState(false);
   const [fullPreviewOpen, setFullPreviewOpen] = useState(false);
+  const overlayPrefs = getOpenClawOverlayPrefs();
 
   const isLive = status === 'running' || status === 'paused';
   const isSettled = status === 'done' || status === 'error';
@@ -299,6 +301,12 @@ const LiveSessionCard = () => {
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/25 bg-amber-300/10 px-2.5 py-1 text-[11px] text-amber-100">
                   <Hand size={11} />
                   Waiting for you
+                </span>
+              )}
+              {overlayPrefs.mobileHud && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-300/18 bg-cyan-400/10 px-2.5 py-1 text-[11px] text-cyan-100">
+                  <Radio size={11} />
+                  Mobile HUD
                 </span>
               )}
             </div>

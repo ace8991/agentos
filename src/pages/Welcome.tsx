@@ -57,6 +57,30 @@ const suggestions = [
   { icon: MoreHorizontal, label: 'Refactor safely' },
 ];
 
+const BUILDER_REQUEST_KEYWORDS = [
+  'create website',
+  'build website',
+  'landing page',
+  'create app',
+  'build app',
+  'dashboard',
+  'presentation',
+  'slides',
+  'portfolio',
+  'saas',
+  'game',
+  'prototype',
+  'site web',
+  'application web',
+  'landing',
+];
+
+const shouldStartInBuilderFlow = (text: string) => {
+  const normalized = text.trim().toLowerCase();
+  if (!normalized) return false;
+  return BUILDER_REQUEST_KEYWORDS.some((keyword) => normalized.includes(keyword));
+};
+
 type NotificationTarget = 'browser-system' | 'skills' | 'connectors';
 
 interface NotificationItem {
@@ -212,7 +236,7 @@ const Welcome = () => {
       if (!taskInput.trim()) return;
       const attachmentContext = await buildAttachmentContext(attachments);
       setPendingTaskContext(attachmentContext);
-      setMode('agent');
+      setMode(shouldStartInBuilderFlow(taskInput) ? 'chat' : 'agent');
       setTask(taskInput.trim());
       setComposerMenuOpen(false);
       navigate('/dashboard');

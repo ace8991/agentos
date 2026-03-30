@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Plus, Search, Settings, BookOpen, Bot, FolderPlus,
   Download, ChevronRight, Plug, Globe, PanelLeftClose, PanelLeftOpen,
-  Menu, X, LogOut
+  Menu, X, LogOut, Smartphone
 } from 'lucide-react';
 import { useStore, type HistoryRun } from '@/store/useStore';
 import { useAuthStore } from '@/store/authStore';
@@ -146,6 +146,16 @@ const TaskSidebar = () => {
         >
           <BookOpen size={16} />
           <span>Library</span>
+        </button>
+        <button
+          onClick={() => {
+            openSettingsFor('openclaw-hub');
+            setMobileOpen(false);
+          }}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.98]"
+        >
+          <Smartphone size={16} />
+          <span>Mobile hub</span>
         </button>
       </div>
 
@@ -418,6 +428,9 @@ const TaskSidebar = () => {
         </button>
         <button onClick={() => { setCollapsed(false); setLibraryOpen(true); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Library">
           <BookOpen size={16} />
+        </button>
+        <button onClick={() => { setCollapsed(false); openSettingsFor('openclaw-hub'); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Mobile hub">
+          <Smartphone size={16} />
         </button>
 
         <div className="flex-1" />

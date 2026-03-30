@@ -586,6 +586,92 @@ export async function downloadWorkspaceArchive(): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
+export type GeneratedWorkspaceKind = 'website' | 'landing' | 'app' | 'dashboard' | 'slides' | 'presentation';
+export type GeneratedWorkspaceFileGroup = 'client' | 'server' | 'database' | 'docs' | 'assets' | 'output';
+export type GeneratedWorkspaceStatus = 'building' | 'ready' | 'error';
+
+export interface GeneratedWorkspaceStack {
+  frontend: string;
+  ui: string;
+  backend?: string | null;
+  database?: string | null;
+}
+
+export interface GeneratedWorkspaceFile {
+  path: string;
+  name: string;
+  group: GeneratedWorkspaceFileGroup;
+  language?: string | null;
+  size_bytes: number;
+}
+
+export interface GeneratedWorkspaceArtifact {
+  id: string;
+  type: string;
+  title: string;
+  path: string;
+  group: GeneratedWorkspaceFileGroup;
+}
+
+export interface GeneratedWorkspace {
+  workspace_id: string;
+  title: string;
+  kind: GeneratedWorkspaceKind;
+  stack: GeneratedWorkspaceStack;
+  preview_entry: string;
+  preview_url: string;
+  files: GeneratedWorkspaceFile[];
+  database_files: GeneratedWorkspaceFile[];
+  artifacts: GeneratedWorkspaceArtifact[];
+  status: GeneratedWorkspaceStatus;
+  summary: string;
+}
+
+export interface WorkspaceFileContent {
+  path: string;
+  content: string;
+  language?: string | null;
+}
+
+const encodeWorkspacePath = (filePath: string) =>
+  filePath
+    .split('/')
+    .filter(Boolean)
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+
+export async function createBuilderWorkspace(prompt: string, title?: string): Promise<GeneratedWorkspace> {
+  const response = await fetch(`${BASE}/workspace/builder`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, title }),
+  });
+  if (!response.ok) {
+    throw new Error(`Builder workspace failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function getBuilderWorkspace(workspaceId: string): Promise<GeneratedWorkspace> {
+  const response = await fetch(`${BASE}/workspace/builder/${workspaceId}`);
+  if (!response.ok) {
+    throw new Error(`Workspace fetch failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function getBuilderWorkspaceFile(workspaceId: string, filePath: string): Promise<WorkspaceFileContent> {
+  const response = await fetch(`${BASE}/workspace/builder/${workspaceId}/file/${encodeWorkspacePath(filePath)}`);
+  if (!response.ok) {
+    throw new Error(`Workspace file fetch failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export function getBuilderWorkspaceDownloadUrl(workspaceId: string, filePath: string): string {
+  return `${BASE}/workspace/builder/${workspaceId}/download/${encodeWorkspacePath(filePath)}`;
+}
+
 // ─── Types ─────────────────────────────────────────────────────────
 
 export interface AgentEvent {
@@ -642,6 +728,13 @@ export interface HealthResponse {
     computer_use_model?: string;
   };
   remote?: RemoteConfig;
+  openclaw?: {
+    gateway_status?: string;
+    connected_devices?: number;
+    configured_channels?: number;
+    voice_overlay?: boolean;
+    mobile_hud?: boolean;
+  };
   computer_use?: {
     provider?: string;
     model?: string;
@@ -658,6 +751,82 @@ export interface RemoteConfig {
   approval_required: boolean;
   configured_channels: Record<string, boolean>;
   inbound_path: string;
+}
+
+export type OpenClawChannelId =
+  | 'telegram'
+  | 'whatsapp'
+  | 'webhook'
+  | 'slack'
+  | 'discord'
+  | 'email'
+  | 'sms'
+  | 'push';
+export type OpenClawDevicePlatform = 'android' | 'ios' | 'desktop' | 'web';
+export type OpenClawDeviceRole = 'operator' | 'node' | 'viewer';
+export type OpenClawDeviceStatus = 'online' | 'offline' | 'pairing';
+export type OpenClawGatewayStatus = 'ready' | 'discovering' | 'pairing' | 'offline';
+
+export interface OpenClawChannel {
+  id: OpenClawChannelId;
+  name: string;
+  transport: string;
+  enabled: boolean;
+  configured: boolean;
+  secret_hint?: string | null;
+  description: string;
+  relay_path?: string | null;
+}
+
+export interface OpenClawDevice {
+  id: string;
+  name: string;
+  platform: OpenClawDevicePlatform;
+  role: OpenClawDeviceRole;
+  status: OpenClawDeviceStatus;
+  last_seen?: string | null;
+  battery_percent?: number | null;
+  overlay_enabled: boolean;
+  voice_wake_enabled: boolean;
+  pair_code?: string | null;
+}
+
+export interface OpenClawGatewayState {
+  enabled: boolean;
+  status: OpenClawGatewayStatus;
+  protocol_version: number;
+  discovery_mode: string;
+  host: string;
+  port: number;
+  tls_enabled: boolean;
+  tls_fingerprint?: string | null;
+  inbound_path: string;
+  pairing_code?: string | null;
+  connected_devices: number;
+}
+
+export interface OpenClawOverlayState {
+  floating_dock: boolean;
+  mobile_hud: boolean;
+  voice_overlay: boolean;
+  voice_wake: boolean;
+  camera_hud: boolean;
+  push_to_talk: string;
+}
+
+export interface OpenClawCliCommand {
+  label: string;
+  command: string;
+  description: string;
+}
+
+export interface OpenClawState {
+  gateway: OpenClawGatewayState;
+  devices: OpenClawDevice[];
+  channels: OpenClawChannel[];
+  overlays: OpenClawOverlayState;
+  cli_commands: OpenClawCliCommand[];
+  summary: string;
 }
 
 export interface RemoteCommand {
@@ -707,6 +876,72 @@ export async function validateConnector(connectorId: string, values: Record<stri
 export async function getRemoteConfig(): Promise<RemoteConfig> {
   const r = await fetch(`${BASE}/remote/config`);
   if (!r.ok) throw new Error(`Remote config failed: ${r.status}`);
+  return r.json();
+}
+
+export async function getOpenClawState(): Promise<OpenClawState> {
+  const r = await fetch(`${BASE}/openclaw/state`);
+  if (!r.ok) throw new Error(`OpenClaw state failed: ${r.status}`);
+  return r.json();
+}
+
+export async function pairOpenClawDevice(payload: {
+  name: string;
+  platform: OpenClawDevicePlatform;
+  role: OpenClawDeviceRole;
+}): Promise<OpenClawState> {
+  const r = await fetch(`${BASE}/openclaw/pair`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) throw new Error(`OpenClaw pairing failed: ${r.status}`);
+  return r.json();
+}
+
+export async function updateOpenClawGateway(payload: Partial<OpenClawGatewayState>): Promise<OpenClawState> {
+  const r = await fetch(`${BASE}/openclaw/gateway`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) throw new Error(`OpenClaw gateway update failed: ${r.status}`);
+  return r.json();
+}
+
+export async function updateOpenClawOverlay(payload: Partial<OpenClawOverlayState>): Promise<OpenClawState> {
+  const r = await fetch(`${BASE}/openclaw/overlays`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) throw new Error(`OpenClaw overlay update failed: ${r.status}`);
+  return r.json();
+}
+
+export async function updateOpenClawChannel(
+  channelId: OpenClawChannelId,
+  payload: { enabled?: boolean; secret?: string },
+): Promise<OpenClawState> {
+  const r = await fetch(`${BASE}/openclaw/channels/${channelId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) throw new Error(`OpenClaw channel update failed: ${r.status}`);
+  return r.json();
+}
+
+export async function updateOpenClawDevice(
+  deviceId: string,
+  payload: Partial<Pick<OpenClawDevice, 'status' | 'overlay_enabled' | 'voice_wake_enabled' | 'battery_percent'>>,
+): Promise<OpenClawState> {
+  const r = await fetch(`${BASE}/openclaw/devices/${deviceId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) throw new Error(`OpenClaw device update failed: ${r.status}`);
   return r.json();
 }
 

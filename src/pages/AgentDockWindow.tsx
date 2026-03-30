@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowUpRight, Globe, Radio, TerminalSquare } from 'lucide-react';
 import { readAgentDockSnapshot, subscribeAgentDockSnapshot, type AgentDockSnapshot } from '@/lib/agent-dock-bridge';
+import { getOpenClawOverlayPrefs } from '@/lib/openclaw';
 
 const formatTime = (seconds: number) => {
   const minutes = Math.floor(seconds / 60);
@@ -21,6 +22,7 @@ const extractHost = (url: string | null) => {
 
 const AgentDockWindow = () => {
   const [snapshot, setSnapshot] = useState<AgentDockSnapshot | null>(() => readAgentDockSnapshot());
+  const overlayPrefs = getOpenClawOverlayPrefs();
 
   useEffect(() => {
     document.title = 'AgentOS Live';
@@ -53,10 +55,15 @@ const AgentDockWindow = () => {
           </div>
 
           <div className="space-y-4 p-4">
-            <div className="grid grid-cols-3 gap-2 text-[11px] text-white/70">
+            <div className="flex flex-wrap gap-2 text-[11px] text-white/70">
               <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-center">
                 {host || snapshot?.browserTitle || 'Desktop'}
               </span>
+              {overlayPrefs.voiceOverlay && (
+                <span className="rounded-full border border-cyan-300/18 bg-cyan-400/10 px-2.5 py-1 text-center text-cyan-100">
+                  {overlayPrefs.voiceWake ? 'Voice wake on' : 'Voice ready'}
+                </span>
+              )}
               <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-center">
                 Step {snapshot?.currentStep ?? 0}/{snapshot?.maxSteps ?? 0}
               </span>
