@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { ChevronDown, Settings, Check, Server, Cpu } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 
@@ -167,6 +168,8 @@ const ModelSelector = ({ onConfigureProvider }: ModelSelectorProps) => {
   const model = useStore((s) => s.model);
   const setModel = useStore((s) => s.setModel);
   const [open, setOpen] = useState(false);
+  const [panelStyle, setPanelStyle] = useState<CSSProperties | null>(null);
+  const anchorRef = useRef<HTMLDivElement>(null);
 
   const currentInfo = getModelInfo(model);
 
@@ -181,6 +184,44 @@ const ModelSelector = ({ onConfigureProvider }: ModelSelectorProps) => {
     }
   }, [mode, model, setModel]);
 
+  useEffect(() => {
+    if (!open) {
+      setPanelStyle(null);
+      return;
+    }
+
+    const updatePosition = () => {
+      const anchor = anchorRef.current;
+      if (!anchor) return;
+
+      const rect = anchor.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const preferredWidth = viewportWidth >= 768 ? 320 : 280;
+      const panelWidth = Math.min(preferredWidth, Math.max(viewportWidth - 24, 220));
+      const left = Math.max(12, Math.min(rect.right - panelWidth, viewportWidth - panelWidth - 12));
+      const top = rect.bottom + 10;
+      const maxHeight = Math.max(220, viewportHeight - top - 12);
+
+      setPanelStyle({
+        position: 'fixed',
+        top,
+        left,
+        width: panelWidth,
+        maxHeight,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [open]);
+
   const visibleProviders = MODEL_PROVIDERS
     .map((provider) => ({
       ...provider,
@@ -191,7 +232,7 @@ const ModelSelector = ({ onConfigureProvider }: ModelSelectorProps) => {
     .filter((provider) => provider.models.length > 0);
 
   return (
-    <div className="relative">
+    <div ref={anchorRef} className="relative">
       <button
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted border border-border text-sm text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.98]"
@@ -201,78 +242,81 @@ const ModelSelector = ({ onConfigureProvider }: ModelSelectorProps) => {
         <ChevronDown size={14} className={`text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute top-full left-0 mt-2 w-[280px] md:w-[320px] bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden max-h-[60vh] md:max-h-[70vh] overflow-y-auto scrollbar-thin right-0 md:right-auto">
-            {visibleProviders.map((provider) => {
-              const configured = hasApiKey(provider);
-              return (
-                <div key={provider.id}>
-                  {/* Provider header */}
-                  <div className="flex items-center justify-between px-3 py-2 bg-muted/50 border-b border-border">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">{provider.icon}</span>
-                      <span className="text-xs font-medium text-foreground">{provider.name}</span>
-                      {!provider.requiresKey && (
-                        <span className="text-[10px] bg-success/20 text-success px-1.5 py-0.5 rounded-full font-medium">
-                          Free
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      {provider.requiresKey && !configured && (
-                        <span className="text-[10px] text-accent bg-accent/10 px-1.5 py-0.5 rounded-full">
-                          No key
-                        </span>
-                      )}
-                      {mode === 'agent' && (
-                        <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
-                          Agent
-                        </span>
-                      )}
-                      {(provider.requiresKey || provider.baseUrlConfigurable) && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpen(false);
-                            onConfigureProvider?.(provider.id);
-                          }}
-                          className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-surface-elevated"
-                          title="Configure"
-                        >
-                          <Settings size={12} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  {/* Models */}
-                  {provider.models.map((m) => (
-                    <button
-                      key={m.id}
-                      onClick={() => {
-                        setModel(m.id);
-                        setOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-surface-elevated/70 ${
-                        model === m.id ? 'bg-surface-elevated' : ''
-                      }`}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm text-foreground">{m.name}</div>
-                        {m.description && (
-                          <div className="text-xs text-muted-foreground">{m.description}</div>
+      {open && panelStyle &&
+        createPortal(
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+            <div
+              className="z-50 overflow-hidden rounded-xl border border-border bg-card shadow-xl overflow-y-auto scrollbar-thin"
+              style={panelStyle}
+            >
+              {visibleProviders.map((provider) => {
+                const configured = hasApiKey(provider);
+                return (
+                  <div key={provider.id}>
+                    <div className="flex items-center justify-between px-3 py-2 bg-muted/50 border-b border-border">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">{provider.icon}</span>
+                        <span className="text-xs font-medium text-foreground">{provider.name}</span>
+                        {!provider.requiresKey && (
+                          <span className="text-[10px] bg-success/20 text-success px-1.5 py-0.5 rounded-full font-medium">
+                            Free
+                          </span>
                         )}
                       </div>
-                      {model === m.id && <Check size={14} className="text-primary shrink-0" />}
-                    </button>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
+                      <div className="flex items-center gap-1.5">
+                        {provider.requiresKey && !configured && (
+                          <span className="text-[10px] text-accent bg-accent/10 px-1.5 py-0.5 rounded-full">
+                            No key
+                          </span>
+                        )}
+                        {mode === 'agent' && (
+                          <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+                            Agent
+                          </span>
+                        )}
+                        {(provider.requiresKey || provider.baseUrlConfigurable) && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpen(false);
+                              onConfigureProvider?.(provider.id);
+                            }}
+                            className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-surface-elevated"
+                            title="Configure"
+                          >
+                            <Settings size={12} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {provider.models.map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => {
+                          setModel(m.id);
+                          setOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-surface-elevated/70 ${
+                          model === m.id ? 'bg-surface-elevated' : ''
+                        }`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-foreground">{m.name}</div>
+                          {m.description && (
+                            <div className="text-xs text-muted-foreground">{m.description}</div>
+                          )}
+                        </div>
+                        {model === m.id && <Check size={14} className="text-primary shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          </>,
+          document.body,
+        )}
     </div>
   );
 };
