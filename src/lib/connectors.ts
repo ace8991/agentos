@@ -38,7 +38,7 @@ export interface ConnectorState {
   lastCheckedAt?: string | null;
 }
 
-type ConnectorSeed = Omit<ConnectorDefinition, 'id' | 'badge' | 'fields'> & {
+type ConnectorSeed = Omit<ConnectorDefinition, 'id' | 'badge' | 'fields' | 'integrationMode'> & {
   id?: string;
   badge?: string;
   fields?: ConnectorField[];
