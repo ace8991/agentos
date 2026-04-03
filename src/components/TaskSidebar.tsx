@@ -157,6 +157,20 @@ const TaskSidebar = () => {
           <Smartphone size={16} />
           <span>Mobile hub</span>
         </button>
+        <button
+          onClick={() => { navigate('/code'); setMobileOpen(false); }}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.98]"
+        >
+          <Code2 size={16} />
+          <span>Code</span>
+        </button>
+        <button
+          onClick={() => { navigate('/cowork'); setMobileOpen(false); }}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.98]"
+        >
+          <Users size={16} />
+          <span>Cowork</span>
+        </button>
       </div>
 
       {/* Agents panel */}
