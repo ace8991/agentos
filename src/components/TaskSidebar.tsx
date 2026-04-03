@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Plus, Search, Settings, BookOpen, Bot, FolderPlus,
   Download, ChevronRight, Plug, Globe, PanelLeftClose, PanelLeftOpen,
-  Menu, X, LogOut, Smartphone
+  Menu, X, LogOut, Smartphone, Code2, Users
 } from 'lucide-react';
 import { useStore, type HistoryRun } from '@/store/useStore';
 import { useAuthStore } from '@/store/authStore';
