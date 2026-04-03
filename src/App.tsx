@@ -197,6 +197,8 @@ const App = () => (
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/" element={<ProtectedRoute><Welcome /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/code" element={<ProtectedRoute><CodePage /></ProtectedRoute>} />
+            <Route path="/cowork" element={<ProtectedRoute><CoworkPage /></ProtectedRoute>} />
             <Route path="/agent-dock" element={<AgentDockWindow />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
