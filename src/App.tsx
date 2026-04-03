@@ -16,6 +16,8 @@ import Welcome from "./pages/Welcome.tsx";
 
 const AuthPage = lazy(() => import("./pages/AuthPage.tsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
+const CodePage = lazy(() => import("./pages/CodePage.tsx"));
+const CoworkPage = lazy(() => import("./pages/CoworkPage.tsx"));
 const AgentDockWindow = lazy(() => import("./pages/AgentDockWindow.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
