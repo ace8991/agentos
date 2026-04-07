@@ -1,9 +1,23 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { GitBranch, FolderOpen, Check, ChevronDown, Mic, Monitor, MessageSquare, Files, GitFork, Terminal as TerminalIcon, PanelLeftClose, PanelLeftOpen, PanelBottomClose, PanelBottomOpen, Send, Bot, User, Copy, Paperclip, X, Undo2, ChevronRight, Folder, File, Search, Plus, RefreshCw, ExternalLink, Clock, AlertCircle, GitPullRequest, Maximize2, Minimize2 } from 'lucide-react';
+import {
+  GitBranch, FolderOpen, Check, ChevronDown, Mic, Monitor,
+  MessageSquare, Files, GitFork, Terminal as TerminalIcon,
+  PanelLeftClose, PanelLeftOpen, PanelBottomClose, PanelBottomOpen,
+  Send, Bot, User, Copy, Paperclip, X, Undo2, ChevronRight,
+  Folder, File, Search, Plus, RefreshCw, ExternalLink, Clock,
+  AlertCircle, GitPullRequest, Maximize2, Minimize2, Trash2, Loader2,
+} from 'lucide-react';
 import TaskSidebar from '@/components/TaskSidebar';
 import HexLogo from '@/components/HexLogo';
 import { chatDirect } from '@/lib/api';
 import { useStore } from '@/store/useStore';
+import {
+  loadRepos, addRepo, removeRepo, switchBranch,
+  getActiveRepo, setActiveRepoId, getGitHubToken,
+  REPOS_UPDATED_EVENT, type GitHubRepo,
+} from '@/lib/github-repos';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface ChatMsg {
@@ -30,14 +44,6 @@ interface TerminalLine {
   id: string;
   type: 'input' | 'output' | 'error' | 'system';
   content: string;
-}
-
-interface Repo {
-  name: string;
-  owner: string;
-  branch: string;
-  lastSync: string;
-  status: 'synced' | 'ahead' | 'behind';
 }
 
 // ─── Data ────────────────────────────────────────────────────────────
@@ -118,14 +124,9 @@ const sampleDiff: DiffLine[] = [
   { type: 'add', content: '      <h1 className="text-3xl font-bold text-primary">Counter: {count}</h1>', lineNum: 9 },
 ];
 
-const sampleRepos: Repo[] = [
-  { name: 'eduayiti', owner: 'Alexis863', branch: 'main', lastSync: 'il y a 2 min', status: 'synced' },
-  { name: 'agentos', owner: 'Alexis863', branch: 'dev', lastSync: 'il y a 1h', status: 'ahead' },
-];
-
 const langColors: Record<string, string> = {
   tsx: 'text-blue-400', ts: 'text-blue-300', css: 'text-purple-400',
-  py: 'text-yellow-400', json: 'text-green-400', txt: 'text-[#888]',
+  py: 'text-yellow-400', json: 'text-green-400', txt: 'text-[hsl(0,0%,53%)]',
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -137,6 +138,16 @@ function extractCodeBlocks(text: string): { language: string; code: string; file
     blocks.push({ language: match[1] || 'text', code: match[2].trim() });
   }
   return blocks;
+}
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'à l\'instant';
+  if (mins < 60) return `il y a ${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `il y a ${hrs}h`;
+  return `il y a ${Math.floor(hrs / 24)}j`;
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────
@@ -152,10 +163,10 @@ const FileTreeNode = ({ node, depth, path, selectedFile, onFileSelect }: {
     return (
       <div>
         <button onClick={() => setOpen(!open)}
-          className="w-full flex items-center gap-1.5 py-1 px-2 text-xs text-[#888] hover:text-[#ccc] hover:bg-[#252525] rounded transition-colors"
+          className="w-full flex items-center gap-1.5 py-1 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-[hsl(0,0%,15%)] rounded transition-colors"
           style={{ paddingLeft: `${depth * 12 + 8}px` }}>
           {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-          {open ? <FolderOpen size={13} className="text-[#e05a2b]/70" /> : <Folder size={13} className="text-[#e05a2b]/70" />}
+          {open ? <FolderOpen size={13} className="text-[hsl(14,74%,52%)]/70" /> : <Folder size={13} className="text-[hsl(14,74%,52%)]/70" />}
           <span className="truncate">{node.name}</span>
         </button>
         {open && node.children?.map((child) => (
@@ -169,18 +180,160 @@ const FileTreeNode = ({ node, depth, path, selectedFile, onFileSelect }: {
   return (
     <button onClick={() => onFileSelect?.(fullPath)}
       className={`w-full flex items-center gap-1.5 py-1 px-2 text-xs rounded transition-colors ${
-        isSelected ? 'bg-[#333] text-[#e0e0e0]' : 'text-[#888] hover:text-[#ccc] hover:bg-[#252525]'
+        isSelected ? 'bg-[hsl(0,0%,20%)] text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-[hsl(0,0%,15%)]'
       }`}
       style={{ paddingLeft: `${depth * 12 + 8}px` }}>
-      <File size={12} className={langColors[node.language || ''] || 'text-[#888]'} />
+      <File size={12} className={langColors[node.language || ''] || 'text-muted-foreground'} />
       <span className="truncate">{node.name}</span>
     </button>
+  );
+};
+
+// ─── Repo picker modal ───────────────────────────────────────────────
+const RepoPickerModal = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
+  const [repos, setRepos] = useState<GitHubRepo[]>(loadRepos());
+  const [inputVal, setInputVal] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState('');
+  const activeRepo = getActiveRepo();
+
+  useEffect(() => {
+    const h = () => setRepos(loadRepos());
+    window.addEventListener(REPOS_UPDATED_EVENT, h);
+    return () => window.removeEventListener(REPOS_UPDATED_EVENT, h);
+  }, []);
+
+  const handleAdd = async () => {
+    if (!inputVal.trim()) return;
+    setAdding(true);
+    setError('');
+    try {
+      await addRepo(inputVal.trim(), getGitHubToken() || undefined);
+      setInputVal('');
+      setRepos(loadRepos());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur');
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60" onClick={onClose}>
+      <div className="bg-[hsl(0,0%,11%)] border border-[hsl(0,0%,17%)] w-full sm:max-w-md sm:rounded-xl rounded-t-2xl max-h-[80vh] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[hsl(0,0%,17%)]">
+          <h3 className="text-sm font-semibold text-foreground">Repositories GitHub</h3>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1"><X size={16} /></button>
+        </div>
+
+        {/* Add repo */}
+        <div className="px-4 py-3 border-b border-[hsl(0,0%,17%)] space-y-2">
+          <div className="flex gap-2">
+            <input value={inputVal} onChange={(e) => setInputVal(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+              placeholder="owner/repo ou URL GitHub"
+              className="flex-1 bg-[hsl(0,0%,15%)] border border-[hsl(0,0%,20%)] rounded-lg px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-[hsl(14,74%,52%)] transition-colors" />
+            <button onClick={handleAdd} disabled={adding || !inputVal.trim()}
+              className="px-4 py-2 rounded-lg bg-[hsl(14,74%,52%)] text-white text-sm font-medium disabled:opacity-50 flex items-center gap-1.5 active:scale-[0.97] transition-transform whitespace-nowrap">
+              {adding ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+              Ajouter
+            </button>
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+        </div>
+
+        {/* Repos list */}
+        <div className="overflow-y-auto max-h-[50vh]">
+          {repos.length === 0 ? (
+            <div className="px-4 py-8 text-center text-muted-foreground text-sm">
+              <GitFork size={24} className="mx-auto mb-2 opacity-40" />
+              <p>Aucun repository connecté</p>
+              <p className="text-xs mt-1">Ajoutez un repo avec owner/repo ou une URL GitHub</p>
+            </div>
+          ) : (
+            repos.map((repo) => (
+              <div key={repo.id}
+                className={`flex items-center gap-3 px-4 py-3 border-b border-[hsl(0,0%,14%)] cursor-pointer transition-colors ${
+                  activeRepo?.id === repo.id ? 'bg-[hsl(14,74%,52%)]/8' : 'hover:bg-[hsl(0,0%,14%)]'
+                }`}
+                onClick={() => { setActiveRepoId(repo.id); onClose(); }}>
+                <GitFork size={15} className="text-muted-foreground flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{repo.fullName}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <GitBranch size={10} className="text-muted-foreground" />
+                    <span className="text-[11px] text-muted-foreground">{repo.branch}</span>
+                    <span className="text-[10px] text-muted-foreground">· {timeAgo(repo.lastSync)}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {activeRepo?.id === repo.id && (
+                    <div className="w-2 h-2 rounded-full bg-[hsl(142,71%,45%)]" />
+                  )}
+                  <button onClick={(e) => { e.stopPropagation(); window.open(repo.url, '_blank'); }}
+                    className="text-muted-foreground hover:text-foreground p-1"><ExternalLink size={13} /></button>
+                  <button onClick={(e) => { e.stopPropagation(); removeRepo(repo.id); setRepos(loadRepos()); }}
+                    className="text-muted-foreground hover:text-destructive p-1"><Trash2 size={13} /></button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Branch picker ───────────────────────────────────────────────────
+const BranchPicker = ({ repo, onClose }: { repo: GitHubRepo; onClose: () => void }) => {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60" onClick={onClose}>
+      <div className="bg-[hsl(0,0%,11%)] border border-[hsl(0,0%,17%)] w-full sm:max-w-xs sm:rounded-xl rounded-t-2xl max-h-[60vh] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[hsl(0,0%,17%)]">
+          <h3 className="text-sm font-semibold text-foreground">Branches — {repo.name}</h3>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1"><X size={16} /></button>
+        </div>
+        <div className="overflow-y-auto max-h-[45vh]">
+          {repo.branches.map((b) => (
+            <button key={b}
+              onClick={() => { switchBranch(repo.id, b); onClose(); }}
+              className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm transition-colors ${
+                repo.branch === b ? 'bg-[hsl(14,74%,52%)]/8 text-[hsl(14,74%,52%)]' : 'text-foreground hover:bg-[hsl(0,0%,14%)]'
+              }`}>
+              <GitBranch size={13} />
+              <span className="truncate">{b}</span>
+              {repo.branch === b && <Check size={13} className="ml-auto flex-shrink-0" />}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 };
 
 // ─── Main Component ──────────────────────────────────────────────────
 const CodePage = () => {
   const model = useStore((s) => s.model);
+  const isMobile = useIsMobile();
+
+  // GitHub state
+  const [repos, setRepos] = useState<GitHubRepo[]>(loadRepos());
+  const [activeRepoState, setActiveRepoState] = useState<GitHubRepo | null>(getActiveRepo());
+  const [showRepoModal, setShowRepoModal] = useState(false);
+  const [showBranchPicker, setShowBranchPicker] = useState(false);
+
+  useEffect(() => {
+    const h = () => {
+      setRepos(loadRepos());
+      setActiveRepoState(getActiveRepo());
+    };
+    window.addEventListener(REPOS_UPDATED_EVENT, h);
+    return () => window.removeEventListener(REPOS_UPDATED_EVENT, h);
+  }, []);
 
   // Layout state
   const [showLeftPanel, setShowLeftPanel] = useState(false);
@@ -192,8 +345,6 @@ const CodePage = () => {
   // Input bar state
   const [autoAccept, setAutoAccept] = useState(true);
   const [input, setInput] = useState('');
-  const [selectedRepo] = useState('Alexis863/eduayiti');
-  const [selectedBranch] = useState('Sélectionner une branche');
 
   // Chat state
   const [messages, setMessages] = useState<ChatMsg[]>([
@@ -218,18 +369,8 @@ const CodePage = () => {
   const [termExpanded, setTermExpanded] = useState(false);
   const termBottomRef = useRef<HTMLDivElement>(null);
 
-  // GitHub state
-  const [activeRepo, setActiveRepo] = useState(0);
-  const [showNewRepo, setShowNewRepo] = useState(false);
-  const [newRepoUrl, setNewRepoUrl] = useState('');
-
-  useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isStreaming]);
-
-  useEffect(() => {
-    termBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [termLines]);
+  useEffect(() => { chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isStreaming]);
+  useEffect(() => { termBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [termLines]);
 
   // ─── Handlers ────────────────────────────────────────────
   const sendToChat = useCallback((text: string) => {
@@ -248,9 +389,7 @@ const CodePage = () => {
         ...messages.filter(m => m.role !== 'assistant' || m.content).map(m => ({ role: m.role, content: m.content })),
         { role: 'user', content: text },
       ],
-      model,
-      null,
-      false,
+      model, null, false,
       (token) => {
         fullContent += token;
         setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: fullContent } : m));
@@ -267,18 +406,8 @@ const CodePage = () => {
     );
   }, [messages, model, isStreaming]);
 
-  const handleMainSubmit = () => {
-    if (!input.trim()) return;
-    setShowChat(true);
-    sendToChat(input);
-    setInput('');
-  };
-
-  const handleChatSubmit = () => {
-    if (!chatInput.trim()) return;
-    sendToChat(chatInput);
-    setChatInput('');
-  };
+  const handleMainSubmit = () => { if (!input.trim()) return; setShowChat(true); sendToChat(input); setInput(''); };
+  const handleChatSubmit = () => { if (!chatInput.trim()) return; sendToChat(chatInput); setChatInput(''); };
 
   const handleCopy = (code: string, id: string) => {
     navigator.clipboard.writeText(code);
@@ -289,15 +418,13 @@ const CodePage = () => {
   const handleTermCommand = () => {
     if (!termInput.trim()) return;
     const cmd = termInput.trim();
-    const newLines: TerminalLine[] = [
-      { id: Date.now().toString(), type: 'input', content: `$ ${cmd}` },
-    ];
+    const newLines: TerminalLine[] = [{ id: Date.now().toString(), type: 'input', content: `$ ${cmd}` }];
     if (cmd === 'ls') {
       newLines.push({ id: `${Date.now()}-1`, type: 'output', content: 'src/  backend/  node_modules/  package.json  tsconfig.json  vite.config.ts' });
     } else if (cmd === 'pwd') {
       newLines.push({ id: `${Date.now()}-1`, type: 'output', content: '/home/user/agentos' });
     } else if (cmd.startsWith('git ')) {
-      newLines.push({ id: `${Date.now()}-1`, type: 'output', content: `On branch main\nYour branch is up to date with 'origin/main'.` });
+      newLines.push({ id: `${Date.now()}-1`, type: 'output', content: `On branch ${activeRepoState?.branch || 'main'}\nYour branch is up to date with 'origin/${activeRepoState?.branch || 'main'}'.` });
     } else if (cmd === 'clear') {
       setTermLines([]); setTermInput(''); return;
     } else if (cmd.startsWith('npm ') || cmd.startsWith('yarn ') || cmd.startsWith('pnpm ')) {
@@ -313,100 +440,171 @@ const CodePage = () => {
   const handleFileSelect = (path: string) => {
     setSelectedFile(path);
     if (!pendingDiff) setPendingDiff(sampleDiff);
+    if (isMobile) setShowLeftPanel(false);
   };
 
   const fileContent = selectedFile ? (sampleFileContents[selectedFile] || `// Fichier: ${selectedFile}\n// Contenu simulé`) : null;
 
-  const statusIcons = {
-    synced: <Check size={12} className="text-[#4caf6e]" />,
-    ahead: <Clock size={12} className="text-[#e05a2b]" />,
-    behind: <AlertCircle size={12} className="text-red-400" />,
-  };
+  // ─── Left panel content (shared between desktop sidebar & mobile sheet) ───
+  const leftPanelContent = (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center border-b border-[hsl(0,0%,17%)]">
+        <button onClick={() => setLeftTab('files')}
+          className={`flex-1 px-3 py-2.5 text-xs font-medium transition-colors ${leftTab === 'files' ? 'text-foreground bg-[hsl(0,0%,15%)]' : 'text-muted-foreground hover:text-foreground'}`}>
+          <Files size={12} className="inline mr-1.5" />Fichiers
+        </button>
+        <button onClick={() => setLeftTab('github')}
+          className={`flex-1 px-3 py-2.5 text-xs font-medium transition-colors ${leftTab === 'github' ? 'text-foreground bg-[hsl(0,0%,15%)]' : 'text-muted-foreground hover:text-foreground'}`}>
+          <GitFork size={12} className="inline mr-1.5" />GitHub
+        </button>
+      </div>
+
+      {leftTab === 'files' ? (
+        <div className="flex-1 overflow-y-auto py-1">
+          <div className="px-2 py-1.5">
+            <div className="flex items-center gap-1.5 rounded-lg bg-[hsl(0,0%,15%)] px-2.5 py-1.5">
+              <Search size={12} className="text-muted-foreground" />
+              <input placeholder="Rechercher..." className="flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground" />
+            </div>
+          </div>
+          {defaultTree.map((node) => (
+            <FileTreeNode key={node.name} node={node} depth={0} path=""
+              selectedFile={selectedFile || undefined} onFileSelect={handleFileSelect} />
+          ))}
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-[hsl(0,0%,17%)]">
+            <span className="text-xs font-medium text-foreground">Repositories</span>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setShowRepoModal(true)} className="text-muted-foreground hover:text-foreground p-1"><Plus size={14} /></button>
+              <button className="text-muted-foreground hover:text-foreground p-1"><RefreshCw size={13} /></button>
+            </div>
+          </div>
+          {repos.length === 0 ? (
+            <div className="px-4 py-6 text-center text-muted-foreground text-xs">
+              <p>Aucun repo connecté</p>
+              <button onClick={() => setShowRepoModal(true)} className="mt-2 text-[hsl(14,74%,52%)] underline text-xs">Ajouter un repository</button>
+            </div>
+          ) : (
+            repos.map((repo) => (
+              <button key={repo.id} onClick={() => setActiveRepoId(repo.id)}
+                className={`w-full text-left px-3 py-2.5 border-b border-[hsl(0,0%,14%)] transition-colors ${
+                  activeRepoState?.id === repo.id ? 'bg-[hsl(0,0%,15%)]' : 'hover:bg-[hsl(0,0%,13%)]'
+                }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <GitFork size={13} className="text-muted-foreground flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-foreground truncate">{repo.fullName}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <GitBranch size={10} className="text-muted-foreground" />
+                        <span className="text-[10px] text-muted-foreground">{repo.branch}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground flex-shrink-0">{timeAgo(repo.lastSync)}</span>
+                </div>
+              </button>
+            ))
+          )}
+          <div className="border-t border-[hsl(0,0%,17%)] px-3 py-2 space-y-1">
+            <button className="w-full flex items-center gap-2 px-2.5 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-[hsl(0,0%,15%)] rounded-md">
+              <GitPullRequest size={13} />Créer une Pull Request
+            </button>
+            <button onClick={() => activeRepoState && window.open(activeRepoState.url, '_blank')}
+              className="w-full flex items-center gap-2 px-2.5 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-[hsl(0,0%,15%)] rounded-md">
+              <ExternalLink size={13} />Ouvrir sur GitHub
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // ─── Chat panel content ───────────────────────────────────
+  const chatPanelContent = (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-[hsl(0,0%,17%)] flex-shrink-0">
+        <div className="flex items-center gap-1.5">
+          <MessageSquare size={13} className="text-[hsl(14,74%,52%)]" />
+          <span className="text-xs font-medium text-foreground">Chat de code</span>
+        </div>
+        <button onClick={() => setShowChat(false)} className="text-muted-foreground hover:text-foreground"><X size={14} /></button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        {messages.map((msg) => (
+          <div key={msg.id} className={`flex gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+            <div className={`flex-shrink-0 h-6 w-6 rounded-md flex items-center justify-center ${
+              msg.role === 'user' ? 'bg-[hsl(14,74%,52%)]/20' : 'bg-[hsl(0,0%,20%)]'
+            }`}>
+              {msg.role === 'user' ? <User size={12} className="text-[hsl(14,74%,52%)]" /> : <Bot size={12} className="text-muted-foreground" />}
+            </div>
+            <div className={`flex-1 min-w-0 ${msg.role === 'user' ? 'text-right' : ''}`}>
+              <p className="text-[13px] text-foreground/85 whitespace-pre-wrap leading-relaxed">{msg.content.replace(/```[\s\S]*?```/g, '').trim() || msg.content}</p>
+              {msg.codeBlocks?.map((block, i) => (
+                <div key={i} className="mt-2 rounded-lg border border-[hsl(0,0%,20%)] bg-[hsl(0,0%,10%)] overflow-hidden text-left">
+                  <div className="flex items-center justify-between px-3 py-1.5 bg-[hsl(0,0%,15%)] border-b border-[hsl(0,0%,20%)]">
+                    <span className="text-[10px] text-muted-foreground font-mono">{block.file || block.language}</span>
+                    <button onClick={() => handleCopy(block.code, `${msg.id}-${i}`)} className="text-muted-foreground hover:text-foreground">
+                      {copiedId === `${msg.id}-${i}` ? <Check size={12} className="text-[hsl(142,71%,45%)]" /> : <Copy size={12} />}
+                    </button>
+                  </div>
+                  <pre className="p-3 text-[11px] font-mono text-foreground/80 overflow-x-auto"><code>{block.code}</code></pre>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+        {isStreaming && messages[messages.length - 1]?.content === '' && (
+          <div className="flex gap-2">
+            <div className="h-6 w-6 rounded-md bg-[hsl(0,0%,20%)] flex items-center justify-center">
+              <Bot size={12} className="text-muted-foreground animate-pulse" />
+            </div>
+            <div className="flex items-center gap-1 px-3 py-2 rounded-lg bg-[hsl(0,0%,15%)]">
+              <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+          </div>
+        )}
+        <div ref={chatBottomRef} />
+      </div>
+      <div className="flex-shrink-0 p-3 border-t border-[hsl(0,0%,17%)]">
+        <div className="flex items-center gap-2 rounded-lg border border-[hsl(0,0%,20%)] bg-[hsl(0,0%,15%)] px-3 py-2">
+          <button className="text-muted-foreground hover:text-foreground flex-shrink-0"><Paperclip size={14} /></button>
+          <input value={chatInput} onChange={(e) => setChatInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleChatSubmit()}
+            placeholder="Décrivez le code..."
+            className="flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground min-w-0" />
+          <button onClick={handleChatSubmit} disabled={!chatInput.trim() || isStreaming}
+            className="text-[hsl(14,74%,52%)] hover:text-[hsl(14,74%,42%)] disabled:text-muted-foreground flex-shrink-0"><Send size={14} /></button>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-[#1a1a1a]">
+    <div className="flex h-[100dvh] w-full overflow-hidden bg-[hsl(0,0%,10%)]">
       <TaskSidebar />
       <div className="flex-1 flex flex-col min-w-0">
         {/* Main content area */}
         <div className="flex-1 flex min-h-0">
-          {/* Left panel: Files / GitHub */}
-          {showLeftPanel && (
-            <div className="w-[240px] flex-shrink-0 border-r border-[#2a2a2a] bg-[#1c1c1c] flex flex-col">
-              <div className="flex items-center border-b border-[#2a2a2a]">
-                <button onClick={() => setLeftTab('files')}
-                  className={`flex-1 px-3 py-2 text-[11px] font-medium transition-colors ${leftTab === 'files' ? 'text-[#e0e0e0] bg-[#252525]' : 'text-[#888] hover:text-[#ccc]'}`}>
-                  <Files size={12} className="inline mr-1.5" />Fichiers
-                </button>
-                <button onClick={() => setLeftTab('github')}
-                  className={`flex-1 px-3 py-2 text-[11px] font-medium transition-colors ${leftTab === 'github' ? 'text-[#e0e0e0] bg-[#252525]' : 'text-[#888] hover:text-[#ccc]'}`}>
-                  <GitFork size={12} className="inline mr-1.5" />GitHub
-                </button>
-              </div>
-
-              {leftTab === 'files' ? (
-                <div className="flex-1 overflow-y-auto py-1">
-                  <div className="px-2 py-1.5">
-                    <div className="flex items-center gap-1.5 rounded-md bg-[#252525] px-2 py-1">
-                      <Search size={12} className="text-[#666]" />
-                      <input placeholder="Rechercher..." className="flex-1 bg-transparent text-xs text-[#ccc] outline-none placeholder:text-[#555]" />
-                    </div>
-                  </div>
-                  {defaultTree.map((node) => (
-                    <FileTreeNode key={node.name} node={node} depth={0} path=""
-                      selectedFile={selectedFile || undefined} onFileSelect={handleFileSelect} />
-                  ))}
-                </div>
-              ) : (
-                <div className="flex-1 overflow-y-auto">
-                  <div className="flex items-center justify-between px-3 py-2 border-b border-[#2a2a2a]">
-                    <span className="text-xs font-medium text-[#e0e0e0]">Repositories</span>
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => setShowNewRepo(!showNewRepo)} className="text-[#888] hover:text-[#ccc] p-0.5"><Plus size={14} /></button>
-                      <button className="text-[#888] hover:text-[#ccc] p-0.5"><RefreshCw size={13} /></button>
-                    </div>
-                  </div>
-                  {showNewRepo && (
-                    <div className="px-3 py-2 border-b border-[#2a2a2a] bg-[#252525] space-y-2">
-                      <input value={newRepoUrl} onChange={(e) => setNewRepoUrl(e.target.value)}
-                        placeholder="https://github.com/user/repo"
-                        className="w-full bg-[#1a1a1a] border border-[#333] rounded-md px-2.5 py-1.5 text-xs text-[#ccc] outline-none placeholder:text-[#555]" />
-                      <div className="flex gap-1.5">
-                        <button className="flex-1 px-2 py-1.5 text-[11px] rounded-md bg-[#e05a2b] text-white">Cloner</button>
-                        <button onClick={() => setShowNewRepo(false)} className="px-2 py-1.5 text-[11px] rounded-md bg-[#333] text-[#888]">Annuler</button>
-                      </div>
-                    </div>
-                  )}
-                  {sampleRepos.map((repo, i) => (
-                    <button key={repo.name} onClick={() => setActiveRepo(i)}
-                      className={`w-full text-left px-3 py-2.5 border-b border-[#2a2a2a] transition-colors ${activeRepo === i ? 'bg-[#252525]' : 'hover:bg-[#222]'}`}>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <GitFork size={13} className="text-[#888] flex-shrink-0" />
-                          <div className="min-w-0">
-                            <p className="text-xs font-medium text-[#ccc] truncate">{repo.owner}/{repo.name}</p>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <GitBranch size={10} className="text-[#666]" />
-                              <span className="text-[10px] text-[#666]">{repo.branch}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-0.5">
-                          <div className="flex items-center gap-1">{statusIcons[repo.status]}<span className="text-[10px] text-[#888]">{repo.lastSync}</span></div>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                  <div className="border-t border-[#2a2a2a] px-3 py-2 space-y-1">
-                    <button className="w-full flex items-center gap-2 px-2.5 py-2 text-xs text-[#888] hover:text-[#ccc] hover:bg-[#252525] rounded-md">
-                      <GitPullRequest size={13} />Créer une Pull Request
-                    </button>
-                    <button className="w-full flex items-center gap-2 px-2.5 py-2 text-xs text-[#888] hover:text-[#ccc] hover:bg-[#252525] rounded-md">
-                      <ExternalLink size={13} />Ouvrir sur GitHub
-                    </button>
-                  </div>
-                </div>
-              )}
+          {/* Desktop left panel */}
+          {!isMobile && showLeftPanel && (
+            <div className="w-[240px] flex-shrink-0 border-r border-[hsl(0,0%,17%)] bg-[hsl(0,0%,11%)]">
+              {leftPanelContent}
             </div>
+          )}
+
+          {/* Mobile left panel (Sheet) */}
+          {isMobile && (
+            <Sheet open={showLeftPanel} onOpenChange={setShowLeftPanel}>
+              <SheetContent side="left" className="w-[280px] p-0 bg-[hsl(0,0%,11%)] border-[hsl(0,0%,17%)]">
+                <SheetTitle className="sr-only">Panneau fichiers</SheetTitle>
+                {leftPanelContent}
+              </SheetContent>
+            </Sheet>
           )}
 
           {/* Center: Editor or empty */}
@@ -414,49 +612,49 @@ const CodePage = () => {
             {selectedFile && fileContent ? (
               <div className="flex-1 flex flex-col min-h-0">
                 {/* Editor tab bar */}
-                <div className="flex items-center justify-between border-b border-[#2a2a2a] bg-[#1c1c1c] px-2">
-                  <div className="flex items-center">
-                    <div className="flex items-center gap-1.5 px-3 py-2 text-xs text-[#e0e0e0] bg-[#1a1a1a] border-b-2 border-[#e05a2b]">
-                      <span className="truncate max-w-[200px]">{selectedFile.split('/').pop()}</span>
-                      <button onClick={() => setSelectedFile(null)} className="text-[#888] hover:text-[#ccc] ml-1"><X size={11} /></button>
+                <div className="flex items-center justify-between border-b border-[hsl(0,0%,17%)] bg-[hsl(0,0%,11%)] px-2">
+                  <div className="flex items-center min-w-0">
+                    <div className="flex items-center gap-1.5 px-3 py-2 text-xs text-foreground bg-[hsl(0,0%,10%)] border-b-2 border-[hsl(14,74%,52%)]">
+                      <span className="truncate max-w-[120px] sm:max-w-[200px]">{selectedFile.split('/').pop()}</span>
+                      <button onClick={() => setSelectedFile(null)} className="text-muted-foreground hover:text-foreground ml-1"><X size={11} /></button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 pr-2">
+                  <div className="flex items-center gap-1 pr-1">
                     <button onClick={() => setViewMode('code')}
-                      className={`px-2.5 py-1 text-[11px] rounded ${viewMode === 'code' ? 'bg-[#e05a2b]/15 text-[#e05a2b]' : 'text-[#888] hover:text-[#ccc]'}`}>
+                      className={`px-2 py-1 text-[11px] rounded ${viewMode === 'code' ? 'bg-[hsl(14,74%,52%)]/15 text-[hsl(14,74%,52%)]' : 'text-muted-foreground hover:text-foreground'}`}>
                       Code
                     </button>
                     <button onClick={() => setViewMode('diff')}
-                      className={`px-2.5 py-1 text-[11px] rounded ${viewMode === 'diff' ? 'bg-[#e05a2b]/15 text-[#e05a2b]' : 'text-[#888] hover:text-[#ccc]'}`}>
+                      className={`px-2 py-1 text-[11px] rounded ${viewMode === 'diff' ? 'bg-[hsl(14,74%,52%)]/15 text-[hsl(14,74%,52%)]' : 'text-muted-foreground hover:text-foreground'}`}>
                       Diff
                     </button>
                   </div>
                 </div>
-                <div className="flex-1 overflow-auto font-mono text-xs bg-[#1a1a1a]">
+                <div className="flex-1 overflow-auto font-mono text-xs bg-[hsl(0,0%,10%)]">
                   {viewMode === 'code' ? (
                     <div className="p-3">
                       {fileContent.split('\n').map((line, i) => (
                         <div key={i} className="flex">
-                          <span className="w-8 text-right pr-3 text-[#555] select-none">{i + 1}</span>
-                          <span className="text-[#ccc] whitespace-pre">{line}</span>
+                          <span className="w-8 text-right pr-3 text-muted-foreground select-none shrink-0">{i + 1}</span>
+                          <span className="text-foreground/80 whitespace-pre overflow-x-auto">{line}</span>
                         </div>
                       ))}
                     </div>
                   ) : (
                     <div>
                       {!diffAccepted && pendingDiff && (
-                        <div className="flex items-center justify-between px-3 py-2 bg-[#e05a2b]/10 border-b border-[#2a2a2a]">
-                          <span className="text-[11px] text-[#e05a2b] font-medium">Modifications proposées par l'IA</span>
+                        <div className="flex items-center justify-between px-3 py-2 bg-[hsl(14,74%,52%)]/10 border-b border-[hsl(0,0%,17%)] flex-wrap gap-2">
+                          <span className="text-[11px] text-[hsl(14,74%,52%)] font-medium">Modifications proposées</span>
                           <div className="flex items-center gap-1.5">
                             <button onClick={() => setDiffAccepted(true)}
-                              className="flex items-center gap-1 px-2.5 py-1 text-[11px] rounded-md bg-[#4caf6e]/20 text-[#4caf6e] hover:bg-[#4caf6e]/30">
+                              className="flex items-center gap-1 px-2.5 py-1 text-[11px] rounded-md bg-[hsl(142,71%,45%)]/20 text-[hsl(142,71%,45%)] hover:bg-[hsl(142,71%,45%)]/30">
                               <Check size={11} /> Accepter
                             </button>
                             <button onClick={() => setPendingDiff(null)}
-                              className="flex items-center gap-1 px-2.5 py-1 text-[11px] rounded-md bg-red-500/20 text-red-400 hover:bg-red-500/30">
+                              className="flex items-center gap-1 px-2.5 py-1 text-[11px] rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30">
                               <X size={11} /> Rejeter
                             </button>
-                            <button className="flex items-center gap-1 px-2.5 py-1 text-[11px] rounded-md bg-[#333] text-[#888] hover:bg-[#3a3a3a]">
+                            <button className="flex items-center gap-1 px-2.5 py-1 text-[11px] rounded-md bg-[hsl(0,0%,20%)] text-muted-foreground hover:bg-[hsl(0,0%,23%)]">
                               <Undo2 size={11} /> Annuler
                             </button>
                           </div>
@@ -464,12 +662,12 @@ const CodePage = () => {
                       )}
                       <div className="p-3">
                         {(pendingDiff || sampleDiff).map((line, i) => (
-                          <div key={i} className={`flex ${line.type === 'add' ? 'bg-[#4caf6e]/8' : line.type === 'remove' ? 'bg-red-500/8' : ''}`}>
-                            <span className="w-8 text-right pr-3 text-[#555] select-none">{line.lineNum}</span>
-                            <span className={`w-4 text-center select-none ${line.type === 'add' ? 'text-[#4caf6e]' : line.type === 'remove' ? 'text-red-400' : 'text-[#333]'}`}>
+                          <div key={i} className={`flex ${line.type === 'add' ? 'bg-[hsl(142,71%,45%)]/8' : line.type === 'remove' ? 'bg-destructive/8' : ''}`}>
+                            <span className="w-8 text-right pr-3 text-muted-foreground select-none shrink-0">{line.lineNum}</span>
+                            <span className={`w-4 text-center select-none shrink-0 ${line.type === 'add' ? 'text-[hsl(142,71%,45%)]' : line.type === 'remove' ? 'text-destructive' : 'text-[hsl(0,0%,20%)]'}`}>
                               {line.type === 'add' ? '+' : line.type === 'remove' ? '−' : ' '}
                             </span>
-                            <span className={`whitespace-pre ${line.type === 'add' ? 'text-[#4caf6e]/90' : line.type === 'remove' ? 'text-red-400/70 line-through' : 'text-[#999]'}`}>
+                            <span className={`whitespace-pre overflow-x-auto ${line.type === 'add' ? 'text-[hsl(142,71%,45%)]/90' : line.type === 'remove' ? 'text-destructive/70 line-through' : 'text-muted-foreground'}`}>
                               {line.content}
                             </span>
                           </div>
@@ -480,177 +678,152 @@ const CodePage = () => {
                 </div>
               </div>
             ) : (
-              <div className="flex-1 flex items-center justify-center bg-[#1a1a1a]">
-                <HexLogo size={48} />
+              <div className="flex-1 flex items-center justify-center bg-[hsl(0,0%,10%)]">
+                <HexLogo size={isMobile ? 36 : 48} />
               </div>
             )}
 
             {/* Terminal panel */}
             {showTerminal && (
-              <div className={`flex flex-col border-t border-[#2a2a2a] bg-[#1a1a1a] ${termExpanded ? 'h-80' : 'h-44'}`}>
-                <div className="flex items-center justify-between px-3 py-1.5 border-b border-[#2a2a2a] bg-[#1c1c1c]">
+              <div className={`flex flex-col border-t border-[hsl(0,0%,17%)] bg-[hsl(0,0%,10%)] ${termExpanded ? 'h-80' : 'h-36 sm:h-44'}`}>
+                <div className="flex items-center justify-between px-3 py-1.5 border-b border-[hsl(0,0%,17%)] bg-[hsl(0,0%,11%)]">
                   <div className="flex items-center gap-2">
-                    <TerminalIcon size={12} className="text-[#888]" />
-                    <span className="text-[11px] font-medium text-[#888]">Terminal</span>
+                    <TerminalIcon size={12} className="text-muted-foreground" />
+                    <span className="text-[11px] font-medium text-muted-foreground">Terminal</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => setTermExpanded(!termExpanded)} className="text-[#888] hover:text-[#ccc] p-0.5">
+                    <button onClick={() => setTermExpanded(!termExpanded)} className="text-muted-foreground hover:text-foreground p-0.5">
                       {termExpanded ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
                     </button>
-                    <button onClick={() => setShowTerminal(false)} className="text-[#888] hover:text-[#ccc] p-0.5"><X size={12} /></button>
+                    <button onClick={() => setShowTerminal(false)} className="text-muted-foreground hover:text-foreground p-0.5"><X size={12} /></button>
                   </div>
                 </div>
                 <div className="flex-1 overflow-y-auto p-2 font-mono text-xs">
                   {termLines.map((line) => (
-                    <div key={line.id} className={`whitespace-pre-wrap ${
-                      line.type === 'error' ? 'text-red-400' : line.type === 'input' ? 'text-[#e05a2b]' : line.type === 'system' ? 'text-[#666]' : 'text-[#bbb]'
+                    <div key={line.id} className={`whitespace-pre-wrap break-all ${
+                      line.type === 'error' ? 'text-destructive' : line.type === 'input' ? 'text-[hsl(14,74%,52%)]' : line.type === 'system' ? 'text-muted-foreground' : 'text-foreground/80'
                     }`}>{line.content}</div>
                   ))}
                   <div ref={termBottomRef} />
                 </div>
-                <div className="flex items-center gap-1.5 px-2 py-1.5 border-t border-[#2a2a2a]">
-                  <span className="text-xs text-[#e05a2b] font-mono">$</span>
+                <div className="flex items-center gap-1.5 px-2 py-1.5 border-t border-[hsl(0,0%,17%)]">
+                  <span className="text-xs text-[hsl(14,74%,52%)] font-mono shrink-0">$</span>
                   <input value={termInput} onChange={(e) => setTermInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleTermCommand()}
                     placeholder="Entrez une commande..."
-                    className="flex-1 bg-transparent text-xs font-mono text-[#ccc] outline-none placeholder:text-[#555]" />
+                    className="flex-1 bg-transparent text-xs font-mono text-foreground outline-none placeholder:text-muted-foreground min-w-0" />
                 </div>
               </div>
             )}
           </div>
 
-          {/* Right panel: Chat */}
-          {showChat && (
-            <div className="w-[320px] flex-shrink-0 border-l border-[#2a2a2a] bg-[#1c1c1c] flex flex-col">
-              <div className="flex items-center justify-between px-3 py-2 border-b border-[#2a2a2a]">
-                <div className="flex items-center gap-1.5">
-                  <MessageSquare size={13} className="text-[#e05a2b]" />
-                  <span className="text-xs font-medium text-[#e0e0e0]">Chat de code</span>
-                </div>
-                <button onClick={() => setShowChat(false)} className="text-[#888] hover:text-[#ccc]"><X size={14} /></button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                {messages.map((msg) => (
-                  <div key={msg.id} className={`flex gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                    <div className={`flex-shrink-0 h-6 w-6 rounded-md flex items-center justify-center ${
-                      msg.role === 'user' ? 'bg-[#e05a2b]/20' : 'bg-[#333]'
-                    }`}>
-                      {msg.role === 'user' ? <User size={12} className="text-[#e05a2b]" /> : <Bot size={12} className="text-[#888]" />}
-                    </div>
-                    <div className={`flex-1 min-w-0 ${msg.role === 'user' ? 'text-right' : ''}`}>
-                      <p className="text-[13px] text-[#ccc] whitespace-pre-wrap leading-relaxed">{msg.content.replace(/```[\s\S]*?```/g, '').trim() || msg.content}</p>
-                      {msg.codeBlocks?.map((block, i) => (
-                        <div key={i} className="mt-2 rounded-lg border border-[#333] bg-[#1a1a1a] overflow-hidden text-left">
-                          <div className="flex items-center justify-between px-3 py-1.5 bg-[#252525] border-b border-[#333]">
-                            <span className="text-[10px] text-[#888] font-mono">{block.file || block.language}</span>
-                            <button onClick={() => handleCopy(block.code, `${msg.id}-${i}`)} className="text-[#888] hover:text-[#ccc]">
-                              {copiedId === `${msg.id}-${i}` ? <Check size={12} className="text-[#4caf6e]" /> : <Copy size={12} />}
-                            </button>
-                          </div>
-                          <pre className="p-3 text-[11px] font-mono text-[#bbb] overflow-x-auto"><code>{block.code}</code></pre>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-                {isStreaming && messages[messages.length - 1]?.content === '' && (
-                  <div className="flex gap-2">
-                    <div className="h-6 w-6 rounded-md bg-[#333] flex items-center justify-center">
-                      <Bot size={12} className="text-[#888] animate-pulse" />
-                    </div>
-                    <div className="flex items-center gap-1 px-3 py-2 rounded-lg bg-[#252525]">
-                      <div className="h-1.5 w-1.5 rounded-full bg-[#888] animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <div className="h-1.5 w-1.5 rounded-full bg-[#888] animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <div className="h-1.5 w-1.5 rounded-full bg-[#888] animate-bounce" style={{ animationDelay: '300ms' }} />
-                    </div>
-                  </div>
-                )}
-                <div ref={chatBottomRef} />
-              </div>
-              <div className="flex-shrink-0 p-3 border-t border-[#2a2a2a]">
-                <div className="flex items-center gap-2 rounded-lg border border-[#333] bg-[#252525] px-3 py-2">
-                  <button className="text-[#888] hover:text-[#ccc]"><Paperclip size={14} /></button>
-                  <input value={chatInput} onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleChatSubmit()}
-                    placeholder="Décrivez le code..."
-                    className="flex-1 bg-transparent text-[13px] text-[#ccc] outline-none placeholder:text-[#555]" />
-                  <button onClick={handleChatSubmit} disabled={!chatInput.trim() || isStreaming}
-                    className="text-[#e05a2b] hover:text-[#c04518] disabled:text-[#555]"><Send size={14} /></button>
-                </div>
-              </div>
+          {/* Desktop chat panel */}
+          {!isMobile && showChat && (
+            <div className="w-[300px] xl:w-[340px] flex-shrink-0 border-l border-[hsl(0,0%,17%)] bg-[hsl(0,0%,11%)]">
+              {chatPanelContent}
             </div>
+          )}
+
+          {/* Mobile chat panel (Sheet) */}
+          {isMobile && (
+            <Sheet open={showChat} onOpenChange={setShowChat}>
+              <SheetContent side="right" className="w-full sm:w-[360px] p-0 bg-[hsl(0,0%,11%)] border-[hsl(0,0%,17%)]">
+                <SheetTitle className="sr-only">Chat de code</SheetTitle>
+                {chatPanelContent}
+              </SheetContent>
+            </Sheet>
           )}
         </div>
 
-        {/* Bottom section - same design as original */}
-        <div className="flex-shrink-0 bg-[#1a1a1a] px-3 pb-[calc(14px+env(safe-area-inset-bottom,0px))] pt-2.5">
-          <div className="bg-[#252525] border border-[#333] rounded-xl px-3.5 py-3 mb-2.5">
+        {/* Bottom section */}
+        <div className="flex-shrink-0 bg-[hsl(0,0%,10%)] px-2 sm:px-3 pb-[calc(10px+env(safe-area-inset-bottom,0px))] pt-2">
+          <div className="bg-[hsl(0,0%,15%)] border border-[hsl(0,0%,20%)] rounded-xl px-3 py-2.5 sm:py-3 mb-2">
             <input value={input} onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleMainSubmit()}
               placeholder="Nouvelle tâche..."
-              className="w-full bg-transparent border-none outline-none text-[#888] text-[15px] placeholder:text-[#555]" />
-            <div className="flex items-center justify-between mt-2.5 gap-1">
-              <div className="flex items-center gap-1 flex-1 min-w-0 overflow-hidden">
-                <button className="flex items-center gap-1 bg-transparent border-none text-[#666] text-[11.5px] cursor-pointer px-1.5 py-1 rounded-md">
-                  <FolderOpen size={13} className="flex-shrink-0" />
-                  <span className="whitespace-nowrap overflow-hidden text-ellipsis">Travailler dans un projet</span>
-                  <ChevronDown size={12} className="flex-shrink-0" />
+              className="w-full bg-transparent border-none outline-none text-muted-foreground text-[14px] sm:text-[15px] placeholder:text-[hsl(0,0%,33%)]" />
+            <div className="flex items-center justify-between mt-2 gap-1">
+              <div className="flex items-center gap-0.5 flex-1 min-w-0 overflow-hidden">
+                <button className="flex items-center gap-1 bg-transparent border-none text-muted-foreground text-[11px] cursor-pointer px-1 py-1 rounded-md shrink-0">
+                  <FolderOpen size={12} className="flex-shrink-0" />
+                  <span className="whitespace-nowrap overflow-hidden text-ellipsis hidden sm:inline">Travailler dans un projet</span>
+                  <ChevronDown size={11} className="flex-shrink-0" />
                 </button>
               </div>
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                <label className="flex items-center gap-1.5 cursor-pointer text-[#666] text-[11.5px] select-none"
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <label className="flex items-center gap-1 cursor-pointer text-muted-foreground text-[11px] select-none"
                   onClick={() => setAutoAccept(!autoAccept)}>
                   <div className={`h-3.5 w-3.5 rounded-sm flex items-center justify-center flex-shrink-0 ${
-                    autoAccept ? 'bg-[#4caf6e]' : 'border border-[#444] bg-transparent'
+                    autoAccept ? 'bg-[hsl(142,71%,45%)]' : 'border border-[hsl(0,0%,27%)] bg-transparent'
                   }`}>
                     {autoAccept && <Check size={9} className="text-white" />}
                   </div>
-                  <span className="whitespace-nowrap hidden sm:inline">Accepter automatiquement les modifications</span>
+                  <span className="whitespace-nowrap hidden md:inline">Accepter auto.</span>
                 </label>
-                <button className="flex items-center gap-1 bg-transparent border-none text-[#888] text-[12.5px] cursor-pointer px-1 py-1 rounded whitespace-nowrap">
-                  Opus 4.6 <ChevronDown size={12} />
+                <button className="flex items-center gap-1 bg-transparent border-none text-muted-foreground text-[12px] cursor-pointer px-1 py-1 rounded whitespace-nowrap">
+                  Opus 4.6 <ChevronDown size={11} />
                 </button>
-                <button className="bg-transparent border-none text-[#666] cursor-pointer p-1.5 rounded-md flex items-center">
-                  <Mic size={14} />
+                <button className="bg-transparent border-none text-muted-foreground cursor-pointer p-1 rounded-md flex items-center">
+                  <Mic size={13} />
                 </button>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Toolbar */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
             <button onClick={() => setShowLeftPanel(!showLeftPanel)}
-              className="flex items-center gap-[5px] bg-[#252525] border border-[#333] text-[#888] text-xs py-[7px] px-2.5 rounded-[7px] cursor-pointer whitespace-nowrap">
-              {showLeftPanel ? <PanelLeftClose size={13} /> : <PanelLeftOpen size={13} />}
-              {selectedRepo}
+              className="flex items-center gap-[5px] bg-[hsl(0,0%,15%)] border border-[hsl(0,0%,20%)] text-muted-foreground text-[11px] sm:text-xs py-[6px] sm:py-[7px] px-2 sm:px-2.5 rounded-[7px] cursor-pointer whitespace-nowrap shrink-0">
+              {showLeftPanel ? <PanelLeftClose size={12} /> : <PanelLeftOpen size={12} />}
+              <span className="truncate max-w-[120px] sm:max-w-none">{activeRepoState?.fullName || 'Connecter un repo'}</span>
             </button>
-            <button className="flex items-center gap-[5px] bg-[#252525] border border-[#333] text-[#777] text-xs py-[7px] px-2.5 rounded-[7px] cursor-pointer whitespace-nowrap">
-              <GitBranch size={12} />{selectedBranch}
-            </button>
-            <button className="flex items-center gap-[5px] bg-[#1e3a2a] border border-[#2a4a36] text-[#5cb87a] text-xs py-[7px] px-2.5 rounded-[7px] cursor-pointer whitespace-nowrap">
-              <div className="w-[15px] h-[15px] bg-[#4caf6e] rounded-[3px] flex items-center justify-center flex-shrink-0">
-                <Check size={10} className="text-white" />
+
+            {activeRepoState ? (
+              <button onClick={() => setShowBranchPicker(true)}
+                className="flex items-center gap-[5px] bg-[hsl(0,0%,15%)] border border-[hsl(0,0%,20%)] text-muted-foreground text-[11px] sm:text-xs py-[6px] sm:py-[7px] px-2 sm:px-2.5 rounded-[7px] cursor-pointer whitespace-nowrap shrink-0">
+                <GitBranch size={12} />{activeRepoState.branch}
+              </button>
+            ) : (
+              <button onClick={() => setShowRepoModal(true)}
+                className="flex items-center gap-[5px] bg-[hsl(0,0%,15%)] border border-[hsl(0,0%,20%)] text-muted-foreground text-[11px] sm:text-xs py-[6px] sm:py-[7px] px-2 sm:px-2.5 rounded-[7px] cursor-pointer whitespace-nowrap shrink-0">
+                <GitBranch size={12} />Sélectionner une branche
+              </button>
+            )}
+
+            <button className="flex items-center gap-[5px] bg-[hsl(142,47%,18%)] border border-[hsl(142,30%,24%)] text-[hsl(142,51%,60%)] text-[11px] sm:text-xs py-[6px] sm:py-[7px] px-2 sm:px-2.5 rounded-[7px] cursor-pointer whitespace-nowrap shrink-0">
+              <div className="w-[14px] h-[14px] bg-[hsl(142,71%,45%)] rounded-[3px] flex items-center justify-center flex-shrink-0">
+                <Check size={9} className="text-white" />
               </div>
               worktree
             </button>
+
             <button onClick={() => setShowTerminal(!showTerminal)}
-              className={`flex items-center gap-[5px] border text-xs py-[7px] px-2.5 rounded-[7px] cursor-pointer whitespace-nowrap ${
-                showTerminal ? 'bg-[#1e3a2a] border-[#2a4a36] text-[#5cb87a]' : 'bg-[#252525] border-[#333] text-[#888]'
+              className={`flex items-center gap-[5px] border text-[11px] sm:text-xs py-[6px] sm:py-[7px] px-2 sm:px-2.5 rounded-[7px] cursor-pointer whitespace-nowrap shrink-0 ${
+                showTerminal ? 'bg-[hsl(142,47%,18%)] border-[hsl(142,30%,24%)] text-[hsl(142,51%,60%)]' : 'bg-[hsl(0,0%,15%)] border-[hsl(0,0%,20%)] text-muted-foreground'
               }`}>
               {showTerminal ? <PanelBottomClose size={12} /> : <PanelBottomOpen size={12} />}
               Terminal
             </button>
+
             <button onClick={() => setShowChat(!showChat)}
-              className={`flex items-center gap-[5px] border text-xs py-[7px] px-2.5 rounded-[7px] cursor-pointer whitespace-nowrap ${
-                showChat ? 'bg-[#e05a2b]/20 border-[#e05a2b]/30 text-[#e05a2b]' : 'bg-[#252525] border-[#333] text-[#888]'
+              className={`flex items-center gap-[5px] border text-[11px] sm:text-xs py-[6px] sm:py-[7px] px-2 sm:px-2.5 rounded-[7px] cursor-pointer whitespace-nowrap shrink-0 ${
+                showChat ? 'bg-[hsl(14,74%,52%)]/20 border-[hsl(14,74%,52%)]/30 text-[hsl(14,74%,52%)]' : 'bg-[hsl(0,0%,15%)] border-[hsl(0,0%,20%)] text-muted-foreground'
               }`}>
               <MessageSquare size={12} />Chat
             </button>
-            <button className="flex items-center gap-[5px] bg-[#252525] border border-[#333] text-[#888] text-xs py-[7px] px-2.5 rounded-[7px] cursor-pointer whitespace-nowrap ml-auto">
+
+            <button className="flex items-center gap-[5px] bg-[hsl(0,0%,15%)] border border-[hsl(0,0%,20%)] text-muted-foreground text-[11px] sm:text-xs py-[6px] sm:py-[7px] px-2 sm:px-2.5 rounded-[7px] cursor-pointer whitespace-nowrap ml-auto shrink-0">
               <Monitor size={12} />Local
             </button>
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      <RepoPickerModal open={showRepoModal} onClose={() => setShowRepoModal(false)} />
+      {showBranchPicker && activeRepoState && (
+        <BranchPicker repo={activeRepoState} onClose={() => setShowBranchPicker(false)} />
+      )}
     </div>
   );
 };
