@@ -4,7 +4,7 @@ import {
   type ModelProvider,
   type ReasoningEffort,
 } from '@/components/ModelSelector';
-
+import { isLocalModel, chatWebLLM } from '@/lib/local-inference';
 const getDefaultApiBaseUrl = () => {
   if (typeof window === 'undefined') {
     return 'http://localhost:8000';
