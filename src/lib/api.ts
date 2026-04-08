@@ -4,7 +4,7 @@ import {
   type ModelProvider,
   type ReasoningEffort,
 } from '@/components/ModelSelector';
-
+import { isLocalModel, chatWebLLM } from '@/lib/local-inference';
 const getDefaultApiBaseUrl = () => {
   if (typeof window === 'undefined') {
     return 'http://localhost:8000';
@@ -68,6 +68,24 @@ export async function chatDirect(
   onDone: () => void,
   onError: (e: string) => void,
 ) {
+  // Handle local models (WebLLM or backend GGUF)
+  if (isLocalModel(modelId)) {
+    if (modelId.startsWith('webllm/')) {
+      const webllmId = modelId.replace('webllm/', '');
+      await chatWebLLM(messages, webllmId, onToken, onDone, onError);
+      return;
+    }
+    if (modelId.startsWith('local/')) {
+      // Route to backend llama.cpp
+      try {
+        await streamBackendLocal(messages, modelId.replace('local/', ''), onToken, onDone, onError);
+      } catch (err) {
+        onError(err instanceof Error ? err.message : 'Local backend inference failed');
+      }
+      return;
+    }
+  }
+
   const config = getProviderConfig(modelId);
   if (!config) { onError(`Unknown model: ${modelId}`); return; }
 
@@ -345,6 +363,52 @@ async function parseSSEStream(
         const content = parsed.choices?.[0]?.delta?.content;
         if (content) onToken(content);
       } catch { /* skip partial */ }
+    }
+  }
+  onDone();
+}
+
+// ─── Backend local GGUF inference ──────────────────────────────────
+
+async function streamBackendLocal(
+  messages: { role: string; content: string }[],
+  modelId: string,
+  onToken: (t: string) => void,
+  onDone: () => void,
+  onError: (e: string) => void,
+) {
+  const r = await fetch(`${BASE}/local-models/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model_id: modelId, messages }),
+  });
+
+  if (!r.ok) {
+    const text = await r.text();
+    onError(`Local model error ${r.status}: ${text.slice(0, 200)}`);
+    return;
+  }
+
+  if (!r.body) { onError('No response body'); return; }
+  const reader = r.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      try {
+        const parsed = JSON.parse(line.slice(6).trim());
+        if (parsed.type === 'token' && parsed.content) onToken(parsed.content);
+        if (parsed.type === 'done') { onDone(); return; }
+        if (parsed.type === 'error') { onError(parsed.content); return; }
+      } catch { /* skip */ }
     }
   }
   onDone();

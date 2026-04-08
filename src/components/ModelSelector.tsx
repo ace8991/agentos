@@ -1,8 +1,9 @@
 import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { ChevronDown, Settings, Check, Server, Cpu } from 'lucide-react';
+import { ChevronDown, Settings, Check, Server, Cpu, HardDrive } from 'lucide-react';
 import { useStore } from '@/store/useStore';
-
+import { getAvailableWebLLMModels, getLocalModelDisplayName, isLocalModel } from '@/lib/local-inference';
+import LocalModelManager from '@/components/LocalModelManager';
 export interface ModelProvider {
   id: string;
   name: string;
@@ -169,6 +170,7 @@ const ModelSelector = ({ onConfigureProvider }: ModelSelectorProps) => {
   const setModel = useStore((s) => s.setModel);
   const [open, setOpen] = useState(false);
   const [panelStyle, setPanelStyle] = useState<CSSProperties | null>(null);
+  const [showLocalManager, setShowLocalManager] = useState(false);
   const anchorRef = useRef<HTMLDivElement>(null);
 
   const currentInfo = getModelInfo(model);
@@ -237,8 +239,8 @@ const ModelSelector = ({ onConfigureProvider }: ModelSelectorProps) => {
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted border border-border text-sm text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.98]"
       >
-        <span>{currentInfo?.provider.icon || '🤖'}</span>
-        <span className="truncate max-w-[140px]">{currentInfo?.name || model}</span>
+        <span>{isLocalModel(model) ? '🧠' : (currentInfo?.provider.icon || '🤖')}</span>
+        <span className="truncate max-w-[140px]">{isLocalModel(model) ? getLocalModelDisplayName(model) : (currentInfo?.name || model)}</span>
         <ChevronDown size={14} className={`text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
@@ -313,10 +315,52 @@ const ModelSelector = ({ onConfigureProvider }: ModelSelectorProps) => {
                   </div>
                 );
               })}
+
+              {/* Local Models Section */}
+              <div>
+                <div className="flex items-center justify-between px-3 py-2 bg-muted/50 border-b border-border">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">🧠</span>
+                    <span className="text-xs font-medium text-foreground">Modèles locaux</span>
+                    <span className="text-[10px] bg-success/20 text-success px-1.5 py-0.5 rounded-full font-medium">
+                      Gratuit
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    setShowLocalManager(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-surface-elevated/70"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-foreground flex items-center gap-1.5">
+                      <HardDrive size={13} /> Gérer les modèles locaux
+                    </div>
+                    <div className="text-xs text-muted-foreground">WebLLM (navigateur) & GGUF (backend)</div>
+                  </div>
+                </button>
+                {isLocalModel(model) && (
+                  <div className="px-4 py-2 bg-surface-elevated text-xs text-primary flex items-center gap-1.5">
+                    <Check size={12} /> {getLocalModelDisplayName(model)}
+                  </div>
+                )}
+              </div>
             </div>
           </>,
           document.body,
         )}
+
+      {showLocalManager && (
+        <LocalModelManager
+          onSelectModel={(id) => {
+            setModel(id);
+            setShowLocalManager(false);
+          }}
+          onClose={() => setShowLocalManager(false)}
+        />
+      )}
     </div>
   );
 };
