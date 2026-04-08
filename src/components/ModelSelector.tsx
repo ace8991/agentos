@@ -170,6 +170,7 @@ const ModelSelector = ({ onConfigureProvider }: ModelSelectorProps) => {
   const setModel = useStore((s) => s.setModel);
   const [open, setOpen] = useState(false);
   const [panelStyle, setPanelStyle] = useState<CSSProperties | null>(null);
+  const [showLocalManager, setShowLocalManager] = useState(false);
   const anchorRef = useRef<HTMLDivElement>(null);
 
   const currentInfo = getModelInfo(model);
