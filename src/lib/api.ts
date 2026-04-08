@@ -368,6 +368,52 @@ async function parseSSEStream(
   onDone();
 }
 
+// ─── Backend local GGUF inference ──────────────────────────────────
+
+async function streamBackendLocal(
+  messages: { role: string; content: string }[],
+  modelId: string,
+  onToken: (t: string) => void,
+  onDone: () => void,
+  onError: (e: string) => void,
+) {
+  const r = await fetch(`${BASE}/local-models/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model_id: modelId, messages }),
+  });
+
+  if (!r.ok) {
+    const text = await r.text();
+    onError(`Local model error ${r.status}: ${text.slice(0, 200)}`);
+    return;
+  }
+
+  if (!r.body) { onError('No response body'); return; }
+  const reader = r.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      try {
+        const parsed = JSON.parse(line.slice(6).trim());
+        if (parsed.type === 'token' && parsed.content) onToken(parsed.content);
+        if (parsed.type === 'done') { onDone(); return; }
+        if (parsed.type === 'error') { onError(parsed.content); return; }
+      } catch { /* skip */ }
+    }
+  }
+  onDone();
+}
+
 // ─── Agent backend API (original) ──────────────────────────────────
 
 export async function startRun(params: {
