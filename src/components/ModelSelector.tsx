@@ -239,8 +239,8 @@ const ModelSelector = ({ onConfigureProvider }: ModelSelectorProps) => {
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted border border-border text-sm text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.98]"
       >
-        <span>{currentInfo?.provider.icon || '🤖'}</span>
-        <span className="truncate max-w-[140px]">{currentInfo?.name || model}</span>
+        <span>{isLocalModel(model) ? '🧠' : (currentInfo?.provider.icon || '🤖')}</span>
+        <span className="truncate max-w-[140px]">{isLocalModel(model) ? getLocalModelDisplayName(model) : (currentInfo?.name || model)}</span>
         <ChevronDown size={14} className={`text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
