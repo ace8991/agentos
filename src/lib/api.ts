@@ -68,6 +68,24 @@ export async function chatDirect(
   onDone: () => void,
   onError: (e: string) => void,
 ) {
+  // Handle local models (WebLLM or backend GGUF)
+  if (isLocalModel(modelId)) {
+    if (modelId.startsWith('webllm/')) {
+      const webllmId = modelId.replace('webllm/', '');
+      await chatWebLLM(messages, webllmId, onToken, onDone, onError);
+      return;
+    }
+    if (modelId.startsWith('local/')) {
+      // Route to backend llama.cpp
+      try {
+        await streamBackendLocal(messages, modelId.replace('local/', ''), onToken, onDone, onError);
+      } catch (err) {
+        onError(err instanceof Error ? err.message : 'Local backend inference failed');
+      }
+      return;
+    }
+  }
+
   const config = getProviderConfig(modelId);
   if (!config) { onError(`Unknown model: ${modelId}`); return; }
 
