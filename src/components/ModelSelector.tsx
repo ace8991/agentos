@@ -1,8 +1,9 @@
 import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { ChevronDown, Settings, Check, Server, Cpu } from 'lucide-react';
+import { ChevronDown, Settings, Check, Server, Cpu, HardDrive } from 'lucide-react';
 import { useStore } from '@/store/useStore';
-
+import { getAvailableWebLLMModels, getLocalModelDisplayName, isLocalModel } from '@/lib/local-inference';
+import LocalModelManager from '@/components/LocalModelManager';
 export interface ModelProvider {
   id: string;
   name: string;
