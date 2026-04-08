@@ -315,10 +315,52 @@ const ModelSelector = ({ onConfigureProvider }: ModelSelectorProps) => {
                   </div>
                 );
               })}
+
+              {/* Local Models Section */}
+              <div>
+                <div className="flex items-center justify-between px-3 py-2 bg-muted/50 border-b border-border">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">🧠</span>
+                    <span className="text-xs font-medium text-foreground">Modèles locaux</span>
+                    <span className="text-[10px] bg-success/20 text-success px-1.5 py-0.5 rounded-full font-medium">
+                      Gratuit
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    setShowLocalManager(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-surface-elevated/70"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-foreground flex items-center gap-1.5">
+                      <HardDrive size={13} /> Gérer les modèles locaux
+                    </div>
+                    <div className="text-xs text-muted-foreground">WebLLM (navigateur) & GGUF (backend)</div>
+                  </div>
+                </button>
+                {isLocalModel(model) && (
+                  <div className="px-4 py-2 bg-surface-elevated text-xs text-primary flex items-center gap-1.5">
+                    <Check size={12} /> {getLocalModelDisplayName(model)}
+                  </div>
+                )}
+              </div>
             </div>
           </>,
           document.body,
         )}
+
+      {showLocalManager && (
+        <LocalModelManager
+          onSelectModel={(id) => {
+            setModel(id);
+            setShowLocalManager(false);
+          }}
+          onClose={() => setShowLocalManager(false)}
+        />
+      )}
     </div>
   );
 };
