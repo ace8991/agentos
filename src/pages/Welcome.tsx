@@ -753,14 +753,6 @@ const Welcome = () => {
               </div>
             </div>
 
-            <div className="mt-3 rounded-2xl border border-white/10 bg-[rgba(14,17,27,0.28)] backdrop-blur-md px-2 md:px-3 py-2">
-              <ConnectorQuickAccess
-                connectors={connectors}
-                onSelect={setConfigConnectorId}
-                onOpenDirectory={() => setDirectoryOpen(true)}
-                onOpenSettings={() => openSettingsFor('connectors')}
-              />
-            </div>
           </div>
 
           <div className="w-full max-w-3xl mt-6 md:mt-8">
