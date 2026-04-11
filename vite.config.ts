@@ -20,8 +20,10 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     rollupOptions: {
-      // @mlc-ai/web-llm est optionnel et chargé dynamiquement — on l'exclut du bundle
       external: ["@mlc-ai/web-llm"],
     },
+  },
+  optimizeDeps: {
+    exclude: ["@mlc-ai/web-llm"],
   },
 }));
