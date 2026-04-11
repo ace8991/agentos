@@ -117,31 +117,31 @@ const TaskSidebar = () => {
       </div>
 
       {/* Main navigation */}
-      <div className="px-3 py-2 space-y-0.5">
+      <div className="px-3 py-2 space-y-0">
         <button
           onClick={handleNewTask}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.98]"
+          className="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.98]"
         >
           <Plus size={16} className="text-muted-foreground" />
           <span>New task</span>
         </button>
         <button
           onClick={() => setAgentsOpen(!agentsOpen)}
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors active:scale-[0.98] ${agentsOpen ? 'bg-surface-elevated text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated'}`}
+          className={`w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm transition-colors active:scale-[0.98] ${agentsOpen ? 'bg-surface-elevated text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated'}`}
         >
           <Bot size={16} />
           <span>Agents</span>
         </button>
         <button
           onClick={() => { setSearchOpen(!searchOpen); if (searchOpen) setSearchQuery(''); }}
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors active:scale-[0.98] ${searchOpen ? 'bg-surface-elevated text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated'}`}
+          className={`w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm transition-colors active:scale-[0.98] ${searchOpen ? 'bg-surface-elevated text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated'}`}
         >
           <Search size={16} />
           <span>Search</span>
         </button>
         <button
           onClick={() => setLibraryOpen(!libraryOpen)}
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors active:scale-[0.98] ${libraryOpen ? 'bg-surface-elevated text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated'}`}
+          className={`w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm transition-colors active:scale-[0.98] ${libraryOpen ? 'bg-surface-elevated text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated'}`}
         >
           <BookOpen size={16} />
           <span>Library</span>
@@ -151,21 +151,21 @@ const TaskSidebar = () => {
             openSettingsFor('openclaw-hub');
             setMobileOpen(false);
           }}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.98]"
+          className="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.98]"
         >
           <Smartphone size={16} />
           <span>Mobile hub</span>
         </button>
         <button
           onClick={() => { navigate('/code'); setMobileOpen(false); }}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.98]"
+          className="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.98]"
         >
           <Code2 size={16} />
           <span>Code</span>
         </button>
         <button
           onClick={() => { navigate('/cowork'); setMobileOpen(false); }}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.98]"
+          className="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.98]"
         >
           <Users size={16} />
           <span>Cowork</span>
@@ -378,11 +378,11 @@ const TaskSidebar = () => {
             </p>
           </div>
           <button
-            onClick={() => void handleLogout()}
+            onClick={() => void handleDownloadLocal()}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface-elevated hover:text-foreground active:scale-95"
-            title="Log out"
+            title="Download app"
           >
-            <LogOut size={15} />
+            <Download size={15} />
           </button>
         </div>
       </div>

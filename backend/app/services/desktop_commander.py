@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Optional
 
 from app.config import IS_LOCAL
@@ -14,6 +15,11 @@ SUPPORTED_TOOLS = [
     "dc_search_files",
     "dc_get_system_info",
 ]
+
+DEFAULT_ALLOWED_DIRECTORIES: list[str] = []
+DEFAULT_BLOCKED_COMMANDS: list[str] = []
+MAX_READ_LINES = 2000
+MAX_WRITE_LINES = 2000
 
 
 def _local_only() -> dict | None:
@@ -37,6 +43,18 @@ def get_status() -> dict:
             if IS_LOCAL
             else "Desktop Commander MCP requires a local AgentOS runtime."
         ),
+    }
+
+
+def get_config() -> dict:
+    return {
+        "allowed_directories": DEFAULT_ALLOWED_DIRECTORIES,
+        "blocked_commands": DEFAULT_BLOCKED_COMMANDS,
+        "max_read_lines": MAX_READ_LINES,
+        "max_write_lines": MAX_WRITE_LINES,
+        "home": str(Path.home()),
+        "version": "1.0.0",
+        "enabled": IS_LOCAL,
     }
 
 

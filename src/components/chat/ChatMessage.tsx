@@ -31,13 +31,16 @@ const TYPE_CFG: Record<LogType, { icon: typeof Eye; label: string; color: string
 const FILE_ICON: Record<string, typeof Eye> = {
   file_read: FileText,
   file_write: FilePen,
-  file_edit: FilePen,
-  file_list: FolderOpen,
-  file_create_dir: FolderOpen,
+  file_append: FilePen,
+  dir_list: FolderOpen,
+  dir_create: FolderOpen,
+  dir_delete: FolderOpen,
   file_search: FolderSearch,
   file_move: FolderOpen,
-  file_info: FileText,
-  dc_shell: Terminal,
+  file_copy: FolderOpen,
+  file_exists: FileText,
+  system_info: FileText,
+  shell: Terminal,
 };
 
 // Helpers
@@ -284,21 +287,16 @@ const useToolHighlights = (entry: LogEntry) =>
       if (r?.truncated) chips.push('truncated');
       preview = typeof r?.content === 'string' ? trunc(r.content, 500) : '';
       summary = desc || `Read ${path ? fname(path) : 'file'}`;
-    } else if (at === 'file_write') {
+    } else if (at === 'file_write' || at === 'file_append') {
       const path = typeof r?.path === 'string' ? r.path : '';
       if (path) chips.push(fname(path));
-      if (typeof r?.lines_written === 'number') chips.push(`${r.lines_written} lines written`);
-      summary = desc || `Wrote ${path ? fname(path) : 'file'}`;
-    } else if (at === 'file_edit') {
-      const path = typeof r?.path === 'string' ? r.path : '';
-      if (path) chips.push(fname(path));
-      if (typeof r?.replacements === 'number') chips.push(`${r.replacements} edit(s)`);
-      summary = desc || `Edited ${path ? fname(path) : 'file'}`;
-    } else if (at === 'file_list') {
+      if (typeof r?.bytes_written === 'number') chips.push(`${r.bytes_written} bytes`);
+      summary = desc || `${at === 'file_append' ? 'Updated' : 'Wrote'} ${path ? fname(path) : 'file'}`;
+    } else if (at === 'dir_list') {
       const path = typeof r?.path === 'string' ? r.path : '';
       if (path) chips.push(fname(path) || path);
-      const entries = Array.isArray(r?.entries)
-        ? r.entries.filter((item): item is { type?: string; name?: string } => typeof item === 'object' && item !== null)
+      const entries = Array.isArray(r?.items)
+        ? r.items.filter((item): item is { type?: string; name?: string } => typeof item === 'object' && item !== null)
         : [];
       chips.push(`${entries.length} items`);
       preview = entries
@@ -307,24 +305,48 @@ const useToolHighlights = (entry: LogEntry) =>
         .join('\n');
       summary = desc || `Listed ${path}`;
     } else if (at === 'file_search') {
-      const results = Array.isArray(r?.results) ? r.results : [];
+      const results = Array.isArray(r?.results)
+        ? r.results.filter((item): item is { path?: string; name?: string; snippet?: string } => typeof item === 'object' && item !== null)
+        : [];
       chips.push(`${results.length} results`);
-      preview = results.slice(0, 6).join('\n');
+      preview = results
+        .slice(0, 6)
+        .map((resultItem) => {
+          const label = resultItem.path || resultItem.name || 'Unknown file';
+          const snippet = typeof resultItem.snippet === 'string' && resultItem.snippet ? `\n  ${resultItem.snippet}` : '';
+          return `${label}${snippet}`;
+        })
+        .join('\n');
       summary = desc || `Found ${results.length} file(s)`;
-    } else if (at === 'file_create_dir') {
+    } else if (at === 'dir_create' || at === 'dir_delete') {
       const path = typeof r?.path === 'string' ? r.path : '';
       if (path) chips.push(fname(path) || path);
-      summary = desc || 'Created directory';
-    } else if (at === 'file_move') {
-      summary = desc || 'Moved file';
-    } else if (at === 'file_info') {
+      summary = desc || `${at === 'dir_delete' ? 'Deleted' : 'Created'} directory`;
+    } else if (at === 'file_move' || at === 'file_copy') {
+      summary = desc || `${at === 'file_copy' ? 'Copied' : 'Moved'} file`;
+    } else if (at === 'file_exists') {
       const path = typeof r?.path === 'string' ? r.path : '';
       if (path) chips.push(fname(path));
-      if (typeof r?.size === 'number') chips.push(`${(r.size / 1024).toFixed(1)} KB`);
-      summary = desc || 'File info';
-    } else if (at === 'dc_shell' || at === 'shell') {
-      const cmd = typeof r?.command === 'string' ? r.command : entry.action;
-      const exit = typeof r?.exit_code === 'number' ? r.exit_code : null;
+      if (typeof r?.exists === 'boolean') chips.push(r.exists ? 'exists' : 'missing');
+      summary = desc || 'File status';
+    } else if (at === 'system_info') {
+      if (typeof r?.os === 'string') chips.push(r.os);
+      if (typeof r?.memory_percent === 'number') chips.push(`RAM ${r.memory_percent}%`);
+      if (typeof r?.disk_percent === 'number') chips.push(`Disk ${r.disk_percent}%`);
+      preview = [
+        typeof r?.hostname === 'string' ? `Host: ${r.hostname}` : '',
+        typeof r?.cpu_count === 'number' ? `CPU cores: ${r.cpu_count}` : '',
+        typeof r?.memory_total_gb === 'number' ? `RAM total: ${r.memory_total_gb} GB` : '',
+        typeof r?.disk_free_gb === 'number' && typeof r?.disk_total_gb === 'number'
+          ? `Disk free: ${r.disk_free_gb} / ${r.disk_total_gb} GB`
+          : '',
+      ]
+        .filter(Boolean)
+        .join('\n');
+      summary = desc || 'System information';
+    } else if (at === 'shell' || at === 'dc_shell') {
+      const cmd = typeof r?.command === 'string' ? r.command : '';
+      const exit = typeof r?.exit_code === 'number' ? r.exit_code : (typeof r?.success === 'boolean' ? (r.success ? 0 : 1) : null);
       chips.push(`exit ${exit ?? '?'}`);
       if (exit !== null && exit !== 0) chips.push('error');
       shellOut = typeof r?.stdout === 'string' ? trunc(r.stdout, 600) : '';
@@ -363,6 +385,8 @@ const ChatMessage = ({ entry, onAskReply }: ChatMessageProps) => {
   const cfg = TYPE_CFG[entry.type] ?? TYPE_CFG.act;
   const ToolIcon = entry.actionType && FILE_ICON[entry.actionType] ? FILE_ICON[entry.actionType] : cfg.icon;
   const { summary, preview, chips, shellOut } = useToolHighlights(entry);
+  const stepTitle = entry.toolLabel || cfg.label;
+  const stepSubtitle = summary !== stepTitle ? summary : '';
 
   const isResult = entry.type === 'result';
   const isThinking = entry.type === 'thinking';
@@ -522,7 +546,10 @@ const ChatMessage = ({ entry, onAskReply }: ChatMessageProps) => {
   }
 
   const isDcShell = entry.actionType === 'dc_shell' || entry.actionType === 'shell';
-  const exitCode = isDcShell && entry.tool_result ? (entry.tool_result as { exit_code?: number }).exit_code : null;
+  const exitCode = isDcShell && entry.tool_result
+    ? ((entry.tool_result as { exit_code?: number; success?: boolean }).exit_code
+        ?? ((entry.tool_result as { success?: boolean }).success === false ? 1 : 0))
+    : null;
   const exitOk = exitCode === null || exitCode === 0;
 
   return (
@@ -541,7 +568,7 @@ const ChatMessage = ({ entry, onAskReply }: ChatMessageProps) => {
         >
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-sm font-medium text-foreground/90">{summary}</span>
+              <span className="text-sm font-medium text-foreground/90">{stepTitle}</span>
               {chips.map((c) => (
                 <span
                   key={c}
@@ -554,8 +581,8 @@ const ChatMessage = ({ entry, onAskReply }: ChatMessageProps) => {
               ))}
               {entry.step > 0 && <span className="ml-auto shrink-0 text-[11px] tabular-nums text-white/30">#{entry.step}</span>}
             </div>
-            {entry.toolLabel && entry.toolLabel !== summary && (
-              <span className="mt-0.5 block text-[11px] text-white/40">{entry.toolLabel}</span>
+            {stepSubtitle && (
+              <span className="mt-0.5 block text-[11px] text-white/42">{stepSubtitle}</span>
             )}
           </div>
           {hasExpandable && (
@@ -590,13 +617,6 @@ const ChatMessage = ({ entry, onAskReply }: ChatMessageProps) => {
                 <pre className="scrollbar-thin max-h-56 overflow-y-auto whitespace-pre-wrap px-4 py-3 font-mono text-[11.5px] leading-5 text-white/68">
                   {preview}
                 </pre>
-              </div>
-            )}
-
-            {entry.reasoning && (
-              <div className="rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3">
-                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">Reasoning</p>
-                <p className="whitespace-pre-wrap text-xs italic leading-5 text-white/58">{entry.reasoning}</p>
               </div>
             )}
           </div>

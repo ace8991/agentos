@@ -12,6 +12,7 @@ import ComposerInsertMenu from './chat/ComposerInsertMenu';
 import ArtifactWorkspaceModal from './chat/ArtifactWorkspaceModal';
 import { chatDirect, createBuilderWorkspace } from '@/lib/api';
 import { collectArtifactsFromEntries, type WorkspaceView } from '@/lib/artifacts';
+import { executeDesktopCommanderIntent } from '@/lib/desktop-commander-intents';
 import {
   CONNECTORS_UPDATED_EVENT,
   loadConnectors,
@@ -309,6 +310,13 @@ const ChatPanel = () => {
       return;
     }
 
+    if (mode !== 'agent') {
+      const desktopCommanderExecution = await handleDesktopCommanderSend(text);
+      if (desktopCommanderExecution) {
+        return;
+      }
+    }
+
     if (shouldUseAgent) {
       const executionModel = pickSmartAgentModel(model, backendHealth);
       if (executionModel !== model) {
@@ -336,6 +344,71 @@ const ChatPanel = () => {
     }
 
     await handleChatSend(text, attachmentContext);
+  };
+
+  const handleDesktopCommanderSend = async (text: string) => {
+    setChatLoading(true);
+    try {
+      const execution = await executeDesktopCommanderIntent(text);
+      if (!execution) {
+        setChatLoading(false);
+        return false;
+      }
+
+      setComposerMenuOpen(false);
+      setInputValue('');
+      setAttachments([]);
+      setActiveThread('chat');
+
+      addLogEntry({
+        id: crypto.randomUUID(),
+        step: 0,
+        timestamp: new Date().toISOString(),
+        type: 'info',
+        action: text,
+        reasoning: '',
+      });
+
+      addLogEntry({
+        id: crypto.randomUUID(),
+        step: 1,
+        timestamp: new Date().toISOString(),
+        type: execution.logType,
+        action: execution.action,
+        reasoning: execution.reasoning,
+        tool_result: execution.toolResult,
+        actionType: execution.actionType,
+        toolLabel: execution.toolLabel,
+      });
+
+      addLogEntry({
+        id: crypto.randomUUID(),
+        step: 1,
+        timestamp: new Date().toISOString(),
+        type: 'result',
+        action: execution.resultMarkdown,
+        reasoning: '',
+        toolLabel: 'Desktop Commander result',
+      });
+
+      useStore.getState().saveConversationSnapshot({ label: text, thread: 'chat' });
+      setChatLoading(false);
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Desktop Commander request failed.';
+      addLogEntry({
+        id: crypto.randomUUID(),
+        step: 1,
+        timestamp: new Date().toISOString(),
+        type: 'error',
+        action: message,
+        reasoning: '',
+        toolLabel: 'Desktop Commander error',
+      });
+      useStore.getState().saveConversationSnapshot({ label: text, thread: 'chat' });
+      setChatLoading(false);
+      return true;
+    }
   };
 
   const handleBuilderSend = async (text: string, attachmentContext = '') => {

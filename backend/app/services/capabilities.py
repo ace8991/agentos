@@ -3,6 +3,7 @@ import platform
 
 from app.config import IS_LOCAL, MODE
 from app.services.computer_use import resolve_computer_use_runtime
+from app.services.desktop_commander import get_config as get_desktop_commander_config
 from app.services.openclaw_hub import get_openclaw_state
 from app.services.remote_control import get_remote_config
 from app.services.runtime_config import has_runtime_value
@@ -27,6 +28,7 @@ def detect_capabilities() -> dict:
             "pyautogui": pyautogui_available,
             "computer_use": computer_use_available,
         },
+        "desktop_commander": get_desktop_commander_config() if IS_LOCAL else None,
         "providers": {
             "anthropic": has_runtime_value("ANTHROPIC_API_KEY"),
             "openai": has_runtime_value("OPENAI_API_KEY"),

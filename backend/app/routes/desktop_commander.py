@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import subprocess
+import asyncio
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter
@@ -12,8 +13,6 @@ from app.services import filesystem as fs
 router = APIRouter(prefix="/desktop-commander", tags=["desktop-commander"])
 
 
-# ─── Request models ───────────────────────────────────────────────────
-
 class FileReadRequest(BaseModel):
     path: str
     offset: int = 0
@@ -24,7 +23,7 @@ class FileReadRequest(BaseModel):
 class FileWriteRequest(BaseModel):
     path: str
     content: str
-    mode: str = "rewrite"          # "rewrite" | "append"
+    mode: str = "rewrite"
     encoding: str = "utf-8"
 
 
@@ -56,7 +55,6 @@ class SearchFilesRequest(BaseModel):
     query: str
     path: Optional[str] = None
     max_results: int = 20
-    # legacy compat
     pattern: Optional[str] = None
     recursive: bool = True
 
@@ -68,7 +66,9 @@ class ExecuteCommandRequest(BaseModel):
     cwd: Optional[str] = None
 
 
-# ─── Endpoints ────────────────────────────────────────────────────────
+class DesktopCommanderConfigPatchRequest(BaseModel):
+    allowed_directories: Optional[list[str]] = None
+
 
 @router.get("/health")
 async def desktop_commander_health():
@@ -76,17 +76,15 @@ async def desktop_commander_health():
 
 
 @router.get("/config")
-async def get_config():
-    from pathlib import Path
-    return {
-        "allowed_directories": [str(Path.home())],
-        "blocked_commands": ["mkfs", "format", "fdisk", "dd", "shutdown", "reboot"],
-        "max_read_lines": 1000,
-        "max_write_lines": 300,
-        "home": str(Path.home()),
-        "version": "1.1.0",
-        "enabled": True,
-    }
+async def desktop_commander_config():
+    return dc.get_config()
+
+
+@router.patch("/config")
+async def patch_desktop_commander_config(_req: DesktopCommanderConfigPatchRequest):
+    # The current local runtime exposes informational config only.
+    # Accept the request to keep the UI stable without failing hard.
+    return dc.get_config()
 
 
 @router.post("/read-file")
@@ -95,14 +93,16 @@ async def read_file(req: FileReadRequest):
     if result.get("success") and req.offset > 0:
         lines = result.get("content", "").splitlines()
         end = req.offset + req.length if req.length else len(lines)
-        result["content"] = "\n".join(lines[req.offset:end])
-        result["lines_read"] = len(lines[req.offset:end])
+        selected = lines[req.offset:end]
+        result["content"] = "\n".join(selected)
+        result["lines_read"] = len(selected)
         result["total_lines"] = len(lines)
         result["offset"] = req.offset
     elif result.get("success"):
         lines = result.get("content", "").splitlines()
         limit = req.length or len(lines)
-        result["content"] = "\n".join(lines[:limit])
+        selected = lines[:limit]
+        result["content"] = "\n".join(selected)
         result["lines_read"] = min(limit, len(lines))
         result["total_lines"] = len(lines)
         result["offset"] = 0
@@ -119,19 +119,21 @@ async def write_file(req: FileWriteRequest):
 @router.post("/edit-block")
 async def edit_block(req: EditBlockRequest):
     try:
-        from pathlib import Path
-        p = Path(req.file_path).expanduser().resolve()
-        if not p.exists():
+        path = Path(req.file_path).expanduser().resolve()
+        if not path.exists():
             return {"success": False, "description": f"File not found: {req.file_path}"}
-        text = p.read_text(encoding="utf-8", errors="replace")
-        count = text.count(req.old_string)
-        if count == 0:
-            return {"success": False, "description": f"String not found in file"}
-        new_text = text.replace(req.old_string, req.new_string, 1)
-        p.write_text(new_text, encoding="utf-8")
-        return {"success": True, "path": str(p), "replacements": 1, "description": f"Edited {p.name}"}
-    except Exception as e:
-        return {"success": False, "description": str(e)}
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if req.old_string not in text:
+            return {"success": False, "description": "String not found in file"}
+        path.write_text(text.replace(req.old_string, req.new_string, 1), encoding="utf-8")
+        return {
+            "success": True,
+            "path": str(path),
+            "replacements": 1,
+            "description": f"Edited {path.name}",
+        }
+    except Exception as exc:
+        return {"success": False, "description": str(exc)}
 
 
 @router.post("/list-directory")
@@ -152,46 +154,47 @@ async def move_file(req: MoveFileRequest):
 @router.post("/get-file-info")
 async def get_file_info(req: FileInfoRequest):
     try:
-        from pathlib import Path
-        p = Path(req.path).expanduser().resolve()
-        if not p.exists():
+        path = Path(req.path).expanduser().resolve()
+        if not path.exists():
             return {"success": False, "description": f"Path not found: {req.path}"}
-        stat = p.stat()
+        stat = path.stat()
         info = {
             "success": True,
-            "path": str(p),
-            "type": "directory" if p.is_dir() else "file",
+            "path": str(path),
+            "type": "directory" if path.is_dir() else "file",
             "size": stat.st_size,
             "created": stat.st_ctime,
             "modified": stat.st_mtime,
             "permissions": oct(stat.st_mode)[-3:],
         }
-        if p.is_file():
+        if path.is_file():
             try:
-                info["line_count"] = len(p.read_text(encoding="utf-8", errors="replace").splitlines())
+                info["line_count"] = len(path.read_text(encoding="utf-8", errors="replace").splitlines())
             except Exception:
                 pass
         return info
-    except Exception as e:
-        return {"success": False, "description": str(e)}
+    except Exception as exc:
+        return {"success": False, "description": str(exc)}
 
 
 @router.post("/search-files")
 async def search_files(req: SearchFilesRequest):
-    # Support both "query" (new) and "pattern" (legacy glob)
     query = req.query or (req.pattern or "").replace("*", "").replace(".", " ").strip()
     return fs.search_files(query, req.path, req.max_results)
 
 
 @router.post("/execute-command")
 async def execute_command(req: ExecuteCommandRequest):
-    import asyncio
-    from pathlib import Path
-
-    BLOCKED = {"mkfs", "format", "fdisk", "dd", "shutdown", "reboot", "halt"}
+    blocked = {"mkfs", "format", "fdisk", "dd", "shutdown", "reboot", "halt"}
     first = req.command.strip().split()[0].lower().lstrip("./\\")
-    if first in BLOCKED:
-        return {"success": False, "exit_code": -1, "stdout": "", "stderr": f"Command '{first}' is blocked.", "timed_out": False}
+    if first in blocked:
+        return {
+            "success": False,
+            "exit_code": -1,
+            "stdout": "",
+            "stderr": f"Command '{first}' is blocked.",
+            "timed_out": False,
+        }
 
     cwd = str(Path(req.cwd).expanduser().resolve()) if req.cwd else str(Path.home())
     shell = req.shell.lower()
@@ -215,20 +218,35 @@ async def execute_command(req: ExecuteCommandRequest):
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_s)
         except asyncio.TimeoutError:
             proc.kill()
-            return {"success": False, "exit_code": -1, "stdout": "", "stderr": f"Timed out after {req.timeout_ms}ms", "timed_out": True, "command": req.command}
+            return {
+                "success": False,
+                "exit_code": -1,
+                "stdout": "",
+                "stderr": f"Timed out after {req.timeout_ms}ms",
+                "timed_out": True,
+                "command": req.command,
+            }
 
-        ok = proc.returncode == 0
+        decoded_stdout = stdout.decode("utf-8", errors="replace")
+        decoded_stderr = stderr.decode("utf-8", errors="replace")
         return {
-            "success": ok,
+            "success": proc.returncode == 0,
             "exit_code": proc.returncode,
-            "stdout": stdout.decode("utf-8", errors="replace"),
-            "stderr": stderr.decode("utf-8", errors="replace"),
+            "stdout": decoded_stdout,
+            "stderr": decoded_stderr,
             "timed_out": False,
             "command": req.command,
-            "description": f"Exit {proc.returncode}: {stdout.decode('utf-8', errors='replace')[:100]}",
+            "description": f"Exit {proc.returncode}: {decoded_stdout[:100]}",
         }
-    except Exception as e:
-        return {"success": False, "exit_code": -1, "stdout": "", "stderr": str(e), "timed_out": False, "command": req.command}
+    except Exception as exc:
+        return {
+            "success": False,
+            "exit_code": -1,
+            "stdout": "",
+            "stderr": str(exc),
+            "timed_out": False,
+            "command": req.command,
+        }
 
 
 @router.get("/system-info")
