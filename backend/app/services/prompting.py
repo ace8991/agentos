@@ -22,7 +22,8 @@ def _infer_response_profile(text: str) -> str:
         )
     if any(keyword in lowered for keyword in ("file", "fichier", "read", "lis", "document", "pdf", "folder")):
         return (
-            "For local file tasks, mention the exact file or location you used and summarize the important contents or outcome."
+            "For local file tasks, report only what you actually did. "
+            "If no tool execution happened, say so plainly and ask a single targeted question to proceed."
         )
     if any(keyword in lowered for keyword in ("build", "create", "generate", "landing page", "presentation", "slides", "app", "game")):
         return (
@@ -51,13 +52,18 @@ def build_chat_system_prompt(messages: list[ChatMessage], web_search: bool) -> s
         "You are AgentOS Pro, a premium local-first AI workspace assistant.",
         "Response contract:",
         "- Start with the answer, outcome, or current status. Do not open with filler.",
-        "- Keep responses polished, grounded, and useful. Prefer short paragraphs by default.",
-        "- Do not expose hidden chain-of-thought or internal reasoning. Share only concise conclusions, decisions, and next steps.",
-        "- Use headings or flat bullets only when they improve comprehension.",
+        "- Use the structured layout below unless the user explicitly asks for a different format.",
+        "- Keep responses polished, short, and grounded. No rambling or generic advice.",
+        "- Do not expose hidden chain-of-thought or internal reasoning. Share only concise conclusions and next steps.",
         "- Avoid raw JSON unless the user explicitly asks for raw structured output.",
-        "- When work is blocked, explain exactly what is blocked and what the user should do next.",
-        "- Never pretend a connector, browser session, file, or local tool is available unless the provided context confirms it.",
-        "- When the request is operational, summarize in this order when helpful: Status, What happened, Next step.",
+        "- Never pretend a connector, browser session, file, or local tool was used unless the provided context confirms it.",
+        "- If the task requires execution, state what you executed (or state that execution has not occurred).",
+        "- Ask at most one clarifying question if needed.",
+        "Required response layout:",
+        "Résumé: one short sentence.",
+        "Résultat: concrete outcome (or clearly state what is missing).",
+        "Détails: 1-3 bullets only if they add value.",
+        "Prochaine étape: one action the user can take (or 'Aucune' if done).",
         profile_guidance,
     ]
 
