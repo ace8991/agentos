@@ -56,7 +56,7 @@ const LiveSessionCard = () => {
   const browserEntries = useMemo(() => entries.filter((entry) => entry.type === 'browser'), [entries]);
   const terminalEntries = useMemo(() => entries.filter((entry) => entry.type === 'shell').slice(0, 6), [entries]);
   const hasBrowserArtifacts = browserEntries.length > 0 || !!browserUrl || !!browserTitle || !!currentScreenshot;
-  const hasTerminalActivity = (isLive || isSettled) && terminalEntries.length > 0;
+  const hasTerminalActivity = false;
   const wantsBrowserWorkspace =
     !!task &&
     (hasBrowserArtifacts || lastSurface === 'browser' || isLikelyBrowserTask(task));

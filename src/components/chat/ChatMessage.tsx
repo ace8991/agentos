@@ -170,10 +170,12 @@ const ChatMessage = ({ entry, onAskReply }: ChatMessageProps) => {
   const isResult = entry.type === 'result';
   const isInfo = entry.type === 'info';
   const isError = entry.type === 'error';
+  const hideShell = entry.type === 'shell';
 
-  const { text: displayText, artifacts } = isResult
+  const { text: displayText, artifacts: parsedArtifacts } = isResult
     ? parseArtifacts(entry.action)
     : { text: entry.action, artifacts: [] };
+  const artifacts = parsedArtifacts.filter((artifact) => artifact.type !== 'terminal');
 
   const toolHighlights = useMemo(() => {
     const result = entry.tool_result;
@@ -261,6 +263,10 @@ const ChatMessage = ({ entry, onAskReply }: ChatMessageProps) => {
     ? 'border border-destructive/18 bg-[rgba(44,15,18,0.56)]'
     : 'border border-white/8 bg-white/[0.03]';
   const contentClass = isResult ? 'px-4 py-4 md:px-5' : 'px-4 py-3.5';
+
+  if (hideShell) {
+    return null;
+  }
 
   return (
     <div className="flex gap-3 py-3 log-entry-enter">
