@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Eye, EyeOff, Calendar, Mail, Database, Globe, User, Puzzle, Plug, Layers, Key, Shield, Camera, Monitor, Plus, Trash2, Check, ExternalLink, Settings, Bot, Sparkles, Wrench, BookText, Smartphone } from 'lucide-react';
+import { X, Eye, EyeOff, Calendar, Mail, Database, Globe, User, Puzzle, Plug, Layers, Key, Shield, Camera, Monitor, Plus, Trash2, Check, ExternalLink, Settings, Bot, Sparkles, Wrench, BookText, Smartphone, Terminal } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { useAuthStore } from '@/store/authStore';
 import { MODEL_PROVIDERS, getReasoningEffortOptions, supportsReasoningEffort, type ReasoningEffort } from './ModelSelector';
@@ -10,6 +10,7 @@ import SidebarToolStatus from './sidebar/SidebarToolStatus';
 import RemoteControlPanel from './settings/RemoteControlPanel';
 import DocumentationGuide from './settings/DocumentationGuide';
 import OpenClawHubPanel from './settings/OpenClawHubPanel';
+import { DesktopCommanderSettings } from './settings/DesktopCommanderSettings';
 import { buildDefaultConnectors, loadConnectors, mergeConnectorState, saveConnectors, type ConnectorState } from '@/lib/connectors';
 import { API_BASE_URL, syncRuntimeConfig } from '@/lib/api';
 import { logout as logoutSession } from '@/lib/auth';
@@ -42,6 +43,7 @@ const sidebarSections: { label: string; key: Section; icon: typeof Key }[] = [
   { label: 'Skills', key: 'skills', icon: Puzzle },
   { label: 'Connectors', key: 'connectors', icon: Plug },
   { label: 'Integrations', key: 'integrations', icon: Layers },
+  { label: 'Desktop Commander', key: 'desktop-commander', icon: Terminal },
 ];
 
 // Types for settings stored in localStorage
@@ -1084,6 +1086,9 @@ const SettingsModal = () => {
             </div>
           </div>
         );
+
+      case 'desktop-commander':
+        return <DesktopCommanderSettings />;
 
       default:
         return null;

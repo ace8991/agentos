@@ -760,7 +760,13 @@ export interface HealthResponse {
     playwright: boolean;
     pyautogui: boolean;
     computer_use: boolean;
+    desktop_commander?: boolean;
   };
+  desktop_commander?: {
+    enabled: boolean;
+    home: string;
+    version: string;
+  } | null;
   system: {
     os: string;
     screen?: string;

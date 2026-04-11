@@ -16,7 +16,7 @@ import { getCurrentProjectId as loadCurrentProjectId, setCurrentProjectId as per
 
 export type AgentMode = 'smart' | 'chat' | 'agent';
 export type AgentStatus = 'idle' | 'running' | 'done' | 'error' | 'paused';
-export type LogType = 'perceive' | 'plan' | 'act' | 'verify' | 'done' | 'error' | 'browser' | 'web' | 'shell' | 'info' | 'thinking' | 'ask' | 'result';
+export type LogType = 'perceive' | 'plan' | 'act' | 'verify' | 'done' | 'error' | 'browser' | 'web' | 'shell' | 'info' | 'thinking' | 'ask' | 'result' | 'file';
 export type ActiveThread = 'chat' | 'agent' | null;
 
 export interface LogEntry {
@@ -109,7 +109,8 @@ export type SettingsSection =
   | 'personalization'
   | 'skills'
   | 'connectors'
-  | 'integrations';
+  | 'integrations'
+  | 'desktop-commander';
 
 interface AppState {
   // Mode
@@ -255,6 +256,12 @@ const toolLabels: Record<string, string> = {
   clipboard_set: 'Updating the clipboard',
   terminal_open: 'Opening a terminal',
   code_execute: 'Executing code',
+  // Desktop Commander
+  file_edit: 'Editing a file',
+  file_list: 'Listing directory',
+  file_create_dir: 'Creating directory',
+  file_info: 'Getting file info',
+  dc_shell: 'Running terminal command',
 };
 
 const buildAgentCompletionMessage = (
@@ -526,6 +533,8 @@ export const useStore = create<AppState>((set, get) => ({
       if (actionType.startsWith('browser_')) logType = 'browser';
       else if (actionType.startsWith('web_')) logType = 'web';
       else if (actionType === 'shell') logType = 'shell';
+      else if (actionType.startsWith('file_')) logType = 'file';
+      else if (actionType === 'dc_shell') logType = 'shell';
     }
 
     const toolResult =

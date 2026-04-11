@@ -2,7 +2,17 @@
  * Local LLM inference via WebLLM (in-browser, WebGPU)
  * and llama-cpp-python (backend).
  */
-import * as webllm from '@mlc-ai/web-llm';
+// @mlc-ai/web-llm est optionnel — import dynamique pour éviter l'échec du build
+// si le package n'est pas encore installé.
+type WebLLM = typeof import('@mlc-ai/web-llm');
+let webllm: WebLLM | null = null;
+(async () => {
+  try {
+    webllm = await import('@mlc-ai/web-llm');
+  } catch {
+    // WebLLM non disponible — les fonctionnalités de modèle local seront désactivées.
+  }
+})();
 
 // ─── Types ───────────────────────────────────────────────────────────
 

@@ -1,9 +1,11 @@
-import { Settings, PlayCircle, Square } from 'lucide-react';
+import { Settings, PlayCircle, Square, ChevronDown } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import HexLogo from './HexLogo';
 import AgentBrainVisualizer from './AgentBrainVisualizer';
 import AgentMemory from './AgentMemory';
 import { MODEL_PROVIDERS } from './ModelSelector';
+import { DesktopCommanderPanel } from './DesktopCommanderPanel';
+import { useState } from 'react';
 
 const allModels = MODEL_PROVIDERS.flatMap((p) => p.models.map((m) => ({ id: m.id, label: `${p.icon} ${m.name}` })));
 const intervals = [
@@ -26,6 +28,7 @@ const AgentControl = () => {
   const startAgent = useStore((s) => s.startAgent);
   const stopAgent = useStore((s) => s.stopAgent);
   const setSettingsOpen = useStore((s) => s.setSettingsOpen);
+  const [dcOpen, setDcOpen] = useState(false);
 
   const isRunning = status === 'running';
 
@@ -126,6 +129,25 @@ const AgentControl = () => {
 
         {/* Memory */}
         <AgentMemory />
+
+        {/* ── Desktop Commander ── */}
+        <div className="border-t border-border pt-3">
+          <button
+            onClick={() => setDcOpen((o) => !o)}
+            className="w-full flex items-center justify-between text-sm text-muted-foreground hover:text-foreground transition-colors py-1 px-1 rounded-md hover:bg-surface-elevated"
+          >
+            <span className="flex items-center gap-2 font-medium text-xs uppercase tracking-wider">
+              <span className="text-[10px]">⌨</span>
+              Desktop Commander
+            </span>
+            <ChevronDown size={14} className={`transition-transform ${dcOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {dcOpen && (
+            <div className="mt-2 h-[420px]">
+              <DesktopCommanderPanel />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

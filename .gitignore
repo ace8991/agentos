@@ -21,6 +21,10 @@ backend/__pycache__/
 backend/**/*.pyc
 .tmp_openclaw
 
+# Local env — use .env.example comme template
+.env
+.env.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
