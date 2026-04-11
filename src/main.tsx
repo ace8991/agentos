@@ -25,11 +25,22 @@ const renderBootstrapError = (error: unknown) => {
   `;
 };
 
-async function bootstrap() {
+const shouldRetryBootstrap = (error: unknown) => {
+  if (!(error instanceof Error)) return false;
+  return /Failed to fetch dynamically imported module/i.test(error.message);
+};
+
+async function bootstrap(attempt = 0) {
   try {
     const { default: App } = await import("./App.tsx");
     root.render(<App />);
   } catch (error) {
+    if (attempt < 2 && shouldRetryBootstrap(error)) {
+      setTimeout(() => {
+        void bootstrap(attempt + 1);
+      }, 600);
+      return;
+    }
     renderBootstrapError(error);
   }
 }
