@@ -6,9 +6,11 @@ import {
   Send, Bot, User, Copy, Paperclip, X, Undo2, ChevronRight,
   Folder, File, Search, Plus, RefreshCw, ExternalLink, Clock,
   AlertCircle, GitPullRequest, Maximize2, Minimize2, Trash2, Loader2,
+  Eye, SplitSquareHorizontal, Code2,
 } from 'lucide-react';
 import TaskSidebar from '@/components/TaskSidebar';
 import HexLogo from '@/components/HexLogo';
+import { PreviewPanel } from '@/components/code/PreviewPanel';
 import { chatDirect } from '@/lib/api';
 import { useStore } from '@/store/useStore';
 import {
@@ -63,6 +65,9 @@ const defaultTree: FileNode[] = [
     { name: 'main.tsx', type: 'file', language: 'tsx' },
     { name: 'index.css', type: 'file', language: 'css' },
   ]},
+  { name: 'preview', type: 'folder', children: [
+    { name: 'demo.html', type: 'file', language: 'html' },
+  ]},
   { name: 'backend', type: 'folder', children: [
     { name: 'app', type: 'folder', children: [
       { name: 'main.py', type: 'file', language: 'py' },
@@ -103,14 +108,108 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <App />
   </React.StrictMode>
 );`,
-  '/src/index.css': `@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
+  '/src/index.css': `/* AgentOS — Global Styles */
 :root {
-  --background: 0 0% 10%;
-  --foreground: 0 0% 90%;
-}`,
+  --primary: #e8643a;
+  --bg: #0f0f0f;
+  --surface: #1a1a1a;
+  --text: #e8e8e8;
+  --border: #2a2a2a;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 16px;
+}
+
+.btn {
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.btn:hover { opacity: 0.9; }`,
+  '/preview/demo.html': `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentOS Preview</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
+    color: #e8e8e8;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .card {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 40px;
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+    backdrop-filter: blur(20px);
+  }
+  .logo { font-size: 40px; margin-bottom: 16px; }
+  h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+  p { color: rgba(255,255,255,0.6); font-size: 14px; margin-bottom: 24px; }
+  .btn {
+    background: #e8643a;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 28px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(232,100,58,0.4); }
+  .stats { display: flex; gap: 20px; margin-top: 24px; justify-content: center; }
+  .stat { text-align: center; }
+  .stat-num { font-size: 22px; font-weight: 700; color: #e8643a; }
+  .stat-label { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">⬡</div>
+    <h1>AgentOS Pro</h1>
+    <p>L'agent IA qui prend le contrôle de votre PC pour accomplir n'importe quelle tâche.</p>
+    <button class="btn" onclick="this.textContent='🚀 Launched!'">Démarrer l'agent</button>
+    <div class="stats">
+      <div class="stat"><div class="stat-num">10+</div><div class="stat-label">Outils</div></div>
+      <div class="stat"><div class="stat-num">∞</div><div class="stat-label">Tâches</div></div>
+      <div class="stat"><div class="stat-num">100%</div><div class="stat-label">Local</div></div>
+    </div>
+  </div>
+</body>
+</html>`,
 };
 
 const sampleDiff: DiffLine[] = [
@@ -356,7 +455,8 @@ const CodePage = () => {
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
   // Editor state
-  const [viewMode, setViewMode] = useState<'code' | 'diff'>('code');
+  const [viewMode, setViewMode] = useState<'code' | 'diff' | 'split' | 'preview'>('code');
+  const [editableContent, setEditableContent] = useState<string | null>(null);
   const [diffAccepted, setDiffAccepted] = useState(false);
   const [pendingDiff, setPendingDiff] = useState<DiffLine[] | null>(null);
 
@@ -439,11 +539,17 @@ const CodePage = () => {
 
   const handleFileSelect = (path: string) => {
     setSelectedFile(path);
+    const content = sampleFileContents[path] || `// Fichier: ${path}\n// Contenu simulé`;
+    setEditableContent(content);
     if (!pendingDiff) setPendingDiff(sampleDiff);
     if (isMobile) setShowLeftPanel(false);
   };
 
-  const fileContent = selectedFile ? (sampleFileContents[selectedFile] || `// Fichier: ${selectedFile}\n// Contenu simulé`) : null;
+  const currentLanguage = selectedFile
+    ? (selectedFile.split('.').pop() || 'txt')
+    : 'txt';
+
+  const fileContent = editableContent ?? (selectedFile ? (sampleFileContents[selectedFile] || `// Fichier: ${selectedFile}\n// Contenu simulé`) : null);
 
   // ─── Left panel content (shared between desktop sidebar & mobile sheet) ───
   const leftPanelContent = (
@@ -612,67 +718,99 @@ const CodePage = () => {
             {selectedFile && fileContent ? (
               <div className="flex-1 flex flex-col min-h-0">
                 {/* Editor tab bar */}
-                <div className="flex items-center justify-between border-b border-[hsl(0,0%,17%)] bg-[hsl(0,0%,11%)] px-2">
+                <div className="flex items-center justify-between border-b border-[hsl(0,0%,17%)] bg-[hsl(0,0%,11%)] px-2 flex-shrink-0">
                   <div className="flex items-center min-w-0">
                     <div className="flex items-center gap-1.5 px-3 py-2 text-xs text-foreground bg-[hsl(0,0%,10%)] border-b-2 border-[hsl(14,74%,52%)]">
                       <span className="truncate max-w-[120px] sm:max-w-[200px]">{selectedFile.split('/').pop()}</span>
-                      <button onClick={() => setSelectedFile(null)} className="text-muted-foreground hover:text-foreground ml-1"><X size={11} /></button>
+                      <button onClick={() => { setSelectedFile(null); setEditableContent(null); }} className="text-muted-foreground hover:text-foreground ml-1"><X size={11} /></button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 pr-1">
+                  {/* View mode tabs */}
+                  <div className="flex items-center gap-0.5 pr-1">
                     <button onClick={() => setViewMode('code')}
-                      className={`px-2 py-1 text-[11px] rounded ${viewMode === 'code' ? 'bg-[hsl(14,74%,52%)]/15 text-[hsl(14,74%,52%)]' : 'text-muted-foreground hover:text-foreground'}`}>
-                      Code
+                      title="Code" className={`flex items-center gap-1 px-2 py-1 text-[11px] rounded transition-colors ${viewMode === 'code' ? 'bg-[hsl(14,74%,52%)]/15 text-[hsl(14,74%,52%)]' : 'text-muted-foreground hover:text-foreground'}`}>
+                      <Code2 size={11} /><span className="hidden sm:inline">Code</span>
                     </button>
                     <button onClick={() => setViewMode('diff')}
-                      className={`px-2 py-1 text-[11px] rounded ${viewMode === 'diff' ? 'bg-[hsl(14,74%,52%)]/15 text-[hsl(14,74%,52%)]' : 'text-muted-foreground hover:text-foreground'}`}>
-                      Diff
+                      title="Diff" className={`flex items-center gap-1 px-2 py-1 text-[11px] rounded transition-colors ${viewMode === 'diff' ? 'bg-[hsl(14,74%,52%)]/15 text-[hsl(14,74%,52%)]' : 'text-muted-foreground hover:text-foreground'}`}>
+                      <GitBranch size={11} /><span className="hidden sm:inline">Diff</span>
+                    </button>
+                    <button onClick={() => setViewMode('split')}
+                      title="Split" className={`flex items-center gap-1 px-2 py-1 text-[11px] rounded transition-colors ${viewMode === 'split' ? 'bg-[hsl(14,74%,52%)]/15 text-[hsl(14,74%,52%)]' : 'text-muted-foreground hover:text-foreground'}`}>
+                      <SplitSquareHorizontal size={11} /><span className="hidden sm:inline">Split</span>
+                    </button>
+                    <button onClick={() => setViewMode('preview')}
+                      title="Preview" className={`flex items-center gap-1 px-2 py-1 text-[11px] rounded transition-colors ${viewMode === 'preview' ? 'bg-[hsl(14,74%,52%)]/15 text-[hsl(14,74%,52%)]' : 'text-muted-foreground hover:text-foreground'}`}>
+                      <Eye size={11} /><span className="hidden sm:inline">Preview</span>
                     </button>
                   </div>
                 </div>
-                <div className="flex-1 overflow-auto font-mono text-xs bg-[hsl(0,0%,10%)]">
-                  {viewMode === 'code' ? (
-                    <div className="p-3">
-                      {fileContent.split('\n').map((line, i) => (
-                        <div key={i} className="flex">
-                          <span className="w-8 text-right pr-3 text-muted-foreground select-none shrink-0">{i + 1}</span>
-                          <span className="text-foreground/80 whitespace-pre overflow-x-auto">{line}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div>
-                      {!diffAccepted && pendingDiff && (
-                        <div className="flex items-center justify-between px-3 py-2 bg-[hsl(14,74%,52%)]/10 border-b border-[hsl(0,0%,17%)] flex-wrap gap-2">
-                          <span className="text-[11px] text-[hsl(14,74%,52%)] font-medium">Modifications proposées</span>
-                          <div className="flex items-center gap-1.5">
-                            <button onClick={() => setDiffAccepted(true)}
-                              className="flex items-center gap-1 px-2.5 py-1 text-[11px] rounded-md bg-[hsl(142,71%,45%)]/20 text-[hsl(142,71%,45%)] hover:bg-[hsl(142,71%,45%)]/30">
-                              <Check size={11} /> Accepter
-                            </button>
-                            <button onClick={() => setPendingDiff(null)}
-                              className="flex items-center gap-1 px-2.5 py-1 text-[11px] rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30">
-                              <X size={11} /> Rejeter
-                            </button>
-                            <button className="flex items-center gap-1 px-2.5 py-1 text-[11px] rounded-md bg-[hsl(0,0%,20%)] text-muted-foreground hover:bg-[hsl(0,0%,23%)]">
-                              <Undo2 size={11} /> Annuler
-                            </button>
+
+                {/* Editor + Preview area */}
+                <div className={`flex-1 min-h-0 ${viewMode === 'split' ? 'flex' : 'flex flex-col'}`}>
+                  {/* Editor pane — hidden in preview-only mode */}
+                  {viewMode !== 'preview' && (
+                    <div className={`flex flex-col min-h-0 ${viewMode === 'split' ? 'w-1/2 border-r border-[hsl(0,0%,17%)]' : 'flex-1'}`}>
+                      <div className="flex-1 overflow-auto font-mono text-xs bg-[hsl(0,0%,10%)]">
+                        {viewMode === 'code' || viewMode === 'split' ? (
+                          <div className="relative h-full">
+                            <textarea
+                              value={fileContent}
+                              onChange={(e) => setEditableContent(e.target.value)}
+                              className="absolute inset-0 w-full h-full bg-transparent text-foreground/85 text-xs font-mono resize-none outline-none p-3 pl-12 leading-5 caret-white"
+                              style={{ lineHeight: '20px', whiteSpace: 'pre', overflowWrap: 'normal' }}
+                              spellCheck={false}
+                            />
+                            {/* Line numbers overlay */}
+                            <div className="absolute left-0 top-0 p-3 pr-2 pointer-events-none select-none">
+                              {fileContent.split('\n').map((_, i) => (
+                                <div key={i} className="text-right text-[hsl(0,0%,27%)] leading-5 text-xs w-7">{i + 1}</div>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                      <div className="p-3">
-                        {(pendingDiff || sampleDiff).map((line, i) => (
-                          <div key={i} className={`flex ${line.type === 'add' ? 'bg-[hsl(142,71%,45%)]/8' : line.type === 'remove' ? 'bg-destructive/8' : ''}`}>
-                            <span className="w-8 text-right pr-3 text-muted-foreground select-none shrink-0">{line.lineNum}</span>
-                            <span className={`w-4 text-center select-none shrink-0 ${line.type === 'add' ? 'text-[hsl(142,71%,45%)]' : line.type === 'remove' ? 'text-destructive' : 'text-[hsl(0,0%,20%)]'}`}>
-                              {line.type === 'add' ? '+' : line.type === 'remove' ? '−' : ' '}
-                            </span>
-                            <span className={`whitespace-pre overflow-x-auto ${line.type === 'add' ? 'text-[hsl(142,71%,45%)]/90' : line.type === 'remove' ? 'text-destructive/70 line-through' : 'text-muted-foreground'}`}>
-                              {line.content}
-                            </span>
+                        ) : (
+                          /* Diff view */
+                          <div>
+                            {!diffAccepted && pendingDiff && (
+                              <div className="flex items-center justify-between px-3 py-2 bg-[hsl(14,74%,52%)]/10 border-b border-[hsl(0,0%,17%)] flex-wrap gap-2">
+                                <span className="text-[11px] text-[hsl(14,74%,52%)] font-medium">Modifications proposées</span>
+                                <div className="flex items-center gap-1.5">
+                                  <button onClick={() => setDiffAccepted(true)} className="flex items-center gap-1 px-2.5 py-1 text-[11px] rounded-md bg-[hsl(142,71%,45%)]/20 text-[hsl(142,71%,45%)] hover:bg-[hsl(142,71%,45%)]/30">
+                                    <Check size={11} /> Accepter
+                                  </button>
+                                  <button onClick={() => setPendingDiff(null)} className="flex items-center gap-1 px-2.5 py-1 text-[11px] rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30">
+                                    <X size={11} /> Rejeter
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                            <div className="p-3">
+                              {(pendingDiff || sampleDiff).map((line, i) => (
+                                <div key={i} className={`flex ${line.type === 'add' ? 'bg-[hsl(142,71%,45%)]/8' : line.type === 'remove' ? 'bg-destructive/8' : ''}`}>
+                                  <span className="w-8 text-right pr-3 text-muted-foreground select-none shrink-0">{line.lineNum}</span>
+                                  <span className={`w-4 text-center select-none shrink-0 ${line.type === 'add' ? 'text-[hsl(142,71%,45%)]' : line.type === 'remove' ? 'text-destructive' : 'text-[hsl(0,0%,20%)]'}`}>
+                                    {line.type === 'add' ? '+' : line.type === 'remove' ? '−' : ' '}
+                                  </span>
+                                  <span className={`whitespace-pre overflow-x-auto ${line.type === 'add' ? 'text-[hsl(142,71%,45%)]/90' : line.type === 'remove' ? 'text-destructive/70 line-through' : 'text-muted-foreground'}`}>
+                                    {line.content}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        ))}
+                        )}
                       </div>
+                    </div>
+                  )}
+
+                  {/* Preview pane */}
+                  {(viewMode === 'preview' || viewMode === 'split') && (
+                    <div className={`flex flex-col min-h-0 ${viewMode === 'split' ? 'w-1/2' : 'flex-1'}`}>
+                      <PreviewPanel
+                        content={fileContent}
+                        language={currentLanguage}
+                        filePath={selectedFile || undefined}
+                      />
                     </div>
                   )}
                 </div>
@@ -812,8 +950,21 @@ const CodePage = () => {
               <MessageSquare size={12} />Chat
             </button>
 
-            <button className="flex items-center gap-[5px] bg-[hsl(0,0%,15%)] border border-[hsl(0,0%,20%)] text-muted-foreground text-[11px] sm:text-xs py-[6px] sm:py-[7px] px-2 sm:px-2.5 rounded-[7px] cursor-pointer whitespace-nowrap ml-auto shrink-0">
-              <Monitor size={12} />Local
+            <button
+              onClick={() => {
+                if (!selectedFile) {
+                  // Ouvrir un fichier HTML de démonstration
+                  const demoPath = '/src/index.css';
+                  handleFileSelect(demoPath);
+                }
+                setViewMode(v => v === 'split' ? 'code' : 'split');
+              }}
+              className={`flex items-center gap-[5px] border text-[11px] sm:text-xs py-[6px] sm:py-[7px] px-2 sm:px-2.5 rounded-[7px] cursor-pointer whitespace-nowrap ml-auto shrink-0 transition-colors ${
+                viewMode === 'split' || viewMode === 'preview'
+                  ? 'bg-[hsl(14,74%,52%)]/20 border-[hsl(14,74%,52%)]/30 text-[hsl(14,74%,52%)]'
+                  : 'bg-[hsl(0,0%,15%)] border-[hsl(0,0%,20%)] text-muted-foreground'
+              }`}>
+              <Monitor size={12} />Preview
             </button>
           </div>
         </div>
