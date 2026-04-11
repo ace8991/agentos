@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import re
 import time
 import uuid
 from dataclasses import dataclass
@@ -80,6 +81,101 @@ def create_run(task: str, model: str, max_steps: int, capture_interval_ms: int, 
 
 def _is_browser_first_task(task: str | None) -> bool:
     return bool(task and browser_svc.infer_browser_bootstrap(task))
+
+
+def _is_local_file_task(task: str | None) -> bool:
+    if not task:
+        return False
+    lowered = task.lower()
+    return any(
+        keyword in lowered
+        for keyword in (
+            "file",
+            "fichier",
+            "document",
+            "folder",
+            "dossier",
+            "documents",
+            "downloads",
+            "desktop",
+            "bureau",
+            "passport",
+            "passeport",
+            ".pdf",
+            ".doc",
+            ".docx",
+            ".xlsx",
+            ".csv",
+        )
+    )
+
+
+def _has_file_activity(history: list[dict]) -> bool:
+    file_actions = {
+        "file_search",
+        "file_read",
+        "file_write",
+        "file_append",
+        "file_delete",
+        "file_move",
+        "file_copy",
+        "file_exists",
+        "dir_list",
+        "dir_create",
+        "dir_delete",
+    }
+    return any(item.get("action_type") in file_actions for item in history)
+
+
+def _infer_file_query(task: str) -> str:
+    if not task:
+        return "document"
+    lowered = task.lower()
+    match = re.search(r"([\\w\\-.]+\\.(pdf|docx|doc|txt|csv|xlsx))", lowered)
+    if match:
+        return match.group(1)
+    keywords = [
+        "passport",
+        "passeport",
+        "invoice",
+        "facture",
+        "cv",
+        "resume",
+        "contrat",
+        "contract",
+        "receipt",
+        "order",
+        "commande",
+    ]
+    for keyword in keywords:
+        if keyword in lowered:
+            return keyword
+    cleaned = re.sub(r"[^a-z0-9\\s-]", " ", lowered)
+    tokens = [
+        t
+        for t in cleaned.split()
+        if t
+        not in {
+            "find",
+            "search",
+            "read",
+            "open",
+            "file",
+            "files",
+            "document",
+            "documents",
+            "fichier",
+            "dossier",
+            "folder",
+            "mon",
+            "ma",
+            "mes",
+            "sur",
+            "dans",
+            "de",
+        }
+    ]
+    return " ".join(tokens[:3]) if tokens else "document"
 
 
 def stop_run(run_id: str) -> bool:
@@ -393,6 +489,17 @@ async def run_agent(
 
         try:
             if action:
+                if (
+                    action.type == ActionType.DONE
+                    and _is_local_file_task(primary_task)
+                    and not _has_file_activity(history)
+                ):
+                    action = AgentAction(
+                        type=ActionType.FILE_SEARCH,
+                        query=_infer_file_query(primary_task),
+                        reason="Local file task requires a real file search before finishing.",
+                    )
+
                 if action.type == ActionType.DONE:
                     yield _event("done", step, action.reason or "Done", reasoning, screenshot_b64, memory)
                     break
