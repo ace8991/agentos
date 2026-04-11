@@ -84,11 +84,10 @@ export async function loadWebLLMModel(
   const startTime = Date.now();
 
   try {
-    // Lazy load — package must be installed: npm install @mlc-ai/web-llm
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pkgName = '@mlc-ai' + '/web-llm';          // Split to avoid static analysis
-    const webllm: any = await import(pkgName);
-    engine = new webllm.MLCEngine();
+    // WebLLM n'est pas installé — stub pour future intégration
+    // Pour activer : npm install @mlc-ai/web-llm
+    throw new Error('WebLLM package not installed. Run: npm install @mlc-ai/web-llm');
+
 
     engine.setInitProgressCallback((report: { progress: number; text: string }) => {
       onProgress?.({

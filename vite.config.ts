@@ -25,5 +25,11 @@ export default defineConfig(({ mode }) => ({
   },
   optimizeDeps: {
     exclude: ["@mlc-ai/web-llm"],
+    include: [
+      "react",
+      "react-dom",
+      "react/jsx-dev-runtime",
+      "react/jsx-runtime",
+    ],
   },
 }));
