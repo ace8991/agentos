@@ -76,6 +76,43 @@ const shouldRouteToAgent = (
   return mode === 'agent' && text.trim().length > 0;
 };
 
+const requiresLocalTools = (text: string) => {
+  const normalized = text.toLowerCase();
+  if (!normalized.trim()) return false;
+  return [
+    'file',
+    'fichier',
+    'document',
+    'dossier',
+    'folder',
+    'directory',
+    'local',
+    'pc',
+    'ordinateur',
+    'desktop',
+    'drive',
+    'disk',
+    'c:\\',
+    'c:/',
+    'downloads',
+    'documents',
+    'bureau',
+    'passeport',
+    'passport',
+    'pdf',
+    'read',
+    'lire',
+    'write',
+    'ecrire',
+    'create file',
+    'delete file',
+    'rename',
+    'move file',
+    'copy file',
+    'list directory',
+  ].some((keyword) => normalized.includes(keyword));
+};
+
 const pickSmartAgentModel = (
   currentModel: string,
   backendHealth: ReturnType<typeof useStore.getState>['backendHealth'],
@@ -253,7 +290,9 @@ const ChatPanel = () => {
     setComposerMenuOpen(false);
     const attachmentContext = await buildAttachmentContext(attachments);
     const shouldUseBuilder = shouldUseBuilderWorkspace(text, composerPreferences);
-    const shouldUseAgent = shouldRouteToAgent(text, mode, backendOnline);
+    const shouldUseAgent =
+      shouldRouteToAgent(text, mode, backendOnline) ||
+      (mode === 'smart' && backendOnline && requiresLocalTools(text));
 
     if (mode === 'agent' && !backendOnline) {
       toast.error('Agent mode needs the local backend to be online.');
@@ -275,6 +314,11 @@ const ChatPanel = () => {
       if (executionModel !== model) {
         setModel(executionModel);
         toast.message(`Switched to ${executionModel} for live tool execution.`);
+      }
+
+      if (mode === 'smart') {
+        setMode('agent');
+        toast.message('Using Agent mode to run local tools for this request.');
       }
 
       setPendingTaskContext(attachmentContext);
