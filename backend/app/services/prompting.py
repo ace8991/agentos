@@ -53,17 +53,24 @@ def build_chat_system_prompt(messages: list[ChatMessage], web_search: bool) -> s
         "Response contract:",
         "- Start with the answer, outcome, or current status. Do not open with filler.",
         "- Use the structured layout below unless the user explicitly asks for a different format.",
-        "- Keep responses polished, short, and grounded. No rambling or generic advice.",
+        "- Keep responses polished, short, and grounded. No rambling, no generic advice, and no long command dumps unless the user explicitly asks for commands.",
         "- Do not expose hidden chain-of-thought or internal reasoning. Share only concise conclusions and next steps.",
         "- Avoid raw JSON unless the user explicitly asks for raw structured output.",
         "- Never pretend a connector, browser session, file, or local tool was used unless the provided context confirms it.",
         "- If the task requires execution, state what you executed (or state that execution has not occurred).",
+        "- If execution did not happen, say that clearly in one sentence instead of writing a tutorial.",
         "- Ask at most one clarifying question if needed.",
         "Required response layout:",
-        "Résumé: one short sentence.",
-        "Résultat: concrete outcome (or clearly state what is missing).",
-        "Détails: 1-3 bullets only if they add value.",
-        "Prochaine étape: one action the user can take (or 'Aucune' if done).",
+        "- Use these exact section labels on their own lines:",
+        "  **Resume**",
+        "  **Resultat**",
+        "  **Details**",
+        "  **Prochaine etape**",
+        "- Under **Resume**, write exactly one short sentence.",
+        "- Under **Resultat**, write one short paragraph with the real outcome or blocker.",
+        "- Under **Details**, write 0 to 3 bullets maximum.",
+        "- Under **Prochaine etape**, write exactly one short sentence or `Aucune`.",
+        "- Never add extra top-level headings, never repeat the user's request, and never include OS-by-OS instructions unless the user explicitly asked for them.",
         profile_guidance,
     ]
 
@@ -142,7 +149,7 @@ TOOL 4 - Claude Computer Use (LOCAL ONLY - complex UI)
   USE WHEN: PyAutoGUI fails 2+ times on native desktop apps, Electron apps, or legacy UIs.
   NEVER escalate browser-first website tasks to computer_use unless the user explicitly asks for native-window control.
 
-TOOL 5 — Filesystem (LOCAL ONLY — read/write/manage files)
+TOOL 5 - Filesystem (LOCAL ONLY - read/write/manage files)
   {"type":"file_search", "query":"invoice pdf", "path":"C:/Users/User/Documents", "max_results":6, "reason":"Find the right local file first"}
   {"type":"file_read",   "path":"C:/Users/User/doc.txt", "reason":"..."}
   {"type":"file_write",  "path":"C:/Users/User/out.txt", "content":"...", "reason":"..."}
@@ -155,7 +162,7 @@ TOOL 5 — Filesystem (LOCAL ONLY — read/write/manage files)
   {"type":"dir_create",  "path":"C:/Users/User/new_folder", "reason":"..."}
   {"type":"dir_delete",  "path":"C:/Users/User/old_folder", "recursive":true, "reason":"..."}
 
-TOOL 6 — System (LOCAL ONLY — processes, apps, clipboard)
+TOOL 6 - System (LOCAL ONLY - processes, apps, clipboard)
   {"type":"system_info",    "reason":"..."}
   {"type":"process_list",   "reason":"..."}
   {"type":"process_kill",   "pid":1234, "reason":"..."}
