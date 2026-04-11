@@ -23,8 +23,7 @@ export function DesktopCommanderPanel() {
 
   // File explorer state
   const [dirPath, setDirPath] = useState('C:\\Users\\User');
-  const [dirEntries, setDirEntries] = useState<any[]>([]);
-  const [fileContent, setFileContent] = useState<{ path: string; content: string } | null>(null);
+  const [dirEntries, setDirEntries] = useState<any[]>([]);  const [fileContent, setFileContent] = useState<{ path: string; content: string } | null>(null);
 
   // Search state
   const [searchPath, setSearchPath] = useState('C:\\Users\\User');
@@ -57,7 +56,7 @@ export function DesktopCommanderPanel() {
 
   const handleReadFile = async (path: string) => {
     const result = await dc.read(path);
-    if (result?.type === 'text' && result.content !== undefined) {
+    if (result?.success && result.content !== undefined) {
       setFileContent({ path, content: result.content });
     }
   };
@@ -66,7 +65,7 @@ export function DesktopCommanderPanel() {
 
   const handleSearch = async () => {
     const result = await dc.search(searchPath, searchPattern);
-    if (result) setSearchResults(result.results);
+    if (result?.results) setSearchResults(result.results.map(r => r.path));
   };
 
   // ─── Render ────────────────────────────────────────────────────────
@@ -218,8 +217,8 @@ export function DesktopCommanderPanel() {
                   )}
                   {dirEntries.map((entry) => (
                     <button
-                      key={entry.path}
-                      onClick={() => entry.type === 'file' ? handleReadFile(entry.path) : setDirPath(entry.path)}
+                      key={entry.name}
+                      onClick={() => entry.type === 'file' ? handleReadFile(`${dirPath}\\${entry.name}`) : setDirPath(`${dirPath}\\${entry.name}`)}
                       className="flex items-center gap-2 w-full text-left px-2 py-1 hover:bg-muted/50 rounded text-xs"
                     >
                       {entry.type === 'directory'
@@ -227,9 +226,9 @@ export function DesktopCommanderPanel() {
                         : <FileText className="w-3 h-3 text-blue-500 shrink-0" />
                       }
                       <span className="truncate">{entry.name}</span>
-                      {entry.size !== undefined && (
+                      {entry.size_bytes != null && (
                         <span className="ml-auto text-[10px] text-muted-foreground shrink-0">
-                          {entry.size > 1024 ? `${(entry.size / 1024).toFixed(1)}KB` : `${entry.size}B`}
+                          {entry.size_bytes > 1024 ? `${(entry.size_bytes / 1024).toFixed(1)}KB` : `${entry.size_bytes}B`}
                         </span>
                       )}
                     </button>
@@ -255,7 +254,7 @@ export function DesktopCommanderPanel() {
                   value={searchPattern}
                   onChange={(e) => setSearchPattern(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  placeholder="Pattern glob (ex: *.ts)"
+                  placeholder="Mot-clé (ex: App.tsx)"
                   className="h-7 text-xs flex-1"
                 />
                 <Button size="sm" onClick={handleSearch} disabled={dc.loading} className="h-7 px-2">
@@ -270,7 +269,7 @@ export function DesktopCommanderPanel() {
               {searchResults.map((r, i) => (
                 <button
                   key={i}
-                  onClick={() => { setDirPath(r); setTab('files'); handleReadFile(r); }}
+                  onClick={() => { setDirPath(r.split('\\').slice(0, -1).join('\\')); setTab('files'); handleReadFile(r); }}
                   className="flex items-center gap-2 w-full text-left px-1 py-0.5 hover:bg-muted/50 rounded"
                 >
                   <FileText className="w-3 h-3 text-blue-500 shrink-0" />
