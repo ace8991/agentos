@@ -1,14 +1,18 @@
 ﻿import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { X, Eye, EyeOff, Calendar, Mail, Database, Globe, User, Puzzle, Plug, Layers, Key, Shield, Camera, Monitor, Plus, Trash2, Check, ExternalLink, Settings, Bot, Sparkles, Wrench, BookText, Smartphone } from 'lucide-react';
 import { useStore } from '@/store/useStore';
+import { useAuthStore } from '@/store/authStore';
 import { MODEL_PROVIDERS, getReasoningEffortOptions, supportsReasoningEffort, type ReasoningEffort } from './ModelSelector';
 import ConnectorConfigModal from './chat/ConnectorConfigModal';
 import ConnectorLogo from './chat/ConnectorLogo';
+import SidebarToolStatus from './sidebar/SidebarToolStatus';
 import RemoteControlPanel from './settings/RemoteControlPanel';
 import DocumentationGuide from './settings/DocumentationGuide';
 import OpenClawHubPanel from './settings/OpenClawHubPanel';
 import { buildDefaultConnectors, loadConnectors, mergeConnectorState, saveConnectors, type ConnectorState } from '@/lib/connectors';
 import { API_BASE_URL, syncRuntimeConfig } from '@/lib/api';
+import { logout as logoutSession } from '@/lib/auth';
 import { toast } from '@/components/ui/sonner';
 import { loadSkills, saveSkills, type AppSkill } from '@/lib/user-config';
 const intervals = [
@@ -21,6 +25,7 @@ const intervals = [
 type Section = ReturnType<typeof useStore.getState>['settingsSection'];
 
 const sidebarSections: { label: string; key: Section; icon: typeof Key }[] = [
+  { label: 'Account', key: 'account', icon: User },
   { label: 'General', key: 'general', icon: Monitor },
   { label: 'Documentation', key: 'documentation', icon: BookText },
   { label: 'OpenClaw Hub', key: 'openclaw-hub', icon: Smartphone },
@@ -83,6 +88,12 @@ const SettingsModal = () => {
   const setCaptureInterval = useStore((s) => s.setCaptureInterval);
   const reasoningEffort = useStore((s) => s.reasoningEffort);
   const setReasoningEffort = useStore((s) => s.setReasoningEffort);
+  const authUser = useAuthStore((s) => s.user);
+  const guestMode = useAuthStore((s) => s.guestMode);
+  const setAuthUser = useAuthStore((s) => s.setUser);
+  const setAuthToken = useAuthStore((s) => s.setToken);
+  const setGuestMode = useAuthStore((s) => s.setGuestMode);
+  const navigate = useNavigate();
 
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
@@ -148,6 +159,7 @@ const SettingsModal = () => {
   const [webhookEvents, setWebhookEvents] = useState<string[]>([]);
 
   const [saved, setSaved] = useState(false);
+  const userInitial = authUser?.display_name?.trim().charAt(0).toUpperCase() || 'G';
 
   useEffect(() => {
     if (!open) return;
@@ -228,6 +240,15 @@ const SettingsModal = () => {
   }, [open, setReasoningEffort]);
 
   const backendOnline = useStore((s) => s.backendOnline);
+
+  const handleLogout = async () => {
+    await logoutSession();
+    setAuthUser(null);
+    setAuthToken(null);
+    setGuestMode(false);
+    setOpen(false);
+    navigate('/auth');
+  };
 
   const saveAll = async () => {
     // API keys
@@ -421,6 +442,66 @@ const SettingsModal = () => {
 
   const renderContent = () => {
     switch (section) {
+      case 'account':
+        return (
+          <div className="space-y-5">
+            <div>
+              <h3 className="text-base font-medium text-foreground">Account</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Manage the local session that is currently active in AgentOS.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-border bg-muted/25 p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-violet-500/18 text-sm font-semibold text-violet-300">
+                  {userInitial}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {authUser?.display_name || 'Guest'}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {authUser?.email || 'guest@local.agentos'}
+                  </p>
+                </div>
+                <span className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+                  guestMode
+                    ? 'border-amber-400/20 bg-amber-500/10 text-amber-200'
+                    : 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200'
+                }`}>
+                  {guestMode ? 'Guest session' : 'Authenticated'}
+                </span>
+              </div>
+
+              <div className="mt-4 grid gap-3 rounded-xl border border-white/6 bg-background/30 p-3 sm:grid-cols-2">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Display name</p>
+                  <p className="mt-1 text-sm text-foreground">{authUser?.display_name || 'Guest'}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Email</p>
+                  <p className="mt-1 break-all text-sm text-foreground">{authUser?.email || 'guest@local.agentos'}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border bg-card/40 p-4">
+              <p className="text-sm font-medium text-foreground">Session controls</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                Signing out clears the current local session on this browser and returns you to the authentication screen.
+              </p>
+              <button
+                onClick={() => void handleLogout()}
+                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-destructive/12 px-3 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/18 active:scale-[0.98]"
+              >
+                <Trash2 size={14} />
+                Log out
+              </button>
+            </div>
+          </div>
+        );
+
       case 'general':
         return (
           <div className="space-y-4">
@@ -532,6 +613,7 @@ const SettingsModal = () => {
           <div className="space-y-4">
             <h3 className="text-base font-medium text-foreground">Browser & System</h3>
             <p className="text-xs text-muted-foreground">Playwright â†’ web navigation Â· PyAutoGUI â†’ system control</p>
+            <SidebarToolStatus embedded />
             <div>
               <label className="text-xs text-muted-foreground font-mono">PLAYWRIGHT_HOST</label>
               <input
@@ -1105,4 +1187,3 @@ const Toggle = ({ label, checked, onChange }: { label: string; checked: boolean;
 );
 
 export default SettingsModal;
-

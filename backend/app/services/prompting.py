@@ -159,6 +159,12 @@ TOOL 6 — System (LOCAL ONLY — processes, apps, clipboard)
   {"type":"clipboard_set",  "text":"Hello world", "reason":"..."}
   {"type":"terminal_open",  "command":"python script.py", "reason":"..."}
 
+DESKTOP COMMANDER MCP COMPATIBILITY (LOCAL ONLY)
+- AgentOS exposes Desktop Commander-style local tools through file_*, dir_*, shell, and system_info actions.
+- Equivalent capabilities: dc_read_file -> file_read, dc_write_file -> file_write, dc_list_directory -> dir_list,
+  dc_execute_command -> shell, dc_search_files -> file_search, dc_get_system_info -> system_info.
+- Prefer these local tools when the user asks to inspect files on the PC, edit files, search directories, or run local commands.
+
 CONTROL
   {"type":"done", "reason":"task completed - summary"}
 

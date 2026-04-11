@@ -93,6 +93,7 @@ const persistHistoryRuns = (history: HistoryRun[]) => {
 };
 
 export type SettingsSection =
+  | 'account'
   | 'general'
   | 'documentation'
   | 'openclaw-hub'
@@ -238,6 +239,21 @@ const toolLabels: Record<string, string> = {
   file_search: 'Searching local files',
   file_read: 'Reading a file',
   file_write: 'Writing a file',
+  file_append: 'Updating a file',
+  file_delete: 'Deleting a file',
+  file_move: 'Moving a file',
+  file_copy: 'Copying a file',
+  file_exists: 'Checking a file',
+  dir_list: 'Listing a folder',
+  dir_create: 'Creating a folder',
+  dir_delete: 'Removing a folder',
+  app_open: 'Launching an app',
+  process_list: 'Reading running processes',
+  process_kill: 'Stopping a process',
+  system_info: 'Checking system information',
+  clipboard_get: 'Reading the clipboard',
+  clipboard_set: 'Updating the clipboard',
+  terminal_open: 'Opening a terminal',
   code_execute: 'Executing code',
 };
 
@@ -249,12 +265,13 @@ const buildAgentCompletionMessage = (
   browserUrl: string | null,
 ) => {
   const sections: string[] = [];
+  const outcome = action.trim() || reasoning.trim() || 'The workflow finished successfully.';
 
-  sections.push(`Task completed.\n\n${action || 'The workflow finished successfully.'}`);
+  sections.push(`**Outcome**\n${outcome}`);
 
   if (browserTitle || browserUrl) {
     sections.push(
-      `Last page:\n${browserTitle || 'Current page'}${browserUrl ? `\n${browserUrl}` : ''}`,
+      `**Last page checked**\n- ${browserTitle || 'Current page'}${browserUrl ? `\n- ${browserUrl}` : ''}`,
     );
   }
 
@@ -263,8 +280,10 @@ const buildAgentCompletionMessage = (
       .slice(0, 4)
       .map((item) => `- ${item.key}: ${item.value}`)
       .join('\n');
-    sections.push(`Captured context:\n${memoryPreview}`);
+    sections.push(`**Captured context**\n${memoryPreview}`);
   }
+
+  sections.push('**Status**\n- Workflow completed and the important findings are ready above.');
 
   return sections.join('\n\n');
 };

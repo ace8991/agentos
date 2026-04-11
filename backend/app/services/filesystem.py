@@ -220,11 +220,16 @@ def _candidate_roots(path: str | None) -> list[Path]:
     home = Path.home()
     roots = [
         project_root,
+        home,
         home / "Documents",
         home / "Desktop",
         home / "Downloads",
     ]
-    return [root for root in roots if root.exists()]
+    unique_roots: list[Path] = []
+    for root in roots:
+        if root.exists() and root not in unique_roots:
+            unique_roots.append(root)
+    return unique_roots
 
 
 def _iter_files(roots: Iterable[Path]) -> Iterable[Path]:

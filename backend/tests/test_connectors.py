@@ -82,6 +82,19 @@ class ConnectorValidationTests(unittest.TestCase):
         self.assertEqual(payload["status"], "error")
         self.assertFalse(payload["ready"])
 
+    def test_desktop_commander_is_ready_in_local_mode(self) -> None:
+        with patch.object(connectors_service, "IS_LOCAL", True):
+            response = self.client.post(
+                "/connectors/validate",
+                json={"connector_id": "desktop-commander", "values": {}},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["integration_mode"], "local")
+        self.assertEqual(payload["status"], "ready_local")
+        self.assertTrue(payload["ready"])
+
 
 if __name__ == "__main__":
     unittest.main()

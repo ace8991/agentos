@@ -9,7 +9,6 @@ import TakeoverBanner from './chat/TakeoverBanner';
 import ModelSelector, { isAgentModelSupported } from './ModelSelector';
 import ProviderConfigModal from './ProviderConfigModal';
 import ComposerInsertMenu from './chat/ComposerInsertMenu';
-import ConnectorQuickAccess from './chat/ConnectorQuickAccess';
 import ArtifactWorkspaceModal from './chat/ArtifactWorkspaceModal';
 import { chatDirect, createBuilderWorkspace } from '@/lib/api';
 import { collectArtifactsFromEntries, type WorkspaceView } from '@/lib/artifacts';
@@ -33,60 +32,6 @@ import { useSpeechInput } from '@/hooks/useSpeechInput';
 const ConnectorConfigModal = lazy(() => import('./chat/ConnectorConfigModal'));
 const ConnectorsDirectoryModal = lazy(() => import('./chat/ConnectorsDirectoryModal'));
 const ProjectsModal = lazy(() => import('./projects/ProjectsModal'));
-
-const AGENT_LOCAL_KEYWORDS = [
-  'mon pc',
-  'mon ordinateur',
-  'sur mon pc',
-  'sur mon ordinateur',
-  'dans mes fichiers',
-  'dans mes documents',
-  'mes fichiers',
-  'mes dossiers',
-  'mon dossier',
-  'passport',
-  'passeport',
-  'fichier',
-  'fichiers',
-  'document important',
-  'document',
-  'documents',
-  'desktop',
-  'downloads',
-  'telechargements',
-  'bureau',
-  'folder',
-  'dir',
-  'directory',
-  'local file',
-  'ouvre notepad',
-  'ouvre calc',
-  'ouvre powershell',
-  'lance powershell',
-  'lance cmd',
-  'terminal',
-  'powershell',
-  'cmd.exe',
-  'wsl',
-  'ubuntu',
-  'kali',
-];
-
-const AGENT_WEB_KEYWORDS = [
-  'amazon',
-  'site',
-  'website',
-  'browser',
-  'web',
-  'navigue',
-  'naviguer',
-  'ouvre le site',
-  'open the site',
-  'sur github',
-  'github.com',
-  'chercher sur',
-  'recherche sur',
-];
 
 const BUILDER_REQUEST_KEYWORDS = [
   'create website',
@@ -115,13 +60,6 @@ const BUILDER_REQUEST_KEYWORDS = [
   'application web',
 ];
 
-const shouldAutoRouteToAgent = (text: string) => {
-  const normalized = text.trim().toLowerCase();
-  if (!normalized) return false;
-
-  return [...AGENT_LOCAL_KEYWORDS, ...AGENT_WEB_KEYWORDS].some((keyword) => normalized.includes(keyword));
-};
-
 const shouldUseBuilderWorkspace = (text: string, preferences: ComposerPreferences) => {
   if (preferences.builderMode) return true;
   const normalized = text.trim().toLowerCase();
@@ -135,8 +73,7 @@ const shouldRouteToAgent = (
   backendOnline: boolean,
 ) => {
   if (!backendOnline) return false;
-  if (mode === 'agent') return text.trim().length > 0;
-  return shouldAutoRouteToAgent(text);
+  return mode === 'agent' && text.trim().length > 0;
 };
 
 const pickSmartAgentModel = (
@@ -338,11 +275,6 @@ const ChatPanel = () => {
       if (executionModel !== model) {
         setModel(executionModel);
         toast.message(`Switched to ${executionModel} for live tool execution.`);
-      }
-
-      if (mode !== 'agent') {
-        setMode('agent');
-        toast.message('Switched to Agent mode for a local tool or live browser task.');
       }
 
       setPendingTaskContext(attachmentContext);
@@ -1050,15 +982,6 @@ const ChatPanel = () => {
               <Send size={13} />
             </button>
           </div>
-        </div>
-        <div className="mt-2">
-          <ConnectorQuickAccess
-            connectors={connectors}
-            onSelect={setConfigConnectorId}
-            onOpenDirectory={() => setDirectoryOpen(true)}
-            onOpenSettings={() => openSettingsFor('connectors')}
-            compact
-          />
         </div>
       </div>
 

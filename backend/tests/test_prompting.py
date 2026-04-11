@@ -31,6 +31,8 @@ class PromptingTests(unittest.TestCase):
         self.assertIn("app_open", prompt)
         self.assertIn("browser_* tools", prompt)
         self.assertIn("dir_list before file_read", prompt)
+        self.assertIn("Desktop Commander-style local tools", prompt)
+        self.assertIn("dc_read_file -> file_read", prompt)
         self.assertIn("React + Vite + TypeScript + Tailwind CSS", prompt)
         self.assertIn("done", prompt)
 

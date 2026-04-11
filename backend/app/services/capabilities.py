@@ -21,6 +21,7 @@ def detect_capabilities() -> dict:
         "version": "1.1.0",
         "mode": MODE,
         "available_tools": {
+            "desktop_commander": IS_LOCAL,
             "tavily": has_runtime_value("TAVILY_API_KEY"),
             "playwright": playwright_available,
             "pyautogui": pyautogui_available,
@@ -37,6 +38,7 @@ def detect_capabilities() -> dict:
             "supports_browser": playwright_available,
             "supports_terminal": IS_LOCAL,
             "supports_desktop": pyautogui_available,
+            "supports_desktop_commander": IS_LOCAL,
             "supports_remote_commands": remote_config.enabled,
             "approval_required": remote_config.approval_required,
             "computer_use_provider": computer_use_runtime["provider"],
@@ -60,5 +62,6 @@ def detect_capabilities() -> dict:
             "computer_use_provider": computer_use_runtime["provider"],
             "computer_use_model": computer_use_runtime["model"],
             "computer_use_ready": computer_use_runtime["ready"],
+            "desktop_commander_ready": IS_LOCAL,
         },
     }

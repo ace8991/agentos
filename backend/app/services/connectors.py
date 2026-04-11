@@ -211,6 +211,28 @@ async def _validate_whatsapp(values: dict[str, str]) -> ConnectorValidateRespons
     return _response("whatsapp", "relay", "error", False, f"WhatsApp validation failed ({response.status_code}).")
 
 
+async def _validate_desktop_commander(values: dict[str, str]) -> ConnectorValidateResponse:
+    if not IS_LOCAL:
+        return _response(
+            "desktop-commander",
+            "local",
+            "error",
+            False,
+            "Desktop Commander is built into the local AgentOS backend and is unavailable in cloud mode.",
+        )
+
+    if values.get("DESKTOP_COMMANDER_SERVER_URL"):
+        return await _validate_local_connector("desktop-commander", values)
+
+    return _response(
+        "desktop-commander",
+        "local",
+        "ready_local",
+        True,
+        "Desktop Commander MCP is built into this local AgentOS install and is ready.",
+    )
+
+
 async def _validate_local_connector(connector_id: str, values: dict[str, str]) -> ConnectorValidateResponse:
     server_url = next((value for key, value in values.items() if key.endswith("_SERVER_URL") and value), "")
     if not server_url:
@@ -272,6 +294,7 @@ async def _validate_local_connector(connector_id: str, values: dict[str, str]) -
 
 
 VALIDATORS: dict[str, Validator] = {
+    "desktop-commander": _validate_desktop_commander,
     "github": _validate_github,
     "notion": _validate_notion,
     "slack": _validate_slack,

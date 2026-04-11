@@ -7,7 +7,7 @@ const tools = [
   { name: 'Computer Use', key: 'computer_use' },
 ];
 
-const SidebarToolStatus = () => {
+const SidebarToolStatus = ({ embedded = false }: { embedded?: boolean }) => {
   const backendOnline = useStore((s) => s.backendOnline);
   const backendHealth = useStore((s) => s.backendHealth);
 
@@ -20,8 +20,12 @@ const SidebarToolStatus = () => {
     | undefined;
   const runtimeMode = backendHealth?.mode === 'local' ? 'Local mode' : backendHealth?.mode === 'cloud' ? 'Cloud mode' : 'Offline';
 
+  const containerClassName = embedded
+    ? 'rounded-xl border border-border bg-muted/30 p-3'
+    : 'px-4 py-3 border-t border-border';
+
   return (
-    <div className="px-4 py-3 border-t border-border">
+    <div className={containerClassName}>
       <div className="flex items-center justify-between mb-2">
         <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block">
         Tool status

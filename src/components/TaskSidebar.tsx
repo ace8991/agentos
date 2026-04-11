@@ -8,7 +8,6 @@ import {
 import { useStore, type HistoryRun } from '@/store/useStore';
 import { useAuthStore } from '@/store/authStore';
 import HexLogo from './HexLogo';
-import SidebarToolStatus from './sidebar/SidebarToolStatus';
 import { getCurrentProject, loadProjects, PROJECTS_UPDATED_EVENT, type AppProject } from '@/lib/projects';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
@@ -328,9 +327,6 @@ const TaskSidebar = () => {
           </div>
         ))}
       </div>
-
-      {/* Tool status */}
-      <SidebarToolStatus />
 
       {/* Referral */}
       <div className="mx-3 mb-2">
