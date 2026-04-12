@@ -41,6 +41,20 @@ describe('desktop commander intents', () => {
     expect(result?.resultMarkdown).toContain('C:/Users/User/Desktop/zopbop');
   });
 
+  it('prioritizes folder creation even when the prompt also mentions fichier', async () => {
+    mocks.createDirectoryMock.mockResolvedValue({
+      success: true,
+      description: 'Created directory: C:/Users/User/Desktop/zopbop',
+      path: 'C:/Users/User/Desktop/zopbop',
+    });
+
+    const result = await executeDesktopCommanderIntent('cree un fichier folder nommer zopbop sur mon windows ecran');
+
+    expect(mocks.createDirectoryMock).toHaveBeenCalledWith('C:/Users/User/Desktop/zopbop');
+    expect(mocks.writeFileMock).not.toHaveBeenCalled();
+    expect(result?.actionType).toBe('dir_create');
+  });
+
   it('still creates a text file for a plain file request', async () => {
     mocks.writeFileMock.mockResolvedValue({
       success: true,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Bot,
@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import LiveBrowserView from '@/components/LiveBrowserView';
-import { getOpenClawOverlayPrefs } from '@/lib/openclaw';
+import { getMobileHubOverlayPrefs } from '@/lib/mobile-hub';
 
 type SurfaceTab = 'browser' | 'terminal';
 
@@ -25,7 +25,7 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 const excerpt = (value: string | undefined, max = 210) => {
   const normalized = (value || '').replace(/\s+/g, ' ').trim();
   if (!normalized) return '';
-  return normalized.length > max ? `${normalized.slice(0, max - 1)}…` : normalized;
+  return normalized.length > max ? `${normalized.slice(0, max - 1)}â€¦` : normalized;
 };
 
 const isLikelyBrowserTask = (task: string) =>
@@ -49,7 +49,7 @@ const LiveSessionCard = () => {
   const [activeTab, setActiveTab] = useState<SurfaceTab>('browser');
   const [collapsed, setCollapsed] = useState(false);
   const [fullPreviewOpen, setFullPreviewOpen] = useState(false);
-  const overlayPrefs = getOpenClawOverlayPrefs();
+  const overlayPrefs = getMobileHubOverlayPrefs();
 
   const isLive = status === 'running' || status === 'paused';
   const isSettled = status === 'done' || status === 'error';
@@ -416,3 +416,4 @@ const TabButton = ({
 );
 
 export default LiveSessionCard;
+

@@ -1,4 +1,4 @@
-import js from "@eslint/js";
+﻿import js from "@eslint/js";
 import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
@@ -10,12 +10,12 @@ export default tseslint.config(
       "dist",
       "coverage",
       "node_modules",
-      ".tmp_openclaw",
-      ".tmp_openclaw/**",
+      ".tmp_*",
+      ".tmp_*/**",
       ".tmp_claude_code",
       ".tmp_claude_code/**",
-      "openclaw-clean",
-      "openclaw-clean/**",
+      "*-clean",
+      "*-clean/**",
       "backend/generated_workspaces",
       "backend/generated_workspaces/**",
       "backend/.venv",
@@ -42,3 +42,4 @@ export default tseslint.config(
     },
   },
 );
+

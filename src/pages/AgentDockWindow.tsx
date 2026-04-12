@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { ArrowUpRight, Globe, Radio, TerminalSquare } from 'lucide-react';
 import { readAgentDockSnapshot, subscribeAgentDockSnapshot, type AgentDockSnapshot } from '@/lib/agent-dock-bridge';
-import { getOpenClawOverlayPrefs } from '@/lib/openclaw';
+import { getMobileHubOverlayPrefs } from '@/lib/mobile-hub';
 
 const formatTime = (seconds: number) => {
   const minutes = Math.floor(seconds / 60);
@@ -22,7 +22,7 @@ const extractHost = (url: string | null) => {
 
 const AgentDockWindow = () => {
   const [snapshot, setSnapshot] = useState<AgentDockSnapshot | null>(() => readAgentDockSnapshot());
-  const overlayPrefs = getOpenClawOverlayPrefs();
+  const overlayPrefs = getMobileHubOverlayPrefs();
 
   useEffect(() => {
     document.title = 'AgentOS Live';
@@ -111,3 +111,4 @@ const AgentDockWindow = () => {
 };
 
 export default AgentDockWindow;
+

@@ -1,8 +1,8 @@
-import { useMemo, useRef, useState } from 'react';
+﻿import { useMemo, useRef, useState } from 'react';
 import { ArrowUpRight, ChevronUp, Globe, MonitorSmartphone, Radio, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
-import { getOpenClawOverlayPrefs } from '@/lib/openclaw';
+import { getMobileHubOverlayPrefs } from '@/lib/mobile-hub';
 
 const formatTime = (seconds: number) => {
   const minutes = Math.floor(seconds / 60);
@@ -44,7 +44,7 @@ const AgentDockOverlay = () => {
     () => entries.find((entry) => entry.type !== 'info') ?? entries[0] ?? null,
     [entries],
   );
-  const overlayPrefs = getOpenClawOverlayPrefs();
+  const overlayPrefs = getMobileHubOverlayPrefs();
 
   const host = extractHost(browserUrl);
 
@@ -172,3 +172,4 @@ const AgentDockOverlay = () => {
 };
 
 export default AgentDockOverlay;
+

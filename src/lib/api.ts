@@ -1,4 +1,4 @@
-import {
+﻿import {
   MODEL_PROVIDERS,
   supportsReasoningEffort,
   type ModelProvider,
@@ -42,7 +42,7 @@ const BACKEND_RUNTIME_KEYS = [
 ] as string[];
 const BACKEND_RUNTIME_URL_KEYS = ['OLLAMA_BASE_URL', 'LMSTUDIO_BASE_URL'] as const;
 
-// ─── Provider API helpers ────────────────────────────────────────────
+// â”€â”€â”€ Provider API helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function getProviderConfig(modelId: string): { provider: ModelProvider; apiKey: string; baseUrl: string } | null {
   const provider = MODEL_PROVIDERS.find((p) => p.models.some((m) => m.id === modelId));
@@ -70,7 +70,7 @@ function getProviderEndpoint(provider: ModelProvider, baseUrl: string): string {
   }
 }
 
-// ─── Direct LLM Chat (no backend) ──────────────────────────────────
+// â”€â”€â”€ Direct LLM Chat (no backend) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function chatDirect(
   messages: { role: string; content: string }[],
@@ -119,7 +119,7 @@ export async function chatDirect(
       await chatStream(messages, modelId, webSearch, reasoningEffort, onToken, onDone, onError);
       return;
     } catch {
-      onError(`No API key configured for ${provider.name}. Go to Settings → API Keys to add your ${provider.keyName}, or configure the backend server keys.`);
+      onError(`No API key configured for ${provider.name}. Go to Settings â†’ API Keys to add your ${provider.keyName}, or configure the backend server keys.`);
       return;
     }
   }
@@ -381,7 +381,7 @@ async function parseSSEStream(
   onDone();
 }
 
-// ─── Backend local GGUF inference ──────────────────────────────────
+// â”€â”€â”€ Backend local GGUF inference â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function streamBackendLocal(
   messages: { role: string; content: string }[],
@@ -427,7 +427,7 @@ async function streamBackendLocal(
   onDone();
 }
 
-// ─── Agent backend API (original) ──────────────────────────────────
+// â”€â”€â”€ Agent backend API (original) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function startRun(params: {
   task: string;
@@ -749,7 +749,7 @@ export function getBuilderWorkspaceDownloadUrl(workspaceId: string, filePath: st
   return `${BASE}/workspace/builder/${workspaceId}/download/${encodeWorkspacePath(filePath)}`;
 }
 
-// ─── Types ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface AgentEvent {
   type: 'step' | 'done' | 'error' | 'info' | 'thinking' | 'ask' | 'result' | 'takeover';
@@ -811,7 +811,7 @@ export interface HealthResponse {
     computer_use_model?: string;
   };
   remote?: RemoteConfig;
-  openclaw?: {
+  mobile_hub?: {
     gateway_status?: string;
     connected_devices?: number;
     configured_channels?: number;
@@ -836,7 +836,7 @@ export interface RemoteConfig {
   inbound_path: string;
 }
 
-export type OpenClawChannelId =
+export type MobileHubChannelId =
   | 'telegram'
   | 'whatsapp'
   | 'webhook'
@@ -845,13 +845,13 @@ export type OpenClawChannelId =
   | 'email'
   | 'sms'
   | 'push';
-export type OpenClawDevicePlatform = 'android' | 'ios' | 'desktop' | 'web';
-export type OpenClawDeviceRole = 'operator' | 'node' | 'viewer';
-export type OpenClawDeviceStatus = 'online' | 'offline' | 'pairing';
-export type OpenClawGatewayStatus = 'ready' | 'discovering' | 'pairing' | 'offline';
+export type MobileHubDevicePlatform = 'android' | 'ios' | 'desktop' | 'web';
+export type MobileHubDeviceRole = 'operator' | 'node' | 'viewer';
+export type MobileHubDeviceStatus = 'online' | 'offline' | 'pairing';
+export type MobileHubGatewayStatus = 'ready' | 'discovering' | 'pairing' | 'offline';
 
-export interface OpenClawChannel {
-  id: OpenClawChannelId;
+export interface MobileHubChannel {
+  id: MobileHubChannelId;
   name: string;
   transport: string;
   enabled: boolean;
@@ -861,12 +861,12 @@ export interface OpenClawChannel {
   relay_path?: string | null;
 }
 
-export interface OpenClawDevice {
+export interface MobileHubDevice {
   id: string;
   name: string;
-  platform: OpenClawDevicePlatform;
-  role: OpenClawDeviceRole;
-  status: OpenClawDeviceStatus;
+  platform: MobileHubDevicePlatform;
+  role: MobileHubDeviceRole;
+  status: MobileHubDeviceStatus;
   last_seen?: string | null;
   battery_percent?: number | null;
   overlay_enabled: boolean;
@@ -874,9 +874,9 @@ export interface OpenClawDevice {
   pair_code?: string | null;
 }
 
-export interface OpenClawGatewayState {
+export interface MobileHubGatewayState {
   enabled: boolean;
-  status: OpenClawGatewayStatus;
+  status: MobileHubGatewayStatus;
   protocol_version: number;
   discovery_mode: string;
   host: string;
@@ -888,7 +888,7 @@ export interface OpenClawGatewayState {
   connected_devices: number;
 }
 
-export interface OpenClawOverlayState {
+export interface MobileHubOverlayState {
   floating_dock: boolean;
   mobile_hud: boolean;
   voice_overlay: boolean;
@@ -897,18 +897,18 @@ export interface OpenClawOverlayState {
   push_to_talk: string;
 }
 
-export interface OpenClawCliCommand {
+export interface MobileHubCliCommand {
   label: string;
   command: string;
   description: string;
 }
 
-export interface OpenClawState {
-  gateway: OpenClawGatewayState;
-  devices: OpenClawDevice[];
-  channels: OpenClawChannel[];
-  overlays: OpenClawOverlayState;
-  cli_commands: OpenClawCliCommand[];
+export interface MobileHubState {
+  gateway: MobileHubGatewayState;
+  devices: MobileHubDevice[];
+  channels: MobileHubChannel[];
+  overlays: MobileHubOverlayState;
+  cli_commands: MobileHubCliCommand[];
   summary: string;
 }
 
@@ -962,69 +962,69 @@ export async function getRemoteConfig(): Promise<RemoteConfig> {
   return r.json();
 }
 
-export async function getOpenClawState(): Promise<OpenClawState> {
-  const r = await fetch(`${BASE}/openclaw/state`);
-  if (!r.ok) throw new Error(`OpenClaw state failed: ${r.status}`);
+export async function getMobileHubState(): Promise<MobileHubState> {
+  const r = await fetch(`${BASE}/mobile-hub/state`);
+  if (!r.ok) throw new Error(`Mobile hub state failed: ${r.status}`);
   return r.json();
 }
 
-export async function pairOpenClawDevice(payload: {
+export async function pairMobileHubDevice(payload: {
   name: string;
-  platform: OpenClawDevicePlatform;
-  role: OpenClawDeviceRole;
-}): Promise<OpenClawState> {
-  const r = await fetch(`${BASE}/openclaw/pair`, {
+  platform: MobileHubDevicePlatform;
+  role: MobileHubDeviceRole;
+}): Promise<MobileHubState> {
+  const r = await fetch(`${BASE}/mobile-hub/pair`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!r.ok) throw new Error(`OpenClaw pairing failed: ${r.status}`);
+  if (!r.ok) throw new Error(`Mobile hub pairing failed: ${r.status}`);
   return r.json();
 }
 
-export async function updateOpenClawGateway(payload: Partial<OpenClawGatewayState>): Promise<OpenClawState> {
-  const r = await fetch(`${BASE}/openclaw/gateway`, {
+export async function updateMobileHubGateway(payload: Partial<MobileHubGatewayState>): Promise<MobileHubState> {
+  const r = await fetch(`${BASE}/mobile-hub/gateway`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!r.ok) throw new Error(`OpenClaw gateway update failed: ${r.status}`);
+  if (!r.ok) throw new Error(`Mobile hub gateway update failed: ${r.status}`);
   return r.json();
 }
 
-export async function updateOpenClawOverlay(payload: Partial<OpenClawOverlayState>): Promise<OpenClawState> {
-  const r = await fetch(`${BASE}/openclaw/overlays`, {
+export async function updateMobileHubOverlay(payload: Partial<MobileHubOverlayState>): Promise<MobileHubState> {
+  const r = await fetch(`${BASE}/mobile-hub/overlays`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!r.ok) throw new Error(`OpenClaw overlay update failed: ${r.status}`);
+  if (!r.ok) throw new Error(`Mobile hub overlay update failed: ${r.status}`);
   return r.json();
 }
 
-export async function updateOpenClawChannel(
-  channelId: OpenClawChannelId,
+export async function updateMobileHubChannel(
+  channelId: MobileHubChannelId,
   payload: { enabled?: boolean; secret?: string },
-): Promise<OpenClawState> {
-  const r = await fetch(`${BASE}/openclaw/channels/${channelId}`, {
+): Promise<MobileHubState> {
+  const r = await fetch(`${BASE}/mobile-hub/channels/${channelId}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!r.ok) throw new Error(`OpenClaw channel update failed: ${r.status}`);
+  if (!r.ok) throw new Error(`Mobile hub channel update failed: ${r.status}`);
   return r.json();
 }
 
-export async function updateOpenClawDevice(
+export async function updateMobileHubDevice(
   deviceId: string,
-  payload: Partial<Pick<OpenClawDevice, 'status' | 'overlay_enabled' | 'voice_wake_enabled' | 'battery_percent'>>,
-): Promise<OpenClawState> {
-  const r = await fetch(`${BASE}/openclaw/devices/${deviceId}`, {
+  payload: Partial<Pick<MobileHubDevice, 'status' | 'overlay_enabled' | 'voice_wake_enabled' | 'battery_percent'>>,
+): Promise<MobileHubState> {
+  const r = await fetch(`${BASE}/mobile-hub/devices/${deviceId}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!r.ok) throw new Error(`OpenClaw device update failed: ${r.status}`);
+  if (!r.ok) throw new Error(`Mobile hub device update failed: ${r.status}`);
   return r.json();
 }
 
@@ -1082,3 +1082,4 @@ export interface ModelInfo {
   cost_per_step: string;
   vision: boolean;
 }
+

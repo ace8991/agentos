@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import argparse
 import json
@@ -9,9 +9,9 @@ BACKEND_ROOT = Path(__file__).resolve().parent
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from app.services.openclaw_hub import (  # noqa: E402
+from app.services.mobile_hub import (  # noqa: E402
     create_pairing_session,
-    get_openclaw_state,
+    get_mobile_hub_state,
     update_channel,
     update_gateway,
     update_overlays,
@@ -19,13 +19,13 @@ from app.services.openclaw_hub import (  # noqa: E402
 
 
 def _print_state() -> None:
-    state = get_openclaw_state()
+    state = get_mobile_hub_state()
     print(state.summary)
     print(json.dumps(state.model_dump(), indent=2))
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="AgentOS OpenClaw-style gateway utility")
+    parser = argparse.ArgumentParser(description="AgentOS mobile hub utility")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("status", help="Print the current gateway state")
@@ -105,3 +105,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

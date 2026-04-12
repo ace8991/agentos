@@ -9,42 +9,42 @@ import {
   Waves,
 } from 'lucide-react';
 import {
-  getOpenClawState,
-  pairOpenClawDevice,
-  updateOpenClawChannel,
-  updateOpenClawDevice,
-  updateOpenClawGateway,
-  updateOpenClawOverlay,
-  type OpenClawChannel,
-  type OpenClawChannelId,
-  type OpenClawDevice,
-  type OpenClawDevicePlatform,
-  type OpenClawDeviceRole,
-  type OpenClawState,
+  getMobileHubState,
+  pairMobileHubDevice,
+  updateMobileHubChannel,
+  updateMobileHubDevice,
+  updateMobileHubGateway,
+  updateMobileHubOverlay,
+  type MobileHubChannel,
+  type MobileHubChannelId,
+  type MobileHubDevice,
+  type MobileHubDevicePlatform,
+  type MobileHubDeviceRole,
+  type MobileHubState,
 } from '@/lib/api';
-import { mirrorOpenClawOverlayState } from '@/lib/openclaw';
+import { mirrorMobileHubOverlayState } from '@/lib/mobile-hub';
 import { toast } from '@/components/ui/sonner';
 
-const platformOptions: OpenClawDevicePlatform[] = ['android', 'ios', 'desktop', 'web'];
-const roleOptions: OpenClawDeviceRole[] = ['operator', 'node', 'viewer'];
+const platformOptions: MobileHubDevicePlatform[] = ['android', 'ios', 'desktop', 'web'];
+const roleOptions: MobileHubDeviceRole[] = ['operator', 'node', 'viewer'];
 
-const OpenClawHubPanel = () => {
-  const [state, setState] = useState<OpenClawState | null>(null);
+const MobileHubPanel = () => {
+  const [state, setState] = useState<MobileHubState | null>(null);
   const [loading, setLoading] = useState(true);
   const [pairingName, setPairingName] = useState('Pixel 9');
-  const [pairingPlatform, setPairingPlatform] = useState<OpenClawDevicePlatform>('android');
-  const [pairingRole, setPairingRole] = useState<OpenClawDeviceRole>('operator');
+  const [pairingPlatform, setPairingPlatform] = useState<MobileHubDevicePlatform>('android');
+  const [pairingRole, setPairingRole] = useState<MobileHubDeviceRole>('operator');
   const [channelSecrets, setChannelSecrets] = useState<Record<string, string>>({});
 
   const refresh = async () => {
     setLoading(true);
     try {
-      const next = await getOpenClawState();
+      const next = await getMobileHubState();
       setState(next);
-      mirrorOpenClawOverlayState(next.overlays);
+      mirrorMobileHubOverlayState(next.overlays);
     } catch (error) {
       console.error(error);
-      toast.error('Unable to load OpenClaw hub state.');
+      toast.error('Unable to load mobile hub state.');
     } finally {
       setLoading(false);
     }
@@ -59,9 +59,9 @@ const OpenClawHubPanel = () => {
     [state],
   );
 
-  const applyState = (next: OpenClawState, successMessage?: string) => {
+  const applyState = (next: MobileHubState, successMessage?: string) => {
     setState(next);
-    mirrorOpenClawOverlayState(next.overlays);
+    mirrorMobileHubOverlayState(next.overlays);
     if (successMessage) {
       toast.success(successMessage);
     }
@@ -69,7 +69,7 @@ const OpenClawHubPanel = () => {
 
   const toggleGateway = async (enabled: boolean) => {
     try {
-      const next = await updateOpenClawGateway({ enabled });
+      const next = await updateMobileHubGateway({ enabled });
       applyState(next, enabled ? 'Gateway enabled' : 'Gateway paused');
     } catch (error) {
       console.error(error);
@@ -79,7 +79,7 @@ const OpenClawHubPanel = () => {
 
   const handlePairDevice = async () => {
     try {
-      const next = await pairOpenClawDevice({
+      const next = await pairMobileHubDevice({
         name: pairingName,
         platform: pairingPlatform,
         role: pairingRole,
@@ -91,9 +91,9 @@ const OpenClawHubPanel = () => {
     }
   };
 
-  const handleChannelSave = async (channelId: OpenClawChannelId, enabled: boolean) => {
+  const handleChannelSave = async (channelId: MobileHubChannelId, enabled: boolean) => {
     try {
-      const next = await updateOpenClawChannel(channelId, {
+      const next = await updateMobileHubChannel(channelId, {
         enabled,
         secret: channelSecrets[channelId] || '',
       });
@@ -104,9 +104,9 @@ const OpenClawHubPanel = () => {
     }
   };
 
-  const handleOverlayToggle = async (key: keyof OpenClawState['overlays'], value: boolean) => {
+  const handleOverlayToggle = async (key: keyof MobileHubState['overlays'], value: boolean) => {
     try {
-      const next = await updateOpenClawOverlay({ [key]: value });
+      const next = await updateMobileHubOverlay({ [key]: value });
       applyState(next, 'Overlay settings updated');
     } catch (error) {
       console.error(error);
@@ -116,7 +116,7 @@ const OpenClawHubPanel = () => {
 
   const handlePushToTalkSave = async (value: string) => {
     try {
-      const next = await updateOpenClawOverlay({ push_to_talk: value });
+      const next = await updateMobileHubOverlay({ push_to_talk: value });
       applyState(next, 'Push-to-talk shortcut updated');
     } catch (error) {
       console.error(error);
@@ -124,9 +124,9 @@ const OpenClawHubPanel = () => {
     }
   };
 
-  const updateDeviceStatus = async (device: OpenClawDevice, online: boolean) => {
+  const updateDeviceStatus = async (device: MobileHubDevice, online: boolean) => {
     try {
-      const next = await updateOpenClawDevice(device.id, {
+      const next = await updateMobileHubDevice(device.id, {
         status: online ? 'online' : 'offline',
         overlay_enabled: device.overlay_enabled,
         voice_wake_enabled: device.voice_wake_enabled,
@@ -149,26 +149,26 @@ const OpenClawHubPanel = () => {
   };
 
   if (loading && !state) {
-    return <p className="text-sm text-muted-foreground">Loading OpenClaw hub...</p>;
+    return <p className="text-sm text-muted-foreground">Loading mobile hub...</p>;
   }
 
   if (!state) {
-    return <p className="text-sm text-destructive">OpenClaw hub is unavailable right now.</p>;
+    return <p className="text-sm text-destructive">Mobile hub is unavailable right now.</p>;
   }
 
   return (
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-base font-medium text-foreground">OpenClaw Hub</h3>
+          <h3 className="text-base font-medium text-foreground">Mobile Hub</h3>
           <p className="text-xs text-muted-foreground">
-            Mobile channels, multi-device gateway, CLI onboarding, and voice/mobile overlays inspired by OpenClaw, adapted to AgentOS.
+            Mobile channels, device pairing, CLI onboarding, and desktop or mobile overlays built into AgentOS.
           </p>
         </div>
         <button
           onClick={() => void refresh()}
           className="rounded-md border border-border p-2 text-muted-foreground transition-colors hover:bg-surface-elevated hover:text-foreground"
-          title="Refresh OpenClaw hub"
+          title="Refresh mobile hub"
         >
           <RefreshCw size={14} />
         </button>
@@ -203,7 +203,7 @@ const OpenClawHubPanel = () => {
               {state.gateway.pairing_code || '—'}
             </p>
             <p className="mt-2 text-[11px] text-muted-foreground">
-              Use this code when onboarding a mobile operator, node, or viewer into your AgentOS gateway.
+              Use this code when onboarding a mobile operator, node, or viewer into AgentOS.
             </p>
           </div>
           <div className="rounded-lg border border-border bg-muted/40 p-3">
@@ -234,7 +234,7 @@ const OpenClawHubPanel = () => {
           />
           <select
             value={pairingPlatform}
-            onChange={(event) => setPairingPlatform(event.target.value as OpenClawDevicePlatform)}
+            onChange={(event) => setPairingPlatform(event.target.value as MobileHubDevicePlatform)}
             className="rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           >
             {platformOptions.map((platform) => (
@@ -245,7 +245,7 @@ const OpenClawHubPanel = () => {
           </select>
           <select
             value={pairingRole}
-            onChange={(event) => setPairingRole(event.target.value as OpenClawDeviceRole)}
+            onChange={(event) => setPairingRole(event.target.value as MobileHubDeviceRole)}
             className="rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           >
             {roleOptions.map((role) => (
@@ -293,7 +293,7 @@ const OpenClawHubPanel = () => {
       <div className="rounded-xl border border-border bg-card/60 p-4 space-y-3">
         <div>
           <p className="text-sm font-medium text-foreground">Messaging channels</p>
-          <p className="text-xs text-muted-foreground">Wire Telegram, WhatsApp, webhook, and escalation channels into the multi-device gateway.</p>
+            <p className="text-xs text-muted-foreground">Wire Telegram, WhatsApp, webhook, and escalation channels into the AgentOS gateway.</p>
         </div>
         <div className="space-y-3">
           {state.channels.map((channel) => (
@@ -336,7 +336,7 @@ const OpenClawHubPanel = () => {
         <div className="rounded-xl border border-border bg-card/60 p-4 space-y-3">
           <div>
             <p className="text-sm font-medium text-foreground">CLI onboarding</p>
-            <p className="text-xs text-muted-foreground">Copy the local CLI commands that mirror OpenClaw’s onboarding and gateway workflow.</p>
+            <p className="text-xs text-muted-foreground">Copy the local CLI commands that mirror the AgentOS onboarding and gateway workflow.</p>
           </div>
           {state.cli_commands.map((command) => (
             <div key={command.label} className="rounded-lg border border-border bg-muted/40 p-3">
@@ -395,7 +395,7 @@ const ChannelRow = ({
   onSecretChange,
   onSave,
 }: {
-  channel: OpenClawChannel;
+  channel: MobileHubChannel;
   secretValue: string;
   onSecretChange: (value: string) => void;
   onSave: (enabled: boolean) => void;
@@ -466,5 +466,6 @@ const Toggle = ({
   </button>
 );
 
-export default OpenClawHubPanel;
+export default MobileHubPanel;
+
 

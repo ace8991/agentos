@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from 'react';
+﻿import { Suspense, lazy, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, Search, Settings, BookOpen, Bot, FolderPlus,
@@ -148,13 +148,13 @@ const TaskSidebar = () => {
         </button>
         <button
           onClick={() => {
-            openSettingsFor('openclaw-hub');
+            openSettingsFor('mobile-hub');
             setMobileOpen(false);
           }}
           className="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.98]"
         >
           <Smartphone size={16} />
-          <span>Mobile hub</span>
+          <span>Mobile Hub</span>
         </button>
         <button
           onClick={() => { navigate('/code'); setMobileOpen(false); }}
@@ -312,7 +312,7 @@ const TaskSidebar = () => {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm leading-snug text-foreground">{run.task}</p>
                   <span className="mt-0.5 block text-xs text-muted-foreground">
-                    {new Date(run.date).toLocaleDateString()} · {run.steps} steps
+                    {new Date(run.date).toLocaleDateString()} Â· {run.steps} steps
                   </span>
                 </div>
               </div>
@@ -424,7 +424,7 @@ const TaskSidebar = () => {
         <button onClick={() => { setCollapsed(false); setLibraryOpen(true); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Library">
           <BookOpen size={16} />
         </button>
-        <button onClick={() => { setCollapsed(false); openSettingsFor('openclaw-hub'); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Mobile hub">
+        <button onClick={() => { setCollapsed(false); openSettingsFor('mobile-hub'); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Mobile Hub">
           <Smartphone size={16} />
         </button>
 
@@ -466,3 +466,4 @@ const TaskSidebar = () => {
 };
 
 export default TaskSidebar;
+

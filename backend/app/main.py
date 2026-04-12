@@ -1,9 +1,9 @@
-import asyncio
+﻿import asyncio
 import sys
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import agent, auth, browser, chat, connectors, desktop_commander, health, local_models, models, openclaw, remote, runtime, skills, workspace
+from app.routes import agent, auth, browser, chat, connectors, desktop_commander, health, local_models, mobile_hub, models, remote, runtime, skills, workspace
 
 
 def _configure_windows_event_loop_policy() -> None:
@@ -48,8 +48,9 @@ app.include_router(chat.router)
 app.include_router(connectors.router, prefix="/connectors")
 app.include_router(desktop_commander.router)
 app.include_router(skills.router)
-app.include_router(openclaw.router)
+app.include_router(mobile_hub.router)
 app.include_router(remote.router, prefix="/remote")
 app.include_router(runtime.router, prefix="/runtime")
 app.include_router(workspace.router)
 app.include_router(local_models.router)
+

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import os
 import threading
@@ -14,7 +14,7 @@ from app.models.schemas import (
     RemoteCommandStatus,
     RemoteConfigResponse,
 )
-from app.services.openclaw_hub import get_channel_secret
+from app.services.mobile_hub import get_channel_secret
 
 
 def _utc_now() -> str:
@@ -201,3 +201,4 @@ def complete_remote_command(command_id: str, actor: str, success: bool, note: st
         }
         record.updated_at = _utc_now()
         return record.to_model()
+

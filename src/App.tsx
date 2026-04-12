@@ -1,18 +1,18 @@
-import { Suspense, lazy, useEffect } from "react";
+﻿import { Suspense, lazy, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getGuestUser, getMe, getStoredUser, getToken, isGuestSession } from "@/lib/auth";
-import { getOpenClawState, syncRuntimeConfig } from "@/lib/api";
+import { getMobileHubState, syncRuntimeConfig } from "@/lib/api";
 import { syncImportedSkills } from "@/lib/user-config";
 import { useStore } from "@/store/useStore";
 import { useAuthStore } from "@/store/authStore";
 import RemoteCommandBridge from "@/components/RemoteCommandBridge";
 import AgentDockOverlay from "@/components/AgentDockOverlay";
 import { publishAgentDockSnapshot } from "@/lib/agent-dock-bridge";
-import { mirrorOpenClawOverlayState } from "@/lib/openclaw";
+import { mirrorMobileHubOverlayState } from "@/lib/mobile-hub";
 import Welcome from "./pages/Welcome.tsx";
 
 const AuthPage = lazy(() => import("./pages/AuthPage.tsx"));
@@ -34,8 +34,8 @@ const RuntimeSync = () => {
     const probe = async () => {
       try {
         await syncRuntimeConfig();
-        const openClaw = await getOpenClawState();
-        mirrorOpenClawOverlayState(openClaw.overlays);
+        const mobileHub = await getMobileHubState();
+        mirrorMobileHubOverlayState(mobileHub.overlays);
       } catch {
         // The backend may be offline; health probing below will surface the current state.
       }
@@ -219,3 +219,4 @@ const App = () => (
 );
 
 export default App;
+

@@ -1,15 +1,15 @@
-import type { OpenClawOverlayState } from '@/lib/api';
+﻿import type { MobileHubOverlayState } from '@/lib/api';
 
 const STORAGE_KEYS = {
-  floatingDock: 'OPENCLAW_FLOATING_DOCK',
-  mobileHud: 'OPENCLAW_MOBILE_HUD',
-  voiceOverlay: 'OPENCLAW_VOICE_OVERLAY',
-  voiceWake: 'OPENCLAW_VOICE_WAKE',
-  cameraHud: 'OPENCLAW_CAMERA_HUD',
-  pushToTalk: 'OPENCLAW_PUSH_TO_TALK',
+  floatingDock: 'AGENTOS_FLOATING_DOCK',
+  mobileHud: 'AGENTOS_MOBILE_HUD',
+  voiceOverlay: 'AGENTOS_VOICE_OVERLAY',
+  voiceWake: 'AGENTOS_VOICE_WAKE',
+  cameraHud: 'AGENTOS_CAMERA_HUD',
+  pushToTalk: 'AGENTOS_PUSH_TO_TALK',
 } as const;
 
-export const mirrorOpenClawOverlayState = (overlays: OpenClawOverlayState) => {
+export const mirrorMobileHubOverlayState = (overlays: MobileHubOverlayState) => {
   if (typeof window === 'undefined') {
     return;
   }
@@ -27,7 +27,7 @@ const readBoolean = (key: string, fallback: boolean) => {
   return raw === null ? fallback : raw === 'true';
 };
 
-export const getOpenClawOverlayPrefs = () => ({
+export const getMobileHubOverlayPrefs = () => ({
   floatingDock: readBoolean(STORAGE_KEYS.floatingDock, true),
   mobileHud: readBoolean(STORAGE_KEYS.mobileHud, true),
   voiceOverlay: readBoolean(STORAGE_KEYS.voiceOverlay, true),
@@ -35,3 +35,4 @@ export const getOpenClawOverlayPrefs = () => ({
   cameraHud: readBoolean(STORAGE_KEYS.cameraHud, false),
   pushToTalk: typeof window === 'undefined' ? 'Ctrl+Shift+Space' : localStorage.getItem(STORAGE_KEYS.pushToTalk) || 'Ctrl+Shift+Space',
 });
+

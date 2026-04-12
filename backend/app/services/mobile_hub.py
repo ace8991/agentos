@@ -10,15 +10,15 @@ from pathlib import Path
 from typing import Any
 
 from app.models.schemas import (
-    OpenClawChannel,
-    OpenClawCliCommand,
-    OpenClawDevice,
-    OpenClawGatewayState,
-    OpenClawOverlayState,
-    OpenClawState,
+    MobileHubChannel,
+    MobileHubCliCommand,
+    MobileHubDevice,
+    MobileHubGatewayState,
+    MobileHubOverlayState,
+    MobileHubState,
 )
 
-STATE_PATH = Path(__file__).resolve().parents[2] / "openclaw_state.json"
+STATE_PATH = Path(__file__).resolve().parents[2] / "mobile_hub_state.json"
 INBOUND_PATH = "/remote/commands/inbound"
 PAIRING_CODE_LENGTH = 6
 _LOCK = threading.Lock()
@@ -137,7 +137,7 @@ def _default_channels() -> list[dict[str, Any]]:
             "enabled": False,
             "configured": False,
             "secret": "",
-            "description": "Prepare mobile push notifications for paired OpenClaw devices.",
+            "description": "Prepare mobile push notifications for paired AgentOS devices.",
             "relay_path": None,
         },
     ]
@@ -258,45 +258,45 @@ def _normalize_state(state: dict[str, Any]) -> None:
     overlays.setdefault("push_to_talk", "Ctrl+Shift+Space")
 
 
-def _build_cli_commands(state: dict[str, Any]) -> list[OpenClawCliCommand]:
+def _build_cli_commands(state: dict[str, Any]) -> list[MobileHubCliCommand]:
     gateway = state["gateway"]
     pair_code = gateway.get("pairing_code") or _new_pairing_code()
     host = gateway.get("host", "127.0.0.1")
     port = gateway.get("port", 8000)
     return [
-        OpenClawCliCommand(
+        MobileHubCliCommand(
             label="Doctor",
-            command="python backend/openclaw_cli.py doctor",
+            command="python backend/mobile_hub_cli.py doctor",
             description="Check gateway health, overlays, and channel readiness.",
         ),
-        OpenClawCliCommand(
+        MobileHubCliCommand(
             label="Gateway status",
-            command="python backend/openclaw_cli.py status",
+            command="python backend/mobile_hub_cli.py status",
             description="Inspect the current multi-device gateway and paired devices.",
         ),
-        OpenClawCliCommand(
+        MobileHubCliCommand(
             label="Pair Android device",
-            command=f'python backend/openclaw_cli.py pair --name "Pixel 9" --platform android --role operator --host "{host}" --port {port} --pair-code {pair_code}',
+            command=f'python backend/mobile_hub_cli.py pair --name "Pixel 9" --platform android --role operator --host "{host}" --port {port} --pair-code {pair_code}',
             description="Generate a pairing session for an Android operator device.",
         ),
-        OpenClawCliCommand(
+        MobileHubCliCommand(
             label="Enable Telegram bridge",
-            command='python backend/openclaw_cli.py channel --id telegram --secret "replace-with-secret" --enable',
+            command='python backend/mobile_hub_cli.py channel --id telegram --secret "replace-with-secret" --enable',
             description="Configure the Telegram messaging bridge for remote commands.",
         ),
-        OpenClawCliCommand(
+        MobileHubCliCommand(
             label="Enable overlays",
-            command='python backend/openclaw_cli.py overlay --floating-dock on --mobile-hud on --voice-overlay on',
-            description="Turn on the OpenClaw-style floating desktop and mobile overlays.",
+            command='python backend/mobile_hub_cli.py overlay --floating-dock on --mobile-hud on --voice-overlay on',
+            description="Turn on the AgentOS floating desktop and mobile overlays.",
         ),
     ]
 
 
-def _to_model(state: dict[str, Any]) -> OpenClawState:
-    gateway = OpenClawGatewayState(**state["gateway"])
-    devices = [OpenClawDevice(**device) for device in state["devices"]]
+def _to_model(state: dict[str, Any]) -> MobileHubState:
+    gateway = MobileHubGatewayState(**state["gateway"])
+    devices = [MobileHubDevice(**device) for device in state["devices"]]
     channels = [
-        OpenClawChannel(
+        MobileHubChannel(
             id=channel["id"],
             name=channel["name"],
             transport=channel["transport"],
@@ -308,13 +308,13 @@ def _to_model(state: dict[str, Any]) -> OpenClawState:
         )
         for channel in state["channels"]
     ]
-    overlays = OpenClawOverlayState(**state["overlays"])
+    overlays = MobileHubOverlayState(**state["overlays"])
     summary = (
         f"Gateway {gateway.status} on {gateway.host}:{gateway.port} · "
         f"{gateway.connected_devices} device(s) · "
         f"{sum(1 for channel in channels if channel.configured)} channel(s) configured"
     )
-    return OpenClawState(
+    return MobileHubState(
         gateway=gateway,
         devices=devices,
         channels=channels,
@@ -324,7 +324,7 @@ def _to_model(state: dict[str, Any]) -> OpenClawState:
     )
 
 
-def get_openclaw_state() -> OpenClawState:
+def get_mobile_hub_state() -> MobileHubState:
     with _LOCK:
         state = _load_raw_state()
         return _to_model(state)
@@ -339,7 +339,7 @@ def get_channel_secret(channel_id: str) -> str:
     return ""
 
 
-def create_pairing_session(name: str, platform: str, role: str) -> OpenClawState:
+def create_pairing_session(name: str, platform: str, role: str) -> MobileHubState:
     with _LOCK:
         state = _load_raw_state()
         device_id = f"{platform}-{secrets.token_hex(4)}"
@@ -364,7 +364,7 @@ def create_pairing_session(name: str, platform: str, role: str) -> OpenClawState
         return _to_model(state)
 
 
-def update_gateway(values: dict[str, Any]) -> OpenClawState:
+def update_gateway(values: dict[str, Any]) -> MobileHubState:
     with _LOCK:
         state = _load_raw_state()
         gateway = state["gateway"]
@@ -380,7 +380,7 @@ def update_gateway(values: dict[str, Any]) -> OpenClawState:
         return _to_model(state)
 
 
-def update_overlays(values: dict[str, Any]) -> OpenClawState:
+def update_overlays(values: dict[str, Any]) -> MobileHubState:
     with _LOCK:
         state = _load_raw_state()
         overlays = state["overlays"]
@@ -395,7 +395,7 @@ def update_overlays(values: dict[str, Any]) -> OpenClawState:
         return _to_model(state)
 
 
-def update_channel(channel_id: str, enabled: bool | None = None, secret: str | None = None) -> OpenClawState:
+def update_channel(channel_id: str, enabled: bool | None = None, secret: str | None = None) -> MobileHubState:
     with _LOCK:
         state = _load_raw_state()
         for channel in state["channels"]:
@@ -412,7 +412,7 @@ def update_channel(channel_id: str, enabled: bool | None = None, secret: str | N
         return _to_model(state)
 
 
-def update_device(device_id: str, values: dict[str, Any]) -> OpenClawState:
+def update_device(device_id: str, values: dict[str, Any]) -> MobileHubState:
     with _LOCK:
         state = _load_raw_state()
         for device in state["devices"]:
@@ -426,5 +426,6 @@ def update_device(device_id: str, values: dict[str, Any]) -> OpenClawState:
         _normalize_state(state)
         _write_raw_state(state)
         return _to_model(state)
+
 
 

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+﻿from pydantic import BaseModel, Field
 from typing import Any, Literal, Optional
 from enum import Enum
 
@@ -287,15 +287,15 @@ class WorkspaceFileContentResponse(BaseModel):
     language: Optional[str] = None
 
 
-OpenClawChannelId = Literal["telegram", "whatsapp", "webhook", "slack", "discord", "email", "sms", "push"]
-OpenClawDevicePlatform = Literal["android", "ios", "desktop", "web"]
-OpenClawDeviceRole = Literal["operator", "node", "viewer"]
-OpenClawDeviceStatus = Literal["online", "offline", "pairing"]
-OpenClawGatewayStatus = Literal["ready", "discovering", "pairing", "offline"]
+MobileHubChannelId = Literal["telegram", "whatsapp", "webhook", "slack", "discord", "email", "sms", "push"]
+MobileHubDevicePlatform = Literal["android", "ios", "desktop", "web"]
+MobileHubDeviceRole = Literal["operator", "node", "viewer"]
+MobileHubDeviceStatus = Literal["online", "offline", "pairing"]
+MobileHubGatewayStatus = Literal["ready", "discovering", "pairing", "offline"]
 
 
-class OpenClawChannel(BaseModel):
-    id: OpenClawChannelId
+class MobileHubChannel(BaseModel):
+    id: MobileHubChannelId
     name: str
     transport: str
     enabled: bool = False
@@ -305,12 +305,12 @@ class OpenClawChannel(BaseModel):
     relay_path: Optional[str] = None
 
 
-class OpenClawDevice(BaseModel):
+class MobileHubDevice(BaseModel):
     id: str
     name: str
-    platform: OpenClawDevicePlatform
-    role: OpenClawDeviceRole
-    status: OpenClawDeviceStatus = "offline"
+    platform: MobileHubDevicePlatform
+    role: MobileHubDeviceRole
+    status: MobileHubDeviceStatus = "offline"
     last_seen: Optional[str] = None
     battery_percent: Optional[int] = None
     overlay_enabled: bool = True
@@ -318,9 +318,9 @@ class OpenClawDevice(BaseModel):
     pair_code: Optional[str] = None
 
 
-class OpenClawGatewayState(BaseModel):
+class MobileHubGatewayState(BaseModel):
     enabled: bool = True
-    status: OpenClawGatewayStatus = "ready"
+    status: MobileHubGatewayStatus = "ready"
     protocol_version: int = 3
     discovery_mode: str = "bonjour+manual"
     host: str = "127.0.0.1"
@@ -332,7 +332,7 @@ class OpenClawGatewayState(BaseModel):
     connected_devices: int = 0
 
 
-class OpenClawOverlayState(BaseModel):
+class MobileHubOverlayState(BaseModel):
     floating_dock: bool = True
     mobile_hud: bool = True
     voice_overlay: bool = True
@@ -341,28 +341,28 @@ class OpenClawOverlayState(BaseModel):
     push_to_talk: str = "Ctrl+Shift+Space"
 
 
-class OpenClawCliCommand(BaseModel):
+class MobileHubCliCommand(BaseModel):
     label: str
     command: str
     description: str
 
 
-class OpenClawState(BaseModel):
-    gateway: OpenClawGatewayState
-    devices: list[OpenClawDevice] = Field(default_factory=list)
-    channels: list[OpenClawChannel] = Field(default_factory=list)
-    overlays: OpenClawOverlayState
-    cli_commands: list[OpenClawCliCommand] = Field(default_factory=list)
+class MobileHubState(BaseModel):
+    gateway: MobileHubGatewayState
+    devices: list[MobileHubDevice] = Field(default_factory=list)
+    channels: list[MobileHubChannel] = Field(default_factory=list)
+    overlays: MobileHubOverlayState
+    cli_commands: list[MobileHubCliCommand] = Field(default_factory=list)
     summary: str = ""
 
 
-class OpenClawPairRequest(BaseModel):
+class MobileHubPairRequest(BaseModel):
     name: str
-    platform: OpenClawDevicePlatform
-    role: OpenClawDeviceRole = "operator"
+    platform: MobileHubDevicePlatform
+    role: MobileHubDeviceRole = "operator"
 
 
-class OpenClawGatewayUpdateRequest(BaseModel):
+class MobileHubGatewayUpdateRequest(BaseModel):
     enabled: Optional[bool] = None
     discovery_mode: Optional[str] = None
     tls_enabled: Optional[bool] = None
@@ -370,7 +370,7 @@ class OpenClawGatewayUpdateRequest(BaseModel):
     port: Optional[int] = None
 
 
-class OpenClawOverlayUpdateRequest(BaseModel):
+class MobileHubOverlayUpdateRequest(BaseModel):
     floating_dock: Optional[bool] = None
     mobile_hud: Optional[bool] = None
     voice_overlay: Optional[bool] = None
@@ -379,13 +379,14 @@ class OpenClawOverlayUpdateRequest(BaseModel):
     push_to_talk: Optional[str] = None
 
 
-class OpenClawChannelUpdateRequest(BaseModel):
+class MobileHubChannelUpdateRequest(BaseModel):
     enabled: Optional[bool] = None
     secret: Optional[str] = None
 
 
-class OpenClawDeviceUpdateRequest(BaseModel):
-    status: Optional[OpenClawDeviceStatus] = None
+class MobileHubDeviceUpdateRequest(BaseModel):
+    status: Optional[MobileHubDeviceStatus] = None
     overlay_enabled: Optional[bool] = None
     voice_wake_enabled: Optional[bool] = None
     battery_percent: Optional[int] = None
+

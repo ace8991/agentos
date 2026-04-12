@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+﻿import { create } from 'zustand';
 import {
   startRun,
   stopRun,
@@ -96,7 +96,7 @@ export type SettingsSection =
   | 'account'
   | 'general'
   | 'documentation'
-  | 'openclaw-hub'
+  | 'mobile-hub'
   | 'api-keys'
   | 'browser-system'
   | 'capture'
@@ -727,3 +727,4 @@ export const useStore = create<AppState>((set, get) => ({
       return { history: nextHistory };
     }),
 }));
+

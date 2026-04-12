@@ -43,6 +43,12 @@ const SIMPLE_FOLDER_RE = new RegExp(
 const normalizeWhitespace = (value: string) => value.replace(/\s+/g, ' ').trim();
 const normalizePath = (value: string) => value.replace(/\\/g, '/');
 const escapeMd = (value: string) => value.replace(/\|/g, '\\|');
+const normalizeIntentText = (value: string) =>
+  normalizeWhitespace(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'");
 
 const inferSpecialFolder = (text: string, home: string) => {
   const lowered = text.toLowerCase();
@@ -62,6 +68,9 @@ const extractQuotedValue = (text: string) => QUOTED_RE.exec(text)?.[1]?.trim() |
 
 const sanitizeNamedTarget = (value: string) =>
   value
+    .replace(/^(?:un|une|the|le|la|les)\s+/i, '')
+    .replace(/^(?:fichier|file|document|note)\s+/i, '')
+    .replace(/^(?:folder|dossier|directory|repertoire)\s+/i, '')
     .replace(
       /\s+(?:sur|dans|on|in|to|au|aux|inside|avec|with|contenu|content|qui contient|saying)\b.*$/i,
       '',
@@ -73,6 +82,15 @@ const inferWriteContent = (text: string) => {
   const match = text.match(/(?:avec|with|contenu|content|qui contient|saying)\s+(.+)$/i);
   if (!match) return '';
   return match[1].trim().replace(/^["“”']|["“”']$/g, '');
+};
+
+const extractExplicitNamedTarget = (text: string) => {
+  const match = text.match(
+    /\b(?:nommer|nommee|nommees|nomme|called|name|intitulee|intitule)\s+["â€œâ€']?([^\n"'â€œâ€]{2,120})/i,
+  );
+  if (!match?.[1]) return null;
+  const cleaned = sanitizeNamedTarget(match[1]);
+  return cleaned || null;
 };
 
 const extractFilePathCandidate = (text: string, home: string) => {
@@ -113,6 +131,11 @@ const extractDirectoryPathCandidate = (text: string, home: string) => {
   const explicitPath = WINDOWS_PATH_RE.exec(text)?.[0];
   if (explicitPath) {
     return normalizePath(explicitPath);
+  }
+
+  const explicitNamedTarget = extractExplicitNamedTarget(text);
+  if (explicitNamedTarget) {
+    return `${inferSpecialFolder(text, home)}/${normalizePath(explicitNamedTarget).replace(/^\.\//, '')}`;
   }
 
   const quoted = extractQuotedValue(text);
@@ -245,7 +268,7 @@ const createMissingPathResponse = (actionLabel: string) =>
 export async function executeDesktopCommanderIntent(
   text: string,
 ): Promise<DesktopCommanderIntentExecution | null> {
-  const trimmed = text.trim();
+  const trimmed = normalizeIntentText(text);
   if (!trimmed || !isDesktopCommanderCandidate(trimmed)) {
     return null;
   }
@@ -255,8 +278,16 @@ export async function executeDesktopCommanderIntent(
   const inferredFolder = inferSpecialFolder(trimmed, home);
   const inferredPath = extractFilePathCandidate(trimmed, home);
   const inferredDirectoryPath = extractDirectoryPathCandidate(trimmed, home);
+  const createDirectoryIntent =
+    isCreateDirectoryIntent(trimmed) ||
+    (/\b(creer|creez)\b/i.test(trimmed) && /\b(folder|dossier|directory|repertoire)\b/i.test(trimmed));
+  const writeIntent =
+    isWriteIntent(trimmed) ||
+    (/\b(creer|creez)\b/i.test(trimmed) &&
+      /\b(file|fichier|document|txt|md|json|csv|log|note)\b/i.test(trimmed) &&
+      !/\b(folder|dossier|directory|repertoire)\b/i.test(trimmed));
 
-  if (isCreateDirectoryIntent(trimmed)) {
+  if (createDirectoryIntent) {
     const directoryPath = inferredDirectoryPath || `${inferredFolder}/New Folder`;
     const result = (await createDirectory(directoryPath)) as { success: boolean; description?: string; path?: string };
     const finalPath = normalizePath(result.path || directoryPath);
@@ -282,7 +313,7 @@ export async function executeDesktopCommanderIntent(
     };
   }
 
-  if (isWriteIntent(trimmed)) {
+  if (writeIntent) {
     if (!inferredPath) {
       return {
         actionType: 'file_write',

@@ -15,25 +15,25 @@ if str(BACKEND_ROOT) not in sys.path:
 from app.main import app
 
 
-class OpenClawRoutesTests(unittest.TestCase):
+class MobileHubRoutesTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.state_path = Path(self.temp_dir.name) / "openclaw_state.json"
+        self.state_path = Path(self.temp_dir.name) / "mobile_hub_state.json"
         self.client = TestClient(app)
-        patcher = patch("app.services.openclaw_hub.STATE_PATH", self.state_path)
+        patcher = patch("app.services.mobile_hub.STATE_PATH", self.state_path)
         patcher.start()
         self.addCleanup(patcher.stop)
         self.addCleanup(self.temp_dir.cleanup)
 
-    def test_openclaw_state_and_pairing_flow(self) -> None:
-        response = self.client.get("/openclaw/state")
+    def test_mobile_hub_state_and_pairing_flow(self) -> None:
+        response = self.client.get("/mobile-hub/state")
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["gateway"]["protocol_version"], 3)
         self.assertGreaterEqual(len(payload["devices"]), 1)
 
         pair_response = self.client.post(
-            "/openclaw/pair",
+            "/mobile-hub/pair",
             json={"name": "Pixel 9", "platform": "android", "role": "operator"},
         )
         self.assertEqual(pair_response.status_code, 200)
@@ -42,7 +42,7 @@ class OpenClawRoutesTests(unittest.TestCase):
 
     def test_channel_and_overlay_updates(self) -> None:
         channel_response = self.client.post(
-            "/openclaw/channels/telegram",
+            "/mobile-hub/channels/telegram",
             json={"enabled": True, "secret": "secret-1234"},
         )
         self.assertEqual(channel_response.status_code, 200)
@@ -52,7 +52,7 @@ class OpenClawRoutesTests(unittest.TestCase):
         self.assertTrue(telegram["enabled"])
 
         overlay_response = self.client.post(
-            "/openclaw/overlays",
+            "/mobile-hub/overlays",
             json={"floating_dock": False, "mobile_hud": False, "voice_overlay": True, "voice_wake": True},
         )
         self.assertEqual(overlay_response.status_code, 200)

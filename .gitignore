@@ -1,4 +1,4 @@
-# Logs
+﻿# Logs
 logs
 *.log
 npm-debug.log*
@@ -16,12 +16,13 @@ backend/.env
 backend/.venv
 backend/venv
 backend/users.db
-backend/openclaw_state.json
+backend/mobile_hub_state.json
+backend/data/desktop_commander_config.json
 backend/__pycache__/
 backend/**/*.pyc
-.tmp_openclaw
+.tmp_*
 
-# Local env — use .env.example comme template
+# Local env â€” use .env.example comme template
 .env
 .env.local
 
@@ -35,3 +36,4 @@ backend/**/*.pyc
 *.njsproj
 *.sln
 *.sw?
+

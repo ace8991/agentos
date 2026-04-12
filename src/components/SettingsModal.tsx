@@ -9,7 +9,7 @@ import ConnectorLogo from './chat/ConnectorLogo';
 import SidebarToolStatus from './sidebar/SidebarToolStatus';
 import RemoteControlPanel from './settings/RemoteControlPanel';
 import DocumentationGuide from './settings/DocumentationGuide';
-import OpenClawHubPanel from './settings/OpenClawHubPanel';
+import MobileHubPanel from './settings/MobileHubPanel';
 import { DesktopCommanderSettings } from './settings/DesktopCommanderSettings';
 import { buildDefaultConnectors, loadConnectors, mergeConnectorState, saveConnectors, type ConnectorState } from '@/lib/connectors';
 import { API_BASE_URL, syncRuntimeConfig } from '@/lib/api';
@@ -29,7 +29,7 @@ const sidebarSections: { label: string; key: Section; icon: typeof Key }[] = [
   { label: 'Account', key: 'account', icon: User },
   { label: 'General', key: 'general', icon: Monitor },
   { label: 'Documentation', key: 'documentation', icon: BookText },
-  { label: 'OpenClaw Hub', key: 'openclaw-hub', icon: Smartphone },
+  { label: 'Mobile Hub', key: 'mobile-hub', icon: Smartphone },
   { label: 'API Keys', key: 'api-keys', icon: Key },
   { label: 'Browser & System', key: 'browser-system', icon: Globe },
   { label: 'Capture', key: 'capture', icon: Camera },
@@ -621,8 +621,8 @@ const SettingsModal = () => {
       case 'documentation':
         return <DocumentationGuide />;
 
-      case 'openclaw-hub':
-        return <OpenClawHubPanel />;
+      case 'mobile-hub':
+        return <MobileHubPanel />;
 
       case 'api-keys':
         return (
@@ -1371,3 +1371,4 @@ const Toggle = ({ label, checked, onChange }: { label: string; checked: boolean;
 );
 
 export default SettingsModal;
+

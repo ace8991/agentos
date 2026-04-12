@@ -39,7 +39,7 @@ class HealthRouteTests(unittest.TestCase):
         self.assertIn("available_tools", payload)
         self.assertIn("runtime", payload)
         self.assertIn("remote", payload)
-        self.assertIn("openclaw", payload)
+        self.assertIn("mobile_hub", payload)
         self.assertIn("desktop_commander", payload["available_tools"])
         self.assertIn("computer_use_provider", payload["runtime"])
         self.assertIn("computer_use_model", payload["runtime"])
@@ -47,7 +47,7 @@ class HealthRouteTests(unittest.TestCase):
         self.assertTrue(payload["remote"]["configured_channels"]["telegram"])
         self.assertTrue(payload["runtime"]["supports_remote_commands"])
         self.assertFalse(payload["runtime"]["approval_required"])
-        self.assertIn("gateway_status", payload["openclaw"])
+        self.assertIn("gateway_status", payload["mobile_hub"])
 
 
 if __name__ == "__main__":

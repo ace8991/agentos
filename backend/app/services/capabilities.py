@@ -1,11 +1,11 @@
-import importlib.util
+﻿import importlib.util
 import platform
 
 from app.config import IS_LOCAL, MODE
 from app.services.browser import get_browser_runtime_config
 from app.services.computer_use import resolve_computer_use_runtime
 from app.services.desktop_commander import get_config as get_desktop_commander_config
-from app.services.openclaw_hub import get_openclaw_state
+from app.services.mobile_hub import get_mobile_hub_state
 from app.services.remote_control import get_remote_config
 from app.services.runtime_config import has_runtime_value
 
@@ -16,7 +16,7 @@ def detect_capabilities() -> dict:
     computer_use_runtime = resolve_computer_use_runtime()
     computer_use_available = IS_LOCAL and pyautogui_available and bool(computer_use_runtime["ready"])
     remote_config = get_remote_config()
-    openclaw_state = get_openclaw_state()
+    mobile_hub_state = get_mobile_hub_state()
 
     return {
         "status": "ok",
@@ -49,12 +49,12 @@ def detect_capabilities() -> dict:
         },
         "browser": get_browser_runtime_config() if playwright_available else None,
         "remote": remote_config.model_dump(),
-        "openclaw": {
-            "gateway_status": openclaw_state.gateway.status,
-            "connected_devices": openclaw_state.gateway.connected_devices,
-            "configured_channels": sum(1 for channel in openclaw_state.channels if channel.configured),
-            "voice_overlay": openclaw_state.overlays.voice_overlay,
-            "mobile_hud": openclaw_state.overlays.mobile_hud,
+        "mobile_hub": {
+            "gateway_status": mobile_hub_state.gateway.status,
+            "connected_devices": mobile_hub_state.gateway.connected_devices,
+            "configured_channels": sum(1 for channel in mobile_hub_state.channels if channel.configured),
+            "voice_overlay": mobile_hub_state.overlays.voice_overlay,
+            "mobile_hud": mobile_hub_state.overlays.mobile_hud,
         },
         "system": {
             "os": platform.system(),
@@ -69,3 +69,4 @@ def detect_capabilities() -> dict:
             "desktop_commander_ready": IS_LOCAL,
         },
     }
+
