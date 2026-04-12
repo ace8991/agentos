@@ -318,7 +318,7 @@ export const useStore = create<AppState>((set, get) => ({
   currentStep: 0,
   maxSteps: 20,
   elapsedTime: 0,
-  model: 'claude-sonnet-4-6',
+  model: 'deepseek-chat',
   captureInterval: 1000,
   reasoningEffort: (typeof window !== 'undefined' && (localStorage.getItem('REASONING_EFFORT') as ReasoningEffort | null)) || 'medium',
   runId: null,
@@ -357,11 +357,11 @@ export const useStore = create<AppState>((set, get) => ({
 
   setMode: (mode) => set((state) => ({
     mode,
-    model: mode === 'agent' && !isAgentModelSupported(state.model) ? 'claude-sonnet-4-6' : state.model,
+    model: mode === 'agent' && !isAgentModelSupported(state.model) ? 'deepseek-chat' : state.model,
   })),
   setTask: (task) => set({ task }),
   setModel: (model) => set((state) => ({
-    model: state.mode === 'agent' && !isAgentModelSupported(model) ? 'claude-sonnet-4-6' : model,
+    model: state.mode === 'agent' && !isAgentModelSupported(model) ? 'deepseek-chat' : model,
   })),
   setMaxSteps: (n) => set({ maxSteps: Math.max(1, Math.min(100, n)) }),
   setCaptureInterval: (ms) => set({ captureInterval: ms }),
