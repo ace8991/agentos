@@ -19,7 +19,8 @@ def _infer_response_profile(text: str) -> str:
     if any(keyword in lowered for keyword in ("site", "browser", "web", "amazon", "github", "search", "recherche")):
         return (
             "For website and live-workflow requests, answer like an execution operator: "
-            "state the current status first, then what happened, then the next user action if the workflow is blocked."
+            "state the current status first, then what happened, then the next user action if the workflow is blocked. "
+            "Prefer a BrowserAI-style workflow: minimal page context, targeted actions, concise evidence, no huge DOM dumps."
         )
     if any(keyword in lowered for keyword in ("file", "fichier", "read", "lis", "document", "pdf", "folder")):
         return (
@@ -83,6 +84,7 @@ def build_chat_system_prompt(messages: list[ChatMessage], web_search: bool) -> s
                 "- Prioritize the provided live web context over stale memory.",
                 "- When you rely on search context, cite sources with markdown links.",
                 "- If the live search context is incomplete or unavailable, say so clearly instead of overstating certainty.",
+                "- For browser tasks, prefer concise page-state summaries over long raw HTML or DOM output.",
             ]
         )
 
@@ -155,6 +157,12 @@ TOOL 3 - Playwright + Brave / in-app browser (CLOUD + LOCAL - browser DOM)
   {"type":"browser_eval",     "script":"document.title", "reason":"..."}
   {"type":"browser_back",     "reason":"..."}
   {"type":"browser_close",    "reason":"..."}
+  BROWSER-FIRST STRATEGY:
+  - Work like a BrowserAI-style automation operator: keep each step focused, targeted, and observable.
+  - Prefer browser_snapshot and narrow browser_eval checks to inspect state instead of requesting broad page dumps.
+  - Use the live browser workspace as the source of truth. Avoid reopening a site if the correct page is already active.
+  - Keep token usage low by extracting only the information needed for the next action.
+  - When evidence capture is enabled, rely on screenshots/video as audit artifacts rather than narrating every micro-step.
 
 TOOL 4 - Claude Computer Use (LOCAL ONLY - complex UI)
   {"type":"computer_use", "subtask":"click the Export button", "cu_max_iterations":5, "reason":"..."}

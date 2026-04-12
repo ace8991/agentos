@@ -2,6 +2,7 @@ import importlib.util
 import platform
 
 from app.config import IS_LOCAL, MODE
+from app.services.browser import get_browser_runtime_config
 from app.services.computer_use import resolve_computer_use_runtime
 from app.services.desktop_commander import get_config as get_desktop_commander_config
 from app.services.openclaw_hub import get_openclaw_state
@@ -46,6 +47,7 @@ def detect_capabilities() -> dict:
             "computer_use_provider": computer_use_runtime["provider"],
             "computer_use_model": computer_use_runtime["model"],
         },
+        "browser": get_browser_runtime_config() if playwright_available else None,
         "remote": remote_config.model_dump(),
         "openclaw": {
             "gateway_status": openclaw_state.gateway.status,

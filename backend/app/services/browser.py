@@ -16,6 +16,8 @@ import logging
 import os
 import platform
 import re
+import time
+from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from functools import partial
@@ -27,6 +29,7 @@ from app.config import IS_CLOUD
 from app.services.runtime_config import get_runtime_value
 
 logger = logging.getLogger(__name__)
+_BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
 _URL_PATTERN = re.compile(r"https?://[^\s]+", re.IGNORECASE)
 _SEARCH_TRIGGER_PATTERN = re.compile(
@@ -204,8 +207,70 @@ def infer_browser_bootstrap(task: str) -> Optional[BrowserBootstrapPlan]:
 
 def _should_launch_headful() -> bool:
     configured = (get_runtime_value("PLAYWRIGHT_HEADFUL", "false") or "false").strip().lower()
-    external = (get_runtime_value("PLAYWRIGHT_EXTERNAL_BROWSER", "false") or "false").strip().lower()
-    return not IS_CLOUD and configured in {"1", "true", "yes", "on"} and external in {"1", "true", "yes", "on"}
+    return not IS_CLOUD and configured in {"1", "true", "yes", "on"}
+
+
+def _should_use_external_browser() -> bool:
+    configured = (get_runtime_value("PLAYWRIGHT_EXTERNAL_BROWSER", "false") or "false").strip().lower()
+    return not IS_CLOUD and configured in {"1", "true", "yes", "on"}
+
+
+def _browser_choice() -> str:
+    return (get_runtime_value("PLAYWRIGHT_BROWSER", "chrome") or "chrome").strip().lower()
+
+
+def _slow_mo() -> int:
+    raw = (get_runtime_value("PLAYWRIGHT_SLOWMO", "0") or "0").strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        return 0
+    return max(0, min(value, 5000))
+
+
+def _viewport() -> dict[str, int]:
+    width_raw = (get_runtime_value("PLAYWRIGHT_VIEWPORT_WIDTH", "1280") or "1280").strip()
+    height_raw = (get_runtime_value("PLAYWRIGHT_VIEWPORT_HEIGHT", "800") or "800").strip()
+    try:
+        width = int(width_raw)
+    except ValueError:
+        width = 1280
+    try:
+        height = int(height_raw)
+    except ValueError:
+        height = 800
+    return {
+        "width": max(900, min(width, 2200)),
+        "height": max(640, min(height, 1600)),
+    }
+
+
+def _bool_runtime(key: str, default: bool = False) -> bool:
+    raw = (get_runtime_value(key, "true" if default else "false") or "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
+def _browser_artifact_dir(kind: str) -> Path:
+    runtime_key = "BROWSER_VIDEO_DIR" if kind == "videos" else "BROWSER_SCREENSHOT_DIR"
+    configured = (get_runtime_value(runtime_key, "") or "").strip()
+    if configured:
+        base = Path(configured).expanduser()
+    else:
+        base = _BACKEND_ROOT / "browser_artifacts" / kind
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
+def _save_browser_screenshot(run_id: str, jpeg: bytes) -> str | None:
+    if not _bool_runtime("BROWSER_SAVE_SCREENSHOTS", default=False):
+        return None
+    target = _browser_artifact_dir("screenshots") / f"{run_id}-{int(time.time() * 1000)}.jpg"
+    try:
+        target.write_bytes(jpeg)
+        return str(target)
+    except Exception as exc:
+        logger.warning("Could not persist browser screenshot: %s", exc)
+        return None
 
 
 def _brave_path() -> Optional[str]:
@@ -256,6 +321,9 @@ def _sync_snapshot_page(
         "description": description,
     }
 
+    if extra:
+        payload.update(extra)
+
     if include_text_preview:
         text = page.evaluate(
             """() => {
@@ -267,9 +335,9 @@ def _sync_snapshot_page(
 
     jpeg = page.screenshot(type="jpeg", quality=72)
     payload["screenshot_b64"] = base64.b64encode(jpeg).decode()
-
-    if extra:
-        payload.update(extra)
+    screenshot_path = _save_browser_screenshot(str(payload.get("run_id", "browser")), jpeg)
+    if screenshot_path:
+        payload["screenshot_path"] = screenshot_path
 
     return payload
 
@@ -282,29 +350,48 @@ def _sync_get_session(run_id: str) -> BrowserSession:
 
     pw = sync_playwright().start()
     brave = _brave_path()
+    browser_choice = _browser_choice()
     headful = _should_launch_headful()
+    use_external = _should_use_external_browser()
+    viewport = _viewport()
+    record_video = _bool_runtime("BROWSER_RECORD_VIDEO", default=True)
     launch_kwargs = {
         "headless": not headful,
+        "slow_mo": _slow_mo(),
         "args": [
             "--no-sandbox",
             "--disable-blink-features=AutomationControlled",
         ],
     }
 
-    if headful and brave:
+    if use_external and browser_choice in {"chrome", "chromium", "brave", "edge"} and brave:
         browser = pw.chromium.launch(executable_path=brave, **launch_kwargs)
-        logger.info("Launched headful Brave at %s", brave)
+        logger.info("Launched external Brave at %s", brave)
     else:
-        browser = pw.chromium.launch(**launch_kwargs)
-        logger.info("Launched embedded Chromium browser (%s mode)", "headful" if headful else "headless")
+        if browser_choice == "firefox":
+            browser = pw.firefox.launch(**launch_kwargs)
+        elif browser_choice == "webkit":
+            browser = pw.webkit.launch(**launch_kwargs)
+        elif browser_choice == "edge":
+            browser = pw.chromium.launch(channel="msedge", **launch_kwargs)
+        elif browser_choice == "chromium":
+            browser = pw.chromium.launch(**launch_kwargs)
+        else:
+            browser = pw.chromium.launch(channel="chrome", **launch_kwargs)
+        logger.info(
+            "Launched embedded %s browser (%s mode)",
+            browser_choice,
+            "headful" if headful else "headless",
+        )
 
     context = browser.new_context(
-        viewport={"width": 1280, "height": 800},
+        viewport=viewport,
         user_agent=(
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "
             "Chrome/124.0.0.0 Safari/537.36 Brave/1.65"
         ),
+        record_video_dir=str(_browser_artifact_dir("videos")) if record_video else None,
     )
     page = context.new_page()
     session = BrowserSession(pw=pw, browser=browser, context=context, page=page)
@@ -329,7 +416,12 @@ def _sync_browser_live_state(run_id: str) -> dict | None:
         return None
     with session.lock:
         try:
-            return _sync_snapshot_page(session.page, "Live browser view", include_text_preview=False)
+            return _sync_snapshot_page(
+                session.page,
+                "Live browser view",
+                include_text_preview=False,
+                extra={"run_id": run_id},
+            )
         except Exception as exc:
             logger.warning("Live browser snapshot failed: %s", _describe_exception(exc))
             return None
@@ -345,7 +437,7 @@ def _sync_browser_open(run_id: str, url: str, timeout: int = 15000) -> dict:
             page = session.page
             page.goto(url, wait_until="commit", timeout=timeout)
             _sync_settle_page(page)
-            return _sync_snapshot_page(page, f"Opened {url}")
+            return _sync_snapshot_page(page, f"Opened {url}", extra={"run_id": run_id})
     except Exception as exc:
         description = _describe_exception(exc, f"Could not open {url}")
         if page is not None:
@@ -354,7 +446,7 @@ def _sync_browser_open(run_id: str, url: str, timeout: int = 15000) -> dict:
                 snapshot = _sync_snapshot_page(
                     page,
                     f"Opened {url} with a recoverable navigation issue",
-                    extra={"navigation_warning": description},
+                    extra={"navigation_warning": description, "run_id": run_id},
                 )
                 snapshot["description"] = f"Opened {url} with a recoverable navigation issue: {description}"
                 return snapshot
@@ -373,12 +465,12 @@ def _sync_browser_click(run_id: str, selector: str, timeout: int = 8000) -> dict
             try:
                 page.click(selector, timeout=timeout)
                 _sync_settle_page(page)
-                return _sync_snapshot_page(page, f"Clicked '{selector}'")
+                return _sync_snapshot_page(page, f"Clicked '{selector}'", extra={"run_id": run_id})
             except Exception as primary_exc:
                 try:
                     page.get_by_text(selector).first.click(timeout=timeout)
                     _sync_settle_page(page)
-                    return _sync_snapshot_page(page, f"Clicked text '{selector}'")
+                    return _sync_snapshot_page(page, f"Clicked text '{selector}'", extra={"run_id": run_id})
                 except Exception:
                     return {"success": False, "description": _describe_exception(primary_exc)}
     except Exception as exc:
@@ -392,7 +484,7 @@ def _sync_browser_type(run_id: str, selector: str, text: str, timeout: int = 800
             page = session.page
             page.fill(selector, text, timeout=timeout)
             _sync_settle_page(page)
-            return _sync_snapshot_page(page, f"Typed in '{selector}': {text[:60]}")
+            return _sync_snapshot_page(page, f"Typed in '{selector}': {text[:60]}", extra={"run_id": run_id})
     except Exception as exc:
         return {"success": False, "description": _describe_exception(exc)}
 
@@ -404,7 +496,7 @@ def _sync_browser_select(run_id: str, selector: str, value: str, timeout: int = 
             page = session.page
             page.select_option(selector, value=value, timeout=timeout)
             _sync_settle_page(page)
-            return _sync_snapshot_page(page, f"Selected '{value}' in '{selector}'")
+            return _sync_snapshot_page(page, f"Selected '{value}' in '{selector}'", extra={"run_id": run_id})
     except Exception as exc:
         return {"success": False, "description": _describe_exception(exc)}
 
@@ -417,7 +509,7 @@ def _sync_browser_scroll(run_id: str, amount: int = 3) -> dict:
             px = amount * 300
             page.evaluate(f"window.scrollBy(0, {px})")
             _sync_settle_page(page)
-            return _sync_snapshot_page(page, f"Scrolled {px}px")
+            return _sync_snapshot_page(page, f"Scrolled {px}px", extra={"run_id": run_id})
     except Exception as exc:
         return {"success": False, "description": _describe_exception(exc)}
 
@@ -429,7 +521,7 @@ def _sync_browser_wait(run_id: str, selector: str, timeout: int = 10000) -> dict
             page = session.page
             page.wait_for_selector(selector, timeout=timeout)
             _sync_settle_page(page)
-            return _sync_snapshot_page(page, f"Element visible: '{selector}'")
+            return _sync_snapshot_page(page, f"Element visible: '{selector}'", extra={"run_id": run_id})
     except Exception as exc:
         return {"success": False, "description": _describe_exception(exc)}
 
@@ -443,6 +535,7 @@ def _sync_browser_snapshot(run_id: str) -> dict:
                 page,
                 f"Snapshot of '{page.title()}' at {page.url}",
                 include_text_preview=True,
+                extra={"run_id": run_id},
             )
     except Exception as exc:
         return {"success": False, "description": _describe_exception(exc)}
@@ -457,7 +550,7 @@ def _sync_browser_eval(run_id: str, script: str) -> dict:
             return _sync_snapshot_page(
                 page,
                 f"JS result: {str(result)[:200]}",
-                extra={"result": str(result)[:1000]},
+                extra={"result": str(result)[:1000], "run_id": run_id},
             )
     except Exception as exc:
         return {"success": False, "description": _describe_exception(exc)}
@@ -470,7 +563,7 @@ def _sync_browser_back(run_id: str) -> dict:
             page = session.page
             page.go_back()
             _sync_settle_page(page)
-            return _sync_snapshot_page(page, "Navigated back")
+            return _sync_snapshot_page(page, "Navigated back", extra={"run_id": run_id})
     except Exception as exc:
         return {"success": False, "description": _describe_exception(exc)}
 
@@ -478,6 +571,23 @@ def _sync_browser_back(run_id: str) -> dict:
 async def _run_browser_call(fn, *args):
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(_BROWSER_EXECUTOR, partial(fn, *args))
+
+
+def get_browser_runtime_config() -> dict:
+    return {
+        "browser": _browser_choice(),
+        "headful": _should_launch_headful(),
+        "external_browser": _should_use_external_browser(),
+        "viewport": _viewport(),
+        "slow_mo": _slow_mo(),
+        "record_video": _bool_runtime("BROWSER_RECORD_VIDEO", default=True),
+        "save_screenshots": _bool_runtime("BROWSER_SAVE_SCREENSHOTS", default=False),
+        "efficiency_mode": _bool_runtime("BROWSER_EFFICIENCY_MODE", default=True),
+        "use_element_cache": _bool_runtime("BROWSER_USE_ELEMENT_CACHE", default=True),
+        "targeted_screenshots": _bool_runtime("BROWSER_TARGETED_SCREENSHOTS", default=True),
+        "screenshot_dir": str(_browser_artifact_dir("screenshots")),
+        "video_dir": str(_browser_artifact_dir("videos")),
+    }
 
 
 def session_exists(run_id: str) -> bool:

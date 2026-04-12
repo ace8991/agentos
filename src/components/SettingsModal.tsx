@@ -109,6 +109,19 @@ const SettingsModal = () => {
   const [savePath, setSavePath] = useState('./screenshots');
   const [maxErrors, setMaxErrors] = useState(3);
   const [playwrightHost, setPlaywrightHost] = useState('http://localhost:9222');
+  const [playwrightBrowser, setPlaywrightBrowser] = useState('chrome');
+  const [playwrightHeadful, setPlaywrightHeadful] = useState(false);
+  const [playwrightExternalBrowser, setPlaywrightExternalBrowser] = useState(false);
+  const [playwrightViewportWidth, setPlaywrightViewportWidth] = useState(1280);
+  const [playwrightViewportHeight, setPlaywrightViewportHeight] = useState(800);
+  const [playwrightSlowMo, setPlaywrightSlowMo] = useState(0);
+  const [browserRecordVideo, setBrowserRecordVideo] = useState(true);
+  const [browserSaveScreenshots, setBrowserSaveScreenshots] = useState(false);
+  const [browserScreenshotDir, setBrowserScreenshotDir] = useState('./backend/browser_artifacts/screenshots');
+  const [browserVideoDir, setBrowserVideoDir] = useState('./backend/browser_artifacts/videos');
+  const [browserEfficiencyMode, setBrowserEfficiencyMode] = useState(true);
+  const [browserUseElementCache, setBrowserUseElementCache] = useState(true);
+  const [browserTargetedScreenshots, setBrowserTargetedScreenshots] = useState(true);
   const [pyautoguiEnabled, setPyautoguiEnabled] = useState(true);
   const [confirmClick, setConfirmClick] = useState(false);
   const [computerUseProvider, setComputerUseProvider] = useState<'auto' | 'anthropic' | 'disabled'>('auto');
@@ -182,6 +195,19 @@ const SettingsModal = () => {
     setTavilyKey(localStorage.getItem('TAVILY_API_KEY') || '');
     setBraveKey(localStorage.getItem('BRAVE_API_KEY') || '');
     setPlaywrightHost(localStorage.getItem('PLAYWRIGHT_HOST') || 'http://localhost:9222');
+    setPlaywrightBrowser(localStorage.getItem('PLAYWRIGHT_BROWSER') || 'chrome');
+    setPlaywrightHeadful(localStorage.getItem('PLAYWRIGHT_HEADFUL') === 'true');
+    setPlaywrightExternalBrowser(localStorage.getItem('PLAYWRIGHT_EXTERNAL_BROWSER') === 'true');
+    setPlaywrightViewportWidth(Number(localStorage.getItem('PLAYWRIGHT_VIEWPORT_WIDTH')) || 1280);
+    setPlaywrightViewportHeight(Number(localStorage.getItem('PLAYWRIGHT_VIEWPORT_HEIGHT')) || 800);
+    setPlaywrightSlowMo(Number(localStorage.getItem('PLAYWRIGHT_SLOWMO')) || 0);
+    setBrowserRecordVideo(localStorage.getItem('BROWSER_RECORD_VIDEO') !== 'false');
+    setBrowserSaveScreenshots(localStorage.getItem('BROWSER_SAVE_SCREENSHOTS') === 'true');
+    setBrowserScreenshotDir(localStorage.getItem('BROWSER_SCREENSHOT_DIR') || './backend/browser_artifacts/screenshots');
+    setBrowserVideoDir(localStorage.getItem('BROWSER_VIDEO_DIR') || './backend/browser_artifacts/videos');
+    setBrowserEfficiencyMode(localStorage.getItem('BROWSER_EFFICIENCY_MODE') !== 'false');
+    setBrowserUseElementCache(localStorage.getItem('BROWSER_USE_ELEMENT_CACHE') !== 'false');
+    setBrowserTargetedScreenshots(localStorage.getItem('BROWSER_TARGETED_SCREENSHOTS') !== 'false');
     setReasoningEffort((localStorage.getItem('REASONING_EFFORT') as ReasoningEffort | null) || 'medium');
     setPyautoguiEnabled(localStorage.getItem('PYAUTOGUI_ENABLED') !== 'false');
     setAnnotateActions(localStorage.getItem('ANNOTATE_ACTIONS') !== 'false');
@@ -265,6 +291,19 @@ const SettingsModal = () => {
     localStorage.setItem('TAVILY_API_KEY', tavilyKey);
     localStorage.setItem('BRAVE_API_KEY', braveKey);
     localStorage.setItem('PLAYWRIGHT_HOST', playwrightHost);
+    localStorage.setItem('PLAYWRIGHT_BROWSER', playwrightBrowser);
+    localStorage.setItem('PLAYWRIGHT_HEADFUL', String(playwrightHeadful));
+    localStorage.setItem('PLAYWRIGHT_EXTERNAL_BROWSER', String(playwrightExternalBrowser));
+    localStorage.setItem('PLAYWRIGHT_VIEWPORT_WIDTH', String(playwrightViewportWidth));
+    localStorage.setItem('PLAYWRIGHT_VIEWPORT_HEIGHT', String(playwrightViewportHeight));
+    localStorage.setItem('PLAYWRIGHT_SLOWMO', String(playwrightSlowMo));
+    localStorage.setItem('BROWSER_RECORD_VIDEO', String(browserRecordVideo));
+    localStorage.setItem('BROWSER_SAVE_SCREENSHOTS', String(browserSaveScreenshots));
+    localStorage.setItem('BROWSER_SCREENSHOT_DIR', browserScreenshotDir);
+    localStorage.setItem('BROWSER_VIDEO_DIR', browserVideoDir);
+    localStorage.setItem('BROWSER_EFFICIENCY_MODE', String(browserEfficiencyMode));
+    localStorage.setItem('BROWSER_USE_ELEMENT_CACHE', String(browserUseElementCache));
+    localStorage.setItem('BROWSER_TARGETED_SCREENSHOTS', String(browserTargetedScreenshots));
     localStorage.setItem('REASONING_EFFORT', reasoningEffort);
     localStorage.setItem('PYAUTOGUI_ENABLED', String(pyautoguiEnabled));
     localStorage.setItem('ANNOTATE_ACTIONS', String(annotateActions));
@@ -324,6 +363,19 @@ const SettingsModal = () => {
         savePath,
         maxErrors,
         playwrightHost,
+        playwrightBrowser,
+        playwrightHeadful,
+        playwrightExternalBrowser,
+        playwrightViewportWidth,
+        playwrightViewportHeight,
+        playwrightSlowMo,
+        browserRecordVideo,
+        browserSaveScreenshots,
+        browserScreenshotDir,
+        browserVideoDir,
+        browserEfficiencyMode,
+        browserUseElementCache,
+        browserTargetedScreenshots,
         reasoningEffort,
         pyautoguiEnabled,
         confirmClick,
@@ -620,8 +672,104 @@ const SettingsModal = () => {
         return (
           <div className="space-y-4">
             <h3 className="text-base font-medium text-foreground">Browser & System</h3>
-            <p className="text-xs text-muted-foreground">Playwright â†’ web navigation Â· PyAutoGUI â†’ system control</p>
+            <p className="text-xs text-muted-foreground">
+              Playwright powers the in-app browser agent. These settings now follow a BrowserAI-style profile: browser choice,
+              viewport, recordings, screenshots, and efficient page inspection.
+            </p>
             <SidebarToolStatus embedded />
+            <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">Browser automation profile</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Tune the live browser workspace the same way you would configure a dedicated browser MCP agent.
+                </p>
+              </div>
+              <ConfigRow label="Browser engine">
+                <select
+                  value={playwrightBrowser}
+                  onChange={(e) => setPlaywrightBrowser(e.target.value)}
+                  className="bg-muted border border-border rounded-md px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring w-full"
+                >
+                  <option value="chrome">Chrome</option>
+                  <option value="chromium">Chromium</option>
+                  <option value="edge">Edge</option>
+                  <option value="firefox">Firefox</option>
+                  <option value="webkit">WebKit</option>
+                </select>
+              </ConfigRow>
+              <Toggle label="Run browser headful (visible)" checked={playwrightHeadful} onChange={setPlaywrightHeadful} />
+              <Toggle label="Use external browser window when available" checked={playwrightExternalBrowser} onChange={setPlaywrightExternalBrowser} />
+              <ConfigRow label="Viewport width">
+                <input
+                  type="number"
+                  min={900}
+                  max={2200}
+                  value={playwrightViewportWidth}
+                  onChange={(e) => setPlaywrightViewportWidth(Number(e.target.value))}
+                  className="w-24 bg-muted border border-border rounded-md px-2.5 py-1.5 text-sm text-foreground text-center focus:outline-none focus:ring-1 focus:ring-ring tabular-nums"
+                />
+              </ConfigRow>
+              <ConfigRow label="Viewport height">
+                <input
+                  type="number"
+                  min={640}
+                  max={1600}
+                  value={playwrightViewportHeight}
+                  onChange={(e) => setPlaywrightViewportHeight(Number(e.target.value))}
+                  className="w-24 bg-muted border border-border rounded-md px-2.5 py-1.5 text-sm text-foreground text-center focus:outline-none focus:ring-1 focus:ring-ring tabular-nums"
+                />
+              </ConfigRow>
+              <ConfigRow label="Slow motion (ms)">
+                <input
+                  type="number"
+                  min={0}
+                  max={5000}
+                  step={50}
+                  value={playwrightSlowMo}
+                  onChange={(e) => setPlaywrightSlowMo(Number(e.target.value))}
+                  className="w-24 bg-muted border border-border rounded-md px-2.5 py-1.5 text-sm text-foreground text-center focus:outline-none focus:ring-1 focus:ring-ring tabular-nums"
+                />
+              </ConfigRow>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">Evidence capture</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Save audit artifacts for browser runs so you can review screenshots and videos later.
+                </p>
+              </div>
+              <Toggle label="Record browser videos" checked={browserRecordVideo} onChange={setBrowserRecordVideo} />
+              <Toggle label="Save browser screenshots" checked={browserSaveScreenshots} onChange={setBrowserSaveScreenshots} />
+              {browserSaveScreenshots && (
+                <div>
+                  <label className="text-xs text-muted-foreground font-mono">BROWSER_SCREENSHOT_DIR</label>
+                  <input
+                    value={browserScreenshotDir}
+                    onChange={(e) => setBrowserScreenshotDir(e.target.value)}
+                    className="w-full bg-muted border border-border rounded-md px-3 py-1.5 text-sm text-foreground mt-1 focus:outline-none focus:ring-1 focus:ring-ring font-mono"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="text-xs text-muted-foreground font-mono">BROWSER_VIDEO_DIR</label>
+                <input
+                  value={browserVideoDir}
+                  onChange={(e) => setBrowserVideoDir(e.target.value)}
+                  className="w-full bg-muted border border-border rounded-md px-3 py-1.5 text-sm text-foreground mt-1 focus:outline-none focus:ring-1 focus:ring-ring font-mono"
+                />
+              </div>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">Efficiency profile</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Bias the browser agent toward minimal DOM access, reusable selectors, and focused screenshots.
+                </p>
+              </div>
+              <Toggle label="Browser efficiency mode" checked={browserEfficiencyMode} onChange={setBrowserEfficiencyMode} />
+              <Toggle label="Reuse element cache" checked={browserUseElementCache} onChange={setBrowserUseElementCache} />
+              <Toggle label="Prefer targeted screenshots" checked={browserTargetedScreenshots} onChange={setBrowserTargetedScreenshots} />
+            </div>
             <div>
               <label className="text-xs text-muted-foreground font-mono">PLAYWRIGHT_HOST</label>
               <input

@@ -9,6 +9,9 @@ export interface DCConfig {
   max_write_lines: number;
   home: string;
   version: string;
+  default_shell?: string;
+  path_separator?: string;
+  platform?: string;
   enabled?: boolean;
   ready?: boolean;
   description?: string;
