@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Devloper Une Application De Preview</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #080b13;
+        --surface: rgba(15, 21, 34, 0.88);
+        --border: rgba(255,255,255,0.1);
+        --text: #eef3ff;
+        --muted: rgba(238,243,255,0.66);
+        --accent: #7ea7ff;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Inter, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at 18% 12%, rgba(87,130,255,.24), transparent 22%),
+          radial-gradient(circle at 82% 14%, rgba(244,181,94,.18), transparent 18%),
+          linear-gradient(180deg, #13192a 0%, #07090f 100%);
+      }
+      .shell {
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: 240px minmax(0, 1fr);
+        gap: 24px;
+        padding: 28px;
+      }
+      .rail, .main {
+        border: 1px solid var(--border);
+        border-radius: 28px;
+        background: var(--surface);
+        backdrop-filter: blur(18px);
+      }
+      .rail { padding: 20px; }
+      .main { overflow: hidden; }
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--border);
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 14px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: rgba(255,255,255,.04);
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .content {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) 320px;
+        gap: 24px;
+        padding: 24px;
+      }
+      .hero {
+        border-radius: 28px;
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, rgba(8,11,19,.2), rgba(8,11,19,.65));
+        padding: 28px;
+      }
+      h1 {
+        margin: 18px 0 12px;
+        font-size: clamp(2.6rem, 5vw, 4.9rem);
+        line-height: .95;
+        letter-spacing: -.05em;
+      }
+      p { color: var(--muted); line-height: 1.7; }
+      ul { display: grid; gap: 12px; padding-left: 18px; color: var(--muted); }
+      .card {
+        border-radius: 24px;
+        border: 1px solid var(--border);
+        background: rgba(255,255,255,.035);
+        padding: 20px;
+      }
+      .stack { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+      .stack li { display: flex; justify-content: space-between; gap: 12px; }
+      .stack strong { color: var(--text); text-align: right; }
+      @media (max-width: 1100px) {
+        .shell, .content { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="rail">
+        <div class="pill">AgentOS Builder</div>
+        <h3>Devloper Une Application De</h3>
+        <p>Devloper Une Application De is ready as a structured builder workspace.</p>
+        <ul>
+          <li>Preview surface ready</li>
+          <li>Code workspace persisted locally</li>
+          <li>Database only when required</li>
+        </ul>
+      </aside>
+      <main class="main">
+        <div class="topbar">
+          <div class="pill">Workspace generated locally</div>
+          <div class="pill">App build</div>
+        </div>
+        <div class="content">
+          <section class="hero">
+            <div class="pill">Lovable-style contract</div>
+            <h1>Devloper Une Application De</h1>
+            <p>Generated as a structured builder workspace with Preview, Code, Database, and Files surfaces. This preview is served locally so the right-side panel can inspect it instantly.</p>
+          </section>
+          <aside class="card">
+            <h3>Stack</h3>
+            <ul class="stack">
+              <li><span>Frontend</span><strong>React + Vite + TypeScript + Tailwind CSS</strong></li>
+              <li><span>UI</span><strong>shadcn/ui + Radix UI patterns</strong></li>
+              <li><span>Backend</span><strong>Optional</strong></li>
+              <li><span>Database</span><strong>Optional</strong></li>
+            </ul>
+          </aside>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

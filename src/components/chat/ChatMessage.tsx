@@ -152,6 +152,25 @@ const renderMd = (text: string) => {
       <div className="space-y-3">
         {sections.map((section) => {
           const isList = section.body.length > 0 && section.body.every((line) => line.trim().startsWith('- '));
+          const isDetailsSection = section.title === 'Details';
+          const detailsContent = isList ? (
+            <ul className="space-y-1.5 pl-1">
+              {section.body.map((line, index) => (
+                <li key={`${section.key}-${index}`} className="flex items-start gap-2.5">
+                  <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400/70" />
+                  <span className="text-white/85">{renderInline(line.trim().replace(/^- /, ''))}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="space-y-2">
+              {section.body.map((line, index) => (
+                <p key={`${section.key}-${index}`} className="text-white/88 leading-7">
+                  {renderInline(line.trim())}
+                </p>
+              ))}
+            </div>
+          );
 
           return (
             <section key={section.key} className="rounded-2xl border border-white/7 bg-white/[0.035] px-4 py-3">
@@ -159,23 +178,15 @@ const renderMd = (text: string) => {
                 {section.title}
               </div>
 
-              {isList ? (
-                <ul className="space-y-1.5 pl-1">
-                  {section.body.map((line, index) => (
-                    <li key={`${section.key}-${index}`} className="flex items-start gap-2.5">
-                      <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400/70" />
-                      <span className="text-white/85">{renderInline(line.trim().replace(/^- /, ''))}</span>
-                    </li>
-                  ))}
-                </ul>
+              {isDetailsSection ? (
+                <details className="group">
+                  <summary className="cursor-pointer list-none text-sm text-white/70 transition-colors hover:text-white/88">
+                    View step details
+                  </summary>
+                  <div className="mt-3">{detailsContent}</div>
+                </details>
               ) : (
-                <div className="space-y-2">
-                  {section.body.map((line, index) => (
-                    <p key={`${section.key}-${index}`} className="text-white/88 leading-7">
-                      {renderInline(line.trim())}
-                    </p>
-                  ))}
-                </div>
+                detailsContent
               )}
             </section>
           );
@@ -387,6 +398,8 @@ const ChatMessage = ({ entry, onAskReply }: ChatMessageProps) => {
   const { summary, preview, chips, shellOut } = useToolHighlights(entry);
   const stepTitle = entry.toolLabel || cfg.label;
   const stepSubtitle = summary !== stepTitle ? summary : '';
+  const shouldShowInlineSubtitle =
+    !!stepSubtitle && !['file', 'shell'].includes(entry.type) && entry.actionType !== 'dc_shell';
 
   const isResult = entry.type === 'result';
   const isThinking = entry.type === 'thinking';
@@ -581,7 +594,7 @@ const ChatMessage = ({ entry, onAskReply }: ChatMessageProps) => {
               ))}
               {entry.step > 0 && <span className="ml-auto shrink-0 text-[11px] tabular-nums text-white/30">#{entry.step}</span>}
             </div>
-            {stepSubtitle && (
+            {shouldShowInlineSubtitle && (
               <span className="mt-0.5 block text-[11px] text-white/42">{stepSubtitle}</span>
             )}
           </div>

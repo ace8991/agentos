@@ -1,0 +1,5 @@
+ERROR: Invalid requirement: 'project\\backend\\requirements.txt'
+Hint: It looks like a path. File 'project\backend\requirements.txt' does not exist.
+
+[notice] A new release of pip is available: 24.0 -> 26.0.1
+[notice] To update, run: C:\Users\User\Documents\New project\backend\venv\Scripts\python.exe -m pip install --upgrade pip

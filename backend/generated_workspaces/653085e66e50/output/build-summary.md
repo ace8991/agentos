@@ -1,0 +1,1 @@
+Devloper Une Application De is ready as a app workspace using React + Vite + TypeScript + Tailwind CSS and shadcn/ui + Radix UI patterns.

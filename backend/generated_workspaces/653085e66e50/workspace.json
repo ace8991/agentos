@@ -1,0 +1,230 @@
+{
+  "workspace_id": "653085e66e50",
+  "title": "Devloper Une Application De",
+  "kind": "app",
+  "stack": {
+    "frontend": "React + Vite + TypeScript + Tailwind CSS",
+    "ui": "shadcn/ui + Radix UI patterns",
+    "backend": null,
+    "database": null
+  },
+  "preview_entry": "preview/index.html",
+  "preview_url": "",
+  "files": [
+    {
+      "path": "client/components.json",
+      "name": "components.json",
+      "group": "client",
+      "language": "json",
+      "size_bytes": 268
+    },
+    {
+      "path": "client/index.html",
+      "name": "index.html",
+      "group": "client",
+      "language": "html",
+      "size_bytes": 278
+    },
+    {
+      "path": "client/package.json",
+      "name": "package.json",
+      "group": "client",
+      "language": "json",
+      "size_bytes": 618
+    },
+    {
+      "path": "client/postcss.config.cjs",
+      "name": "postcss.config.cjs",
+      "group": "client",
+      "language": null,
+      "size_bytes": 70
+    },
+    {
+      "path": "client/src/App.tsx",
+      "name": "App.tsx",
+      "group": "client",
+      "language": "tsx",
+      "size_bytes": 3867
+    },
+    {
+      "path": "client/src/components/ui/button.tsx",
+      "name": "button.tsx",
+      "group": "client",
+      "language": "tsx",
+      "size_bytes": 377
+    },
+    {
+      "path": "client/src/index.css",
+      "name": "index.css",
+      "group": "client",
+      "language": "css",
+      "size_bytes": 232
+    },
+    {
+      "path": "client/src/lib/utils.ts",
+      "name": "utils.ts",
+      "group": "client",
+      "language": "ts",
+      "size_bytes": 120
+    },
+    {
+      "path": "client/src/main.tsx",
+      "name": "main.tsx",
+      "group": "client",
+      "language": "tsx",
+      "size_bytes": 230
+    },
+    {
+      "path": "client/tailwind.config.ts",
+      "name": "tailwind.config.ts",
+      "group": "client",
+      "language": "ts",
+      "size_bytes": 151
+    },
+    {
+      "path": "client/tsconfig.json",
+      "name": "tsconfig.json",
+      "group": "client",
+      "language": "json",
+      "size_bytes": 382
+    },
+    {
+      "path": "client/vite.config.ts",
+      "name": "vite.config.ts",
+      "group": "client",
+      "language": "ts",
+      "size_bytes": 141
+    },
+    {
+      "path": "docs/README.md",
+      "name": "README.md",
+      "group": "docs",
+      "language": "md",
+      "size_bytes": 92
+    },
+    {
+      "path": "output/build-summary.md",
+      "name": "build-summary.md",
+      "group": "output",
+      "language": "md",
+      "size_bytes": 137
+    },
+    {
+      "path": "preview/index.html",
+      "name": "index.html",
+      "group": "output",
+      "language": "html",
+      "size_bytes": 4545
+    }
+  ],
+  "database_files": [],
+  "artifacts": [
+    {
+      "id": "artifact-0",
+      "type": "code",
+      "title": "components.json",
+      "path": "client/components.json",
+      "group": "client"
+    },
+    {
+      "id": "artifact-1",
+      "type": "html",
+      "title": "index.html",
+      "path": "client/index.html",
+      "group": "client"
+    },
+    {
+      "id": "artifact-2",
+      "type": "code",
+      "title": "package.json",
+      "path": "client/package.json",
+      "group": "client"
+    },
+    {
+      "id": "artifact-3",
+      "type": "file",
+      "title": "postcss.config.cjs",
+      "path": "client/postcss.config.cjs",
+      "group": "client"
+    },
+    {
+      "id": "artifact-4",
+      "type": "code",
+      "title": "App.tsx",
+      "path": "client/src/App.tsx",
+      "group": "client"
+    },
+    {
+      "id": "artifact-5",
+      "type": "code",
+      "title": "button.tsx",
+      "path": "client/src/components/ui/button.tsx",
+      "group": "client"
+    },
+    {
+      "id": "artifact-6",
+      "type": "code",
+      "title": "index.css",
+      "path": "client/src/index.css",
+      "group": "client"
+    },
+    {
+      "id": "artifact-7",
+      "type": "code",
+      "title": "utils.ts",
+      "path": "client/src/lib/utils.ts",
+      "group": "client"
+    },
+    {
+      "id": "artifact-8",
+      "type": "code",
+      "title": "main.tsx",
+      "path": "client/src/main.tsx",
+      "group": "client"
+    },
+    {
+      "id": "artifact-9",
+      "type": "code",
+      "title": "tailwind.config.ts",
+      "path": "client/tailwind.config.ts",
+      "group": "client"
+    },
+    {
+      "id": "artifact-10",
+      "type": "code",
+      "title": "tsconfig.json",
+      "path": "client/tsconfig.json",
+      "group": "client"
+    },
+    {
+      "id": "artifact-11",
+      "type": "code",
+      "title": "vite.config.ts",
+      "path": "client/vite.config.ts",
+      "group": "client"
+    },
+    {
+      "id": "artifact-12",
+      "type": "document",
+      "title": "README.md",
+      "path": "docs/README.md",
+      "group": "docs"
+    },
+    {
+      "id": "artifact-13",
+      "type": "document",
+      "title": "build-summary.md",
+      "path": "output/build-summary.md",
+      "group": "output"
+    },
+    {
+      "id": "artifact-14",
+      "type": "app",
+      "title": "index.html",
+      "path": "preview/index.html",
+      "group": "output"
+    }
+  ],
+  "status": "ready",
+  "summary": "Devloper Une Application De is ready as a structured builder workspace."
+}
