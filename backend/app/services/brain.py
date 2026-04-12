@@ -14,8 +14,8 @@ from app.services.runtime_config import get_runtime_value
 logger = logging.getLogger(__name__)
 
 
-def _build_system_prompt() -> str:
-    return build_agent_system_prompt(is_cloud=IS_CLOUD)
+def _build_system_prompt(task: str) -> str:
+    return build_agent_system_prompt(is_cloud=IS_CLOUD, task=task)
 
 
 def _anthropic():
@@ -126,7 +126,7 @@ Current screen above. What is your next action?"""
         "claude-sonnet-4-6": "claude-sonnet-4-6",
         "claude-opus-4-5": "claude-opus-4-5",
     }
-    system = _build_system_prompt()
+    system = _build_system_prompt(task)
 
     if model.startswith("claude"):
         client = _anthropic()

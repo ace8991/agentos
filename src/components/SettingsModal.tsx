@@ -15,7 +15,7 @@ import { buildDefaultConnectors, loadConnectors, mergeConnectorState, saveConnec
 import { API_BASE_URL, syncRuntimeConfig } from '@/lib/api';
 import { logout as logoutSession } from '@/lib/auth';
 import { toast } from '@/components/ui/sonner';
-import { loadSkills, saveSkills, type AppSkill } from '@/lib/user-config';
+import { loadSkills, saveSkills, syncImportedSkills, type AppSkill } from '@/lib/user-config';
 const intervals = [
   { label: '500ms', value: 500 },
   { label: '1s', value: 1000 },
@@ -223,9 +223,15 @@ const SettingsModal = () => {
     setWorkProfile(localStorage.getItem('WORK_PROFILE') || 'general');
 
     // Skills
-    try {
-      setSkills(loadSkills());
-    } catch { setSkills(loadSkills()); }
+    void syncImportedSkills()
+      .catch(() => undefined)
+      .finally(() => {
+        try {
+          setSkills(loadSkills());
+        } catch {
+          setSkills(loadSkills());
+        }
+      });
 
     // Connectors
     try {
@@ -906,14 +912,39 @@ const SettingsModal = () => {
       case 'skills':
         return (
           <div className="space-y-4">
-            <h3 className="text-base font-medium text-foreground">Skills</h3>
-            <p className="text-xs text-muted-foreground">Enable built-in capabilities and add your own reusable skills, similar to Claude-style custom instructions.</p>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-medium text-foreground">Skills</h3>
+                <p className="text-xs text-muted-foreground">Enable built-in capabilities, sync imported skill packs, and add your own reusable skills.</p>
+              </div>
+              <button
+                onClick={() => {
+                  void syncImportedSkills()
+                    .then(() => {
+                      setSkills(loadSkills());
+                      toast.success('Skill library synced');
+                    })
+                    .catch(() => {
+                      setSkills(loadSkills());
+                      toast.error('Could not sync the skill library');
+                    });
+                }}
+                className="shrink-0 rounded-lg border border-border bg-surface-elevated px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted"
+              >
+                Sync library
+              </button>
+            </div>
             <div className="space-y-1">
               {skills.map((skill) => (
                 <div key={skill.id} className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-surface-elevated/50 transition-colors">
                   <div className="min-w-0 flex-1 mr-3">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm text-foreground">{skill.name}</p>
+                      {skill.source === 'imported' && (
+                        <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-sky-400/10 text-sky-200">
+                          Imported
+                        </span>
+                      )}
                       {!skill.builtin && (
                         <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
                           Custom

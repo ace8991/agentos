@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getGuestUser, getMe, getStoredUser, getToken, isGuestSession } from "@/lib/auth";
 import { getOpenClawState, syncRuntimeConfig } from "@/lib/api";
+import { syncImportedSkills } from "@/lib/user-config";
 import { useStore } from "@/store/useStore";
 import { useAuthStore } from "@/store/authStore";
 import RemoteCommandBridge from "@/components/RemoteCommandBridge";
@@ -55,6 +56,14 @@ const RuntimeSync = () => {
       }
     };
   }, [syncBackendHealth]);
+
+  return null;
+};
+
+const SkillSync = () => {
+  useEffect(() => {
+    void syncImportedSkills();
+  }, []);
 
   return null;
 };
@@ -188,6 +197,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthSync />
+        <SkillSync />
         <RuntimeSync />
         <AgentDockSync />
         <RemoteCommandBridge />

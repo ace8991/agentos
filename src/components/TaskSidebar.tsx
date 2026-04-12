@@ -328,21 +328,6 @@ const TaskSidebar = () => {
         ))}
       </div>
 
-      {/* Referral */}
-      <div className="mx-3 mb-2">
-        <button
-          onClick={handleDownloadLocal}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary/10 hover:bg-primary/15 transition-colors text-left active:scale-[0.98]"
-        >
-          <Download size={16} className="text-primary shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-foreground">Download AgentOS locally</p>
-            <p className="text-xs text-muted-foreground">Get the complete app workspace as a zip</p>
-          </div>
-          <ChevronRight size={14} className="text-muted-foreground shrink-0" />
-        </button>
-      </div>
-
       <div className="border-t border-border px-4 py-2.5 flex items-center justify-between">
         <div className="flex items-center gap-1">
           <button onClick={() => { openSettingsFor('general'); setMobileOpen(false); }} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-95" title="Settings">

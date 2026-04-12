@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
@@ -45,6 +46,17 @@ class PromptingTests(unittest.TestCase):
         self.assertIn("Lovable-style web stack", prompt)
         self.assertIn("shadcn/ui", prompt)
         self.assertIn("primary app/page artifact", prompt)
+
+    def test_chat_prompt_includes_relevant_imported_skill_guidance(self) -> None:
+        with patch("app.services.prompting.skills_registry.build_skill_guidance", return_value="- Web Artifacts Builder: Use React + Vite + Tailwind CSS."):
+            prompt = build_chat_system_prompt(
+                [ChatMessage(role="user", content="create a product website")],
+                web_search=False,
+            )
+
+        self.assertIn("Skill guidance:", prompt)
+        self.assertIn("Web Artifacts Builder", prompt)
+        self.assertIn("Respect these imported skill instructions", prompt)
 
 
 if __name__ == "__main__":

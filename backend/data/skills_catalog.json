@@ -1,0 +1,58 @@
+{
+  "source_zip": "C:\\Users\\User\\AppData\\Local\\Temp\\tmp4st6pscf\\skills-main.zip",
+  "updated_at": 1775983468.514384,
+  "skills": [
+    {
+      "id": "imported::docx",
+      "slug": "docx",
+      "name": "Docx",
+      "description": "Create and edit Word documents.",
+      "prompt": "Create and edit Word documents Key guidance: Use this for .docx editing.",
+      "source": "imported",
+      "skill_path": "skills-main/skills/docx/SKILL.md",
+      "tags": [
+        "docx",
+        "create",
+        "and",
+        "edit",
+        "word",
+        "documents",
+        "key",
+        "guidance",
+        "use",
+        "this",
+        "for",
+        "editing"
+      ]
+    },
+    {
+      "id": "imported::web-artifacts-builder",
+      "slug": "web-artifacts-builder",
+      "name": "Web Artifacts Builder",
+      "description": "Build complex web artifacts with React and Tailwind.",
+      "prompt": "Build complex web artifacts with React and Tailwind Key guidance: Use React + Vite + Tailwind CSS; Prefer shadcn/ui for polished interfaces.",
+      "source": "imported",
+      "skill_path": "skills-main/skills/web-artifacts-builder/SKILL.md",
+      "tags": [
+        "web-artifacts-builder",
+        "build",
+        "complex",
+        "web",
+        "artifacts",
+        "with",
+        "react",
+        "and",
+        "tailwind",
+        "key",
+        "guidance",
+        "use",
+        "vite",
+        "css",
+        "prefer",
+        "shadcn/ui",
+        "for",
+        "polished"
+      ]
+    }
+  ]
+}

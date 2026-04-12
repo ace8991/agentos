@@ -1,5 +1,6 @@
 import { loadConnectors } from '@/lib/connectors';
 import { buildProjectContext } from '@/lib/projects';
+import { API_BASE_URL } from '@/lib/api';
 
 export interface AppSkill {
   id: string;
@@ -8,6 +9,9 @@ export interface AppSkill {
   prompt: string;
   enabled: boolean;
   builtin?: boolean;
+  source?: 'builtin' | 'imported' | 'custom';
+  skillPath?: string;
+  tags?: string[];
 }
 
 export interface ComposerPreferences {
@@ -17,6 +21,7 @@ export interface ComposerPreferences {
 }
 
 const SKILLS_STORAGE_KEY = 'SKILLS';
+const IMPORTED_SKILLS_STORAGE_KEY = 'IMPORTED_SKILLS';
 const WORK_PROFILE_STORAGE_KEY = 'WORK_PROFILE';
 const RESPONSE_STYLE_LABELS: Record<string, string> = {
   concise: 'Concise',
@@ -46,6 +51,7 @@ const builtinSkills: AppSkill[] = [
     prompt: 'Use structured web navigation, cite sources when relevant, and confirm important page state before acting.',
     enabled: true,
     builtin: true,
+    source: 'builtin',
   },
   {
     id: 'code-execution',
@@ -54,6 +60,7 @@ const builtinSkills: AppSkill[] = [
     prompt: 'Prefer executable, testable solutions and explain important outputs clearly.',
     enabled: true,
     builtin: true,
+    source: 'builtin',
   },
   {
     id: 'file-management',
@@ -62,6 +69,7 @@ const builtinSkills: AppSkill[] = [
     prompt: 'Keep file operations tidy, explicit, and reversible when possible.',
     enabled: true,
     builtin: true,
+    source: 'builtin',
   },
   {
     id: 'web-search',
@@ -70,6 +78,7 @@ const builtinSkills: AppSkill[] = [
     prompt: 'Use web search to verify unstable facts and prioritize trustworthy sources.',
     enabled: true,
     builtin: true,
+    source: 'builtin',
   },
   {
     id: 'repo-analysis',
@@ -78,6 +87,7 @@ const builtinSkills: AppSkill[] = [
     prompt: 'Build context from the codebase first, identify the key files, and explain the implementation plan before or while making changes.',
     enabled: true,
     builtin: true,
+    source: 'builtin',
   },
   {
     id: 'code-review',
@@ -86,6 +96,7 @@ const builtinSkills: AppSkill[] = [
     prompt: 'Default to a review mindset when inspecting code: prioritize correctness bugs, regressions, edge cases, and missing verification.',
     enabled: true,
     builtin: true,
+    source: 'builtin',
   },
   {
     id: 'testing-verification',
@@ -94,6 +105,7 @@ const builtinSkills: AppSkill[] = [
     prompt: 'After changes, run the narrowest useful verification first, then summarize what passed, what failed, and any residual risk.',
     enabled: true,
     builtin: true,
+    source: 'builtin',
   },
   {
     id: 'safe-refactors',
@@ -102,6 +114,7 @@ const builtinSkills: AppSkill[] = [
     prompt: 'Prefer small, auditable refactors with behavior-preserving changes unless the task explicitly asks for broader redesign.',
     enabled: true,
     builtin: true,
+    source: 'builtin',
   },
   {
     id: 'data-analysis',
@@ -110,6 +123,7 @@ const builtinSkills: AppSkill[] = [
     prompt: 'Summarize the signal, quantify uncertainty, and present the clearest chart or table for the job.',
     enabled: false,
     builtin: true,
+    source: 'builtin',
   },
   {
     id: 'image-generation',
@@ -118,6 +132,7 @@ const builtinSkills: AppSkill[] = [
     prompt: 'When visual output is requested, produce concise creative direction and clear prompt structure.',
     enabled: false,
     builtin: true,
+    source: 'builtin',
   },
   {
     id: 'email-sending',
@@ -126,6 +141,7 @@ const builtinSkills: AppSkill[] = [
     prompt: 'Draft email communication with crisp subject lines, clear structure, and professional tone.',
     enabled: false,
     builtin: true,
+    source: 'builtin',
   },
   {
     id: 'calendar-access',
@@ -134,10 +150,62 @@ const builtinSkills: AppSkill[] = [
     prompt: 'When scheduling, be explicit about timezone, duration, participants, and dependencies.',
     enabled: false,
     builtin: true,
+    source: 'builtin',
   },
 ];
 
 export const getBuiltinSkills = () => builtinSkills.map((skill) => ({ ...skill }));
+
+const loadImportedSkillsCatalog = (): AppSkill[] => {
+  try {
+    const raw = localStorage.getItem(IMPORTED_SKILLS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((skill) => skill && typeof skill.id === 'string')
+      .map((skill) => ({
+        id: String(skill.id),
+        name: String(skill.name || 'Imported skill'),
+        description: String(skill.description || ''),
+        prompt: String(skill.prompt || ''),
+        enabled: false,
+        builtin: true,
+        source: 'imported' as const,
+        skillPath: typeof skill.skillPath === 'string' ? skill.skillPath : typeof skill.skill_path === 'string' ? skill.skill_path : undefined,
+        tags: Array.isArray(skill.tags) ? skill.tags.map(String) : [],
+      }));
+  } catch {
+    return [];
+  }
+};
+
+export const syncImportedSkills = async (): Promise<AppSkill[]> => {
+  try {
+    const syncResponse = await fetch(`${API_BASE_URL}/skills/sync`, { method: 'POST' });
+    if (syncResponse.ok) {
+      const payload = await syncResponse.json();
+      const skills = Array.isArray(payload?.skills) ? payload.skills : [];
+      localStorage.setItem(IMPORTED_SKILLS_STORAGE_KEY, JSON.stringify(skills));
+      return loadImportedSkillsCatalog();
+    }
+  } catch {
+    // Fall back to the existing cached catalog or a direct catalog read.
+  }
+
+  try {
+    const catalogResponse = await fetch(`${API_BASE_URL}/skills/catalog`);
+    if (catalogResponse.ok) {
+      const payload = await catalogResponse.json();
+      const skills = Array.isArray(payload?.skills) ? payload.skills : [];
+      localStorage.setItem(IMPORTED_SKILLS_STORAGE_KEY, JSON.stringify(skills));
+    }
+  } catch {
+    // Keep the last cached skill catalog if the backend is offline.
+  }
+
+  return loadImportedSkillsCatalog();
+};
 
 export const getSavedWorkProfile = () => localStorage.getItem(WORK_PROFILE_STORAGE_KEY) || 'general';
 
@@ -164,7 +232,7 @@ export const getWorkProfileInstructions = () => {
 };
 
 export const loadSkills = (): AppSkill[] => {
-  const defaults = getBuiltinSkills();
+  const defaults = [...getBuiltinSkills(), ...loadImportedSkillsCatalog()];
 
   try {
     const stored = localStorage.getItem(SKILLS_STORAGE_KEY);
@@ -179,7 +247,7 @@ export const loadSkills = (): AppSkill[] => {
 
     const builtinMap = new Map(parsed.filter((skill) => skill?.builtin !== false).map((skill) => [skill.id, skill]));
     const customSkills = parsed
-      .filter((skill) => skill && skill.builtin === false)
+      .filter((skill) => skill && (skill.builtin === false || skill.source === 'custom'))
       .map((skill) => ({
         id: String(skill.id),
         name: String(skill.name || 'Custom skill'),
@@ -187,6 +255,7 @@ export const loadSkills = (): AppSkill[] => {
         prompt: String(skill.prompt || ''),
         enabled: Boolean(skill.enabled),
         builtin: false,
+        source: 'custom' as const,
       }));
 
     const mergedBuiltin = defaults.map((skill) => {
@@ -196,6 +265,7 @@ export const loadSkills = (): AppSkill[] => {
             ...skill,
             enabled: typeof saved.enabled === 'boolean' ? saved.enabled : skill.enabled,
             prompt: typeof saved.prompt === 'string' && saved.prompt.trim() ? saved.prompt : skill.prompt,
+            tags: Array.isArray(saved.tags) ? saved.tags.map(String) : skill.tags,
           }
         : skill;
     });

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Iterable
 
 from app.models.schemas import ChatMessage
+from app.services import skills_registry
 
 
 def _latest_user_text(messages: Iterable[ChatMessage]) -> str:
@@ -43,6 +44,7 @@ def _infer_response_profile(text: str) -> str:
 def build_chat_system_prompt(messages: list[ChatMessage], web_search: bool) -> str:
     latest_user = _latest_user_text(messages)
     profile_guidance = _infer_response_profile(latest_user)
+    matched_skill_guidance = skills_registry.build_skill_guidance(latest_user)
     creation_request = any(
         keyword in latest_user.lower()
         for keyword in ("build", "create", "generate", "website", "landing page", "app", "dashboard", "prototype", "game")
@@ -99,10 +101,20 @@ def build_chat_system_prompt(messages: list[ChatMessage], web_search: bool) -> s
             ]
         )
 
+    if matched_skill_guidance:
+        sections.extend(
+            [
+                "Skill guidance:",
+                matched_skill_guidance,
+                "Respect these imported skill instructions when they improve the outcome.",
+            ]
+        )
+
     return "\n".join(sections).strip()
 
 
-def build_agent_system_prompt(is_cloud: bool) -> str:
+def build_agent_system_prompt(is_cloud: bool, task: str = "") -> str:
+    matched_skill_guidance = skills_registry.build_skill_guidance(task)
     tool_section = (
         "NOTE: Running in CLOUD MODE. Desktop, filesystem, and system tools (click, type, key, computer_use, file_*, dir_*, app/process/clipboard) are\n"
         "NOT available. Use only web and browser tools to accomplish tasks.\n"
@@ -110,7 +122,7 @@ def build_agent_system_prompt(is_cloud: bool) -> str:
         else "NOTE: Running in LOCAL MODE. All tools are available including desktop control, filesystem access, and system control.\n"
     )
 
-    return (
+    prompt = (
         "You are AgentOS, a professional task orchestrator for web, local files, terminal work, and desktop automation.\n"
         "Choose the right tool quickly, avoid loops, and keep the workflow stable.\n"
         + tool_section
@@ -215,3 +227,8 @@ RESPONSE FORMAT:
 <action>{"type": "...", ...}</action>
 """
     ).strip()
+
+    if matched_skill_guidance:
+        prompt = f"{prompt}\n\nSKILL GUIDANCE:\n{matched_skill_guidance}\nUse relevant imported skills when they materially improve the result."
+
+    return prompt
