@@ -11,7 +11,7 @@ from app.services.capture import capture_screenshot
 from app.services.brain import think_and_act, extract_memory_updates
 from app.services.computer_use import is_computer_use_unavailable_error
 from app.services.executor import execute
-from app.services import browser as browser_svc
+from app.services import browser as browser_svc, execution
 from app.models.schemas import AgentAction, ActionType
 
 logger = logging.getLogger(__name__)
@@ -77,6 +77,31 @@ def create_run(task: str, model: str, max_steps: int, capture_interval_ms: int, 
         created_at=time.monotonic(),
     )
     return run_id
+
+
+def _humanize_action(action_type: ActionType) -> str:
+    labels = {
+        ActionType.FILE_SEARCH: "Search local files",
+        ActionType.FILE_READ: "Read file",
+        ActionType.FILE_WRITE: "Write file",
+        ActionType.FILE_APPEND: "Append file",
+        ActionType.DIR_LIST: "List folder",
+        ActionType.DIR_CREATE: "Create folder",
+        ActionType.DIR_DELETE: "Delete folder",
+        ActionType.BROWSER_OPEN: "Open browser page",
+        ActionType.BROWSER_CLICK: "Interact with page",
+        ActionType.BROWSER_TYPE: "Type in browser",
+        ActionType.BROWSER_SELECT: "Select browser option",
+        ActionType.BROWSER_SNAPSHOT: "Refresh browser view",
+        ActionType.WEB_SEARCH: "Search the web",
+        ActionType.WEB_EXTRACT: "Extract web page",
+        ActionType.SHELL: "Run terminal command",
+        ActionType.COMPUTER_USE: "Use desktop automation",
+        ActionType.SYSTEM_INFO: "Read system information",
+        ActionType.PROCESS_LIST: "Read process list",
+        ActionType.TERMINAL_OPEN: "Open terminal",
+    }
+    return labels.get(action_type, action_type.value.replace("_", " ").title())
 
 
 def _is_browser_first_task(task: str | None) -> bool:
@@ -323,6 +348,7 @@ async def run_agent(
         return
 
     state.started = True
+    execution.mark_run_started(run_id)
     stop_event = state.stop_event
     task = task or state.task
     primary_task = browser_svc.extract_primary_task(task)
@@ -366,6 +392,12 @@ async def run_agent(
                 "result": "ok" if bootstrap_result.get("success") else "failed",
             })
             if bootstrap_result.get("success"):
+                execution.record_info_step(
+                    run_id,
+                    step_number=0,
+                    title="Prepare browser workspace",
+                    description=bootstrap_result.get("description", "Prepared browser workspace"),
+                )
                 yield _event(
                     "info",
                     0,
@@ -382,6 +414,12 @@ async def run_agent(
                 )
             else:
                 consecutive_errors = 1
+                execution.record_info_step(
+                    run_id,
+                    step_number=0,
+                    title="Browser bootstrap warning",
+                    description=bootstrap_result.get("description", "Browser bootstrap failed"),
+                )
                 yield _event(
                     "info",
                     0,
@@ -394,6 +432,12 @@ async def run_agent(
                 )
     except Exception as exc:
         logger.exception("Browser bootstrap failed for run %s", run_id)
+        execution.record_info_step(
+            run_id,
+            step_number=0,
+            title="Browser bootstrap warning",
+            description=f"Browser bootstrap failed: {exc or exc.__class__.__name__}",
+        )
         yield _event(
             "info",
             0,
@@ -405,6 +449,12 @@ async def run_agent(
 
     for step in range(1, max_steps + 1):
         if stop_event.is_set():
+            execution.finish_run(
+                run_id,
+                status=execution.ExecutionStatus.STOPPED,
+                outcome="Run stopped by the user.",
+                validated=False,
+            )
             yield _event("done", step, "Stopped by user", "Agent stopped.", "", memory)
             break
 
@@ -458,6 +508,12 @@ async def run_agent(
         except Exception as e:
             consecutive_errors += 1
             if consecutive_errors >= MAX_ERRORS:
+                execution.finish_run(
+                    run_id,
+                    status=execution.ExecutionStatus.ERROR,
+                    outcome=f"Screen capture failed: {e}",
+                    validated=False,
+                )
                 yield _err(f"Screen capture failed: {e}"); break
             await asyncio.sleep(1); continue
 
@@ -477,8 +533,20 @@ async def run_agent(
             consecutive_errors += 1
             msg = str(e)
             if any(k in msg.lower() for k in ("api_key", "api key", "authentication")):
+                execution.finish_run(
+                    run_id,
+                    status=execution.ExecutionStatus.ERROR,
+                    outcome=f"API key error: {msg}",
+                    validated=False,
+                )
                 yield _err(f"API key error: {msg}"); break
             if consecutive_errors >= MAX_ERRORS:
+                execution.finish_run(
+                    run_id,
+                    status=execution.ExecutionStatus.ERROR,
+                    outcome=f"LLM failed {MAX_ERRORS} times: {msg}",
+                    validated=False,
+                )
                 yield _err(f"LLM failed {MAX_ERRORS}x: {msg}"); break
             yield _event("step", step, f"LLM error: {msg}", msg, screenshot_b64, memory)
             await asyncio.sleep(2); continue
@@ -501,8 +569,28 @@ async def run_agent(
                     )
 
                 if action.type == ActionType.DONE:
+                    execution.finish_run(
+                        run_id,
+                        status=execution.ExecutionStatus.COMPLETED,
+                        outcome=action.reason or "Task completed.",
+                        validated=True,
+                    )
                     yield _event("done", step, action.reason or "Done", reasoning, screenshot_b64, memory)
                     break
+
+                action_arguments = {
+                    key: value
+                    for key, value in action.model_dump().items()
+                    if value is not None and key != "reason"
+                }
+                execution.begin_tool_step(
+                    run_id,
+                    step_number=step,
+                    action_type=action.type.value,
+                    title=_humanize_action(action.type),
+                    description=action.reason or reasoning or _humanize_action(action.type),
+                    arguments=action_arguments,
+                )
 
                 if action.type == ActionType.COMPUTER_USE and web_task_mode:
                     result = {
@@ -559,6 +647,14 @@ async def run_agent(
                     consecutive_errors = 0
                 else:
                     consecutive_errors += 1
+
+                execution.complete_tool_step(
+                    run_id,
+                    step_number=step,
+                    result_summary=result_desc,
+                    success=bool(result.get("success")),
+                    workspace_id=str(result.get("workspace_id")) if result.get("workspace_id") else None,
+                )
             else:
                 consecutive_errors += 1
                 result_desc = "Could not parse action from LLM response"
@@ -570,10 +666,16 @@ async def run_agent(
                 "success": False,
                 "description": result_desc,
             }
+            execution.complete_tool_step(
+                run_id,
+                step_number=step,
+                result_summary=result_desc,
+                success=False,
+            )
 
         history.append({
             "step": step,
-            "action_type": action.type if action else "none",
+            "action_type": action.type.value if action else "none",
             "action": result_desc,
             "result": "ok" if (action and last_tool_result and last_tool_result.get("success")) else "failed",
         })
@@ -587,11 +689,26 @@ async def run_agent(
         yield _event("step", step, result_desc, reasoning, screenshot_b64, memory, action, last_tool_result)
 
         if consecutive_errors >= MAX_ERRORS:
-            yield _err(f"Too many consecutive errors — stopping."); break
+            execution.finish_run(
+                run_id,
+                status=ExecutionStatus.ERROR,
+                outcome="Execution stopped after too many consecutive tool failures.",
+                validated=False,
+                next_step="Review the failing step details and retry with adjusted permissions or a narrower task.",
+            )
+            yield _err("Too many consecutive errors - stopping.")
+            break
 
         await asyncio.sleep(interval)
 
     else:
+        execution.finish_run(
+            run_id,
+            status=ExecutionStatus.ERROR,
+            outcome="Execution stopped because the run reached the configured maximum number of steps.",
+            validated=False,
+            next_step="Increase the step limit or break the request into smaller tasks.",
+        )
         yield _event("done", max_steps, "Max steps reached", "Exhausted max steps.", "", memory)
 
     # Cleanup

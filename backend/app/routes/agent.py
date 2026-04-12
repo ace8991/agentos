@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from app.models.schemas import StartRequest, StopRequest
 from app.services.model_catalog import is_agent_model_supported
-from app.services import runner
+from app.services import execution, runner
 
 router = APIRouter()
 
@@ -24,6 +24,15 @@ async def start_agent(req: StartRequest):
         capture_interval_ms=req.capture_interval_ms,
         reasoning_effort=req.reasoning_effort,
     )
+    if not execution.get_run_record(run_id):
+        execution.create_run_record(
+            run_id=run_id,
+            task=req.task,
+            model=req.model,
+            max_steps=req.max_steps,
+            capture_interval_ms=req.capture_interval_ms,
+            reasoning_effort=req.reasoning_effort,
+        )
     return {"run_id": run_id}
 
 

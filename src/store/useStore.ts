@@ -1,13 +1,21 @@
 ﻿import { create } from 'zustand';
 import {
-  startRun,
+  createExecutionEventStream,
+  createExecutionRun,
+  getExecutionRun,
+  getExecutionSteps,
+  getMcpServers,
+  getMcpTools,
   stopRun,
-  createEventStream,
   checkHealth,
   syncRuntimeConfig,
   type AgentEvent,
+  type ExecutionRunRecord,
+  type ExecutionStep,
   type GeneratedWorkspace,
   type HealthResponse,
+  type MCPServerConfig,
+  type MCPToolRecord,
 } from '@/lib/api';
 import { isAgentModelSupported, supportsReasoningEffort, type ReasoningEffort } from '@/components/ModelSelector';
 import { buildAgentTask, defaultComposerPreferences, type ComposerPreferences } from '@/lib/user-config';
@@ -156,6 +164,11 @@ interface AppState {
   activeWorkspace: GeneratedWorkspace | null;
   workspacePanelOpen: boolean;
   workspacePanelView: WorkspaceView;
+  activeRun: ExecutionRunRecord | null;
+  runSteps: ExecutionStep[];
+  selectedToolDetails: ExecutionStep | null;
+  mcpServers: MCPServerConfig[];
+  capabilityStatus: MCPToolRecord[];
 
   // Settings
   settingsOpen: boolean;
@@ -194,6 +207,9 @@ interface AppState {
   openWorkspacePanel: (view?: WorkspaceView) => void;
   closeWorkspacePanel: () => void;
   setWorkspacePanelView: (view: WorkspaceView) => void;
+  setSelectedToolDetails: (step: ExecutionStep | null) => void;
+  syncExecutionState: () => Promise<void>;
+  syncMcpState: () => Promise<void>;
 
   startAgent: () => Promise<void>;
   stopAgent: () => Promise<void>;
@@ -326,6 +342,11 @@ export const useStore = create<AppState>((set, get) => ({
   activeWorkspace: null,
   workspacePanelOpen: false,
   workspacePanelView: 'preview',
+  activeRun: null,
+  runSteps: [],
+  selectedToolDetails: null,
+  mcpServers: [],
+  capabilityStatus: [],
   settingsOpen: false,
   settingsSection: 'general',
   historyOpen: false,
@@ -365,8 +386,15 @@ export const useStore = create<AppState>((set, get) => ({
         }
       }
       set({ backendHealth: health, backendOnline: true, backendChecked: true });
+      void get().syncMcpState();
     } catch {
-      set({ backendHealth: null, backendOnline: false, backendChecked: true });
+      set({
+        backendHealth: null,
+        backendOnline: false,
+        backendChecked: true,
+        mcpServers: [],
+        capabilityStatus: [],
+      });
     }
   },
   setActiveThread: (thread) => set({ activeThread: thread }),
@@ -394,6 +422,33 @@ export const useStore = create<AppState>((set, get) => ({
   openWorkspacePanel: (view) => set((state) => ({ workspacePanelOpen: true, workspacePanelView: view || state.workspacePanelView })),
   closeWorkspacePanel: () => set({ workspacePanelOpen: false }),
   setWorkspacePanelView: (view) => set({ workspacePanelView: view }),
+  setSelectedToolDetails: (step) => set({ selectedToolDetails: step }),
+
+  syncExecutionState: async () => {
+    const { runId } = get();
+    if (!runId) return;
+    try {
+      const [record, stepsResponse] = await Promise.all([getExecutionRun(runId), getExecutionSteps(runId)]);
+      set({
+        activeRun: record,
+        runSteps: stepsResponse.steps.length > 0 ? stepsResponse.steps : record.plan.steps,
+      });
+    } catch {
+      // Keep the current execution snapshot if the backend is temporarily unavailable.
+    }
+  },
+
+  syncMcpState: async () => {
+    try {
+      const [servers, tools] = await Promise.all([getMcpServers(), getMcpTools()]);
+      set({
+        mcpServers: servers.servers,
+        capabilityStatus: tools.tools,
+      });
+    } catch {
+      // Leave the previous MCP snapshot in place if refresh fails.
+    }
+  },
 
   startTimer: () => {
     const interval = setInterval(() => {
@@ -456,29 +511,30 @@ export const useStore = create<AppState>((set, get) => ({
       errorMessage: null,
       takeoverRequested: false,
       takeoverReason: null,
+      activeRun: null,
+      runSteps: [],
+      selectedToolDetails: null,
     });
     get().startTimer();
 
     try {
       await syncRuntimeConfig();
-      const { run_id } = await startRun({
+      const runRecord = await createExecutionRun({
         task: effectiveTask,
         model,
         max_steps: maxSteps,
         capture_interval_ms: captureInterval,
         reasoning_effort: supportsReasoningEffort(model) ? reasoningEffort : null,
       });
-      set({ runId: run_id, backendOnline: true });
+      set({
+        runId: runRecord.run_id,
+        backendOnline: true,
+        activeRun: runRecord,
+        runSteps: runRecord.steps.length > 0 ? runRecord.steps : runRecord.plan.steps,
+      });
 
-      createEventStream(
-        run_id,
-        {
-          task: effectiveTask,
-          model,
-          max_steps: maxSteps,
-          capture_interval_ms: captureInterval,
-          reasoning_effort: supportsReasoningEffort(model) ? reasoningEffort : null,
-        },
+      createExecutionEventStream(
+        runRecord.run_id,
         (event) => get().processEvent(event),
         () => {
           // done handled in processEvent
@@ -500,6 +556,8 @@ export const useStore = create<AppState>((set, get) => ({
         status: isNetworkFailure ? 'idle' : 'error',
         entries: isNetworkFailure ? [] : get().entries,
         errorMessage: isNetworkFailure ? null : message,
+        activeRun: null,
+        runSteps: [],
       });
       get().stopTimer();
     }
@@ -508,7 +566,10 @@ export const useStore = create<AppState>((set, get) => ({
   stopAgent: async () => {
     const { runId } = get();
     get().stopTimer();
-    set({ status: 'idle' });
+    set((state) => ({
+      status: 'idle',
+      activeRun: state.activeRun ? { ...state.activeRun, active: false, status: 'stopped' } : null,
+    }));
     if (runId) {
       try {
         await stopRun(runId);
@@ -602,7 +663,15 @@ export const useStore = create<AppState>((set, get) => ({
       lastSurface: nextSurface || s.lastSurface,
       memory: memoryItems || s.memory,
       annotations: newAnnotations.length > 0 ? newAnnotations : s.annotations,
+      selectedToolDetails:
+        logType === 'act' || logType === 'browser' || logType === 'web' || logType === 'shell' || logType === 'file'
+          ? s.runSteps.find((step) => step.step_number === event.step) || s.selectedToolDetails
+          : s.selectedToolDetails,
     }));
+
+    if (get().runId) {
+      void get().syncExecutionState();
+    }
 
     if (event.type === 'done') {
       get().stopTimer();
@@ -642,12 +711,14 @@ export const useStore = create<AppState>((set, get) => ({
           history: nextHistory,
         };
       });
+      void get().syncExecutionState();
     }
 
     if (event.type === 'error') {
       get().stopTimer();
       set({ status: 'error', errorMessage: event.action || 'Unknown error' });
       get().saveConversationSnapshot({ label: get().task, thread: get().activeThread || 'agent' });
+      void get().syncExecutionState();
     }
   },
 
@@ -677,6 +748,9 @@ export const useStore = create<AppState>((set, get) => ({
       takeoverReason: null,
       activeWorkspace: null,
       workspacePanelOpen: false,
+      activeRun: null,
+      runSteps: [],
+      selectedToolDetails: null,
     });
   },
   

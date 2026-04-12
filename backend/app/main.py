@@ -3,7 +3,7 @@ import sys
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import agent, auth, browser, chat, connectors, desktop_commander, health, local_models, mobile_hub, models, remote, runtime, skills, workspace
+from app.routes import agent, auth, browser, chat, connectors, desktop_commander, execute, health, local_models, mcp, mobile_hub, models, remote, runtime, skills, workspace
 
 
 def _configure_windows_event_loop_policy() -> None:
@@ -52,5 +52,7 @@ app.include_router(mobile_hub.router)
 app.include_router(remote.router, prefix="/remote")
 app.include_router(runtime.router, prefix="/runtime")
 app.include_router(workspace.router)
+app.include_router(execute.router)
+app.include_router(mcp.router)
 app.include_router(local_models.router)
 

@@ -99,6 +99,13 @@ def create_builder_workspace(req: BuilderCreateRequest, request: Request):
     return builder_svc.attach_preview_url(workspace, base_url)
 
 
+@router.post("/workspaces")
+def create_workspace(req: BuilderCreateRequest, request: Request):
+    workspace = builder_svc.create_workspace(req.prompt, req.title)
+    base_url = str(request.base_url).rstrip("/")
+    return builder_svc.attach_preview_url(workspace, base_url)
+
+
 @router.get("/workspace/builder/{workspace_id}")
 def get_builder_workspace(workspace_id: str, request: Request):
     workspace = builder_svc.load_workspace(workspace_id)
@@ -108,8 +115,25 @@ def get_builder_workspace(workspace_id: str, request: Request):
     return builder_svc.attach_preview_url(workspace, base_url)
 
 
+@router.get("/workspaces/{workspace_id}")
+def get_workspace(workspace_id: str, request: Request):
+    workspace = builder_svc.load_workspace(workspace_id)
+    if not workspace:
+        raise HTTPException(404, "Workspace not found")
+    base_url = str(request.base_url).rstrip("/")
+    return builder_svc.attach_preview_url(workspace, base_url)
+
+
 @router.get("/workspace/builder/{workspace_id}/files", response_model=WorkspaceFilesResponse)
 def get_builder_workspace_files(workspace_id: str):
+    workspace = builder_svc.load_workspace(workspace_id)
+    if not workspace:
+        raise HTTPException(404, "Workspace not found")
+    return WorkspaceFilesResponse(files=workspace.files)
+
+
+@router.get("/workspaces/{workspace_id}/files", response_model=WorkspaceFilesResponse)
+def get_workspace_files(workspace_id: str):
     workspace = builder_svc.load_workspace(workspace_id)
     if not workspace:
         raise HTTPException(404, "Workspace not found")
@@ -126,8 +150,27 @@ def get_builder_workspace_file(workspace_id: str, file_path: str):
     return WorkspaceFileContentResponse(path=file_path, content=content, language=language)
 
 
+@router.get("/workspaces/{workspace_id}/file/{file_path:path}", response_model=WorkspaceFileContentResponse)
+def get_workspace_file(workspace_id: str, file_path: str):
+    try:
+        resolved_path, content = builder_svc.read_workspace_file(workspace_id, file_path)
+    except FileNotFoundError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    language = resolved_path.suffix.lstrip(".").lower() or None
+    return WorkspaceFileContentResponse(path=file_path, content=content, language=language)
+
+
 @router.get("/workspace/builder/{workspace_id}/preview")
 def get_builder_workspace_preview(workspace_id: str):
+    try:
+        preview_path = builder_svc.preview_file_path(workspace_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    return FileResponse(preview_path, media_type="text/html")
+
+
+@router.get("/workspaces/{workspace_id}/preview")
+def get_workspace_preview(workspace_id: str):
     try:
         preview_path = builder_svc.preview_file_path(workspace_id)
     except FileNotFoundError as exc:

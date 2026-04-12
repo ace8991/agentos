@@ -1,46 +1,25 @@
 import { useEffect, useState } from 'react';
+import { Sparkles } from 'lucide-react';
 
-const ROTATION = [
-  'Analysing the task…',
-  'Preparing tools…',
-  'Working on it…',
-  'Checking results…',
-];
+const LABELS = ['Analyzing your request…','Checking context…','Working on it…','Preparing response…'];
+const SKIP = new Set(['Agent is working...','Thinking...','Processing...','Waiting for your input...']);
 
-const ThinkingIndicator = ({ label }: { label?: string }) => {
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 2200);
-    return () => clearInterval(id);
-  }, []);
-
-  const displayLabel = label && label !== 'Agent is working...'
-    ? label
-    : ROTATION[tick % ROTATION.length];
-
+export const ThinkingIndicator = ({ label }: { label?: string }) => {
+  const [t, setT] = useState(0);
+  useEffect(() => { const id = setInterval(() => setT(n => n+1), 2400); return () => clearInterval(id); }, []);
+  const text = !label || SKIP.has(label) ? LABELS[t % LABELS.length] : label;
   return (
-    <div className="flex items-center gap-3 py-2 log-entry-enter">
-      {/* Animated orb */}
-      <div className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-purple-400/10">
-        <span className="absolute inline-flex h-4 w-4 animate-ping rounded-full bg-purple-400/20" />
-        <div className="flex gap-[3px] relative z-10">
-          {[0, 1, 2].map(i => (
-            <div
-              key={i}
-              className="h-1.5 w-1.5 rounded-full bg-purple-400/80"
-              style={{ animation: `pulse-dot 1s ease-in-out ${i * 0.16}s infinite` }}
-            />
+    <div className="flex items-center gap-3 px-4 py-3 log-entry-enter">
+      <div className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--surface-elevated))]">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-foreground/[0.05]" />
+        <div className="relative z-10 flex gap-[3px]">
+          {[0,1,2].map(i => (
+            <span key={i} className="h-[5px] w-[5px] rounded-full bg-foreground/25"
+              style={{ animation: `pulse-dot 1.1s ease-in-out ${i*0.18}s infinite` }} />
           ))}
         </div>
       </div>
-      {/* Label with fade transition */}
-      <span
-        key={displayLabel}
-        className="text-xs italic text-white/54 animate-in fade-in duration-500"
-      >
-        {displayLabel}
-      </span>
+      <span key={text} className="text-[14px] text-foreground/32 animate-in fade-in duration-500 italic">{text}</span>
     </div>
   );
 };

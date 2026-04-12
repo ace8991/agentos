@@ -132,6 +132,262 @@ class AgentAction(BaseModel):
     recursive: Optional[bool] = False
 
 
+class ToolProviderKind(str, Enum):
+    INTERNAL = "internal"
+    MCP = "mcp"
+
+
+class MCPTransport(str, Enum):
+    INTERNAL = "internal"
+    STDIO = "stdio"
+
+
+class MCPServerStatus(str, Enum):
+    READY = "ready"
+    CONFIGURED = "configured"
+    DISABLED = "disabled"
+    ERROR = "error"
+
+
+class ExecutionIntentKind(str, Enum):
+    CHAT = "chat"
+    FILESYSTEM = "filesystem"
+    TERMINAL = "terminal"
+    DESKTOP = "desktop"
+    BROWSER = "browser"
+    WEB = "web"
+    BUILDER = "builder"
+    CODE = "code"
+    HYBRID = "hybrid"
+
+
+class ExecutionStatus(str, Enum):
+    PLANNING = "planning"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    ERROR = "error"
+    STOPPED = "stopped"
+
+
+class StepStatus(str, Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+
+
+class SubagentRole(str, Enum):
+    PLANNER = "planner"
+    FILES = "files"
+    TERMINAL = "terminal"
+    DESKTOP = "desktop"
+    BROWSER = "browser"
+    CODE_ANALYZER = "code-analyzer"
+    CODE_EDITOR = "code-editor"
+    TEST_RUNNER = "test-runner"
+    REVIEWER = "reviewer"
+    DOCUMENTATION = "documentation"
+
+
+class ToolProvider(BaseModel):
+    id: str
+    name: str
+    family: str
+    kind: ToolProviderKind
+    description: str
+    enabled: bool = True
+    ready: bool = False
+    command: Optional[str] = None
+    args: list[str] = Field(default_factory=list)
+    env: dict[str, str] = Field(default_factory=dict)
+    tags: list[str] = Field(default_factory=list)
+    priority: int = 0
+
+
+class ToolCapability(BaseModel):
+    id: str
+    family: str
+    label: str
+    description: str
+    provider_id: str
+    provider_kind: ToolProviderKind
+    tool_names: list[str] = Field(default_factory=list)
+    ready: bool = False
+
+
+class ExecutionIntent(BaseModel):
+    kind: ExecutionIntentKind
+    summary: str
+    requires_live_browser: bool = False
+    requires_filesystem: bool = False
+    requires_terminal: bool = False
+    requires_desktop: bool = False
+    requires_builder: bool = False
+    requires_code: bool = False
+    requires_web_search: bool = False
+    preferred_capabilities: list[str] = Field(default_factory=list)
+
+
+class ToolInvocation(BaseModel):
+    family: str
+    provider_id: str
+    provider_kind: ToolProviderKind
+    tool_name: str
+    arguments: dict[str, Any] = Field(default_factory=dict)
+    status: StepStatus = StepStatus.COMPLETED
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+
+
+class ExecutionCheckpoint(BaseModel):
+    id: str
+    kind: Literal["logical", "files"] = "logical"
+    summary: str
+    created_at: str
+    files: list[str] = Field(default_factory=list)
+    storage_path: Optional[str] = None
+
+
+class ExecutionStep(BaseModel):
+    id: str
+    step_number: int
+    title: str
+    description: str
+    status: StepStatus = StepStatus.PENDING
+    subagent_role: Optional[SubagentRole] = None
+    tool_invocation: Optional[ToolInvocation] = None
+    checkpoint: Optional[ExecutionCheckpoint] = None
+    result_summary: Optional[str] = None
+    error: Optional[str] = None
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+
+
+class SubagentTask(BaseModel):
+    id: str
+    role: SubagentRole
+    title: str
+    description: str
+    status: StepStatus = StepStatus.PENDING
+    depends_on: list[str] = Field(default_factory=list)
+    allowed_families: list[str] = Field(default_factory=list)
+    result_summary: Optional[str] = None
+    error: Optional[str] = None
+
+
+class ExecutionPlan(BaseModel):
+    id: str
+    task: str
+    model: str
+    intent: ExecutionIntent
+    summary: str
+    subagents: list[SubagentTask] = Field(default_factory=list)
+    steps: list[ExecutionStep] = Field(default_factory=list)
+    preferred_providers: list[str] = Field(default_factory=list)
+    created_at: str
+
+
+class ExecutionSummary(BaseModel):
+    outcome: str
+    validated: bool = False
+    next_step: Optional[str] = None
+
+
+class ExecutionPlanRequest(BaseModel):
+    task: str
+    model: str = "claude-sonnet-4-6"
+    max_steps: int = 20
+
+
+class ExecutionRunRequest(BaseModel):
+    task: str
+    model: str = "claude-sonnet-4-6"
+    max_steps: int = 20
+    capture_interval_ms: int = 1000
+    reasoning_effort: Optional[ReasoningEffort] = None
+
+
+class ExecutionRunRecord(BaseModel):
+    run_id: str
+    task: str
+    model: str
+    status: ExecutionStatus
+    max_steps: int
+    capture_interval_ms: int
+    reasoning_effort: Optional[ReasoningEffort] = None
+    active: bool = True
+    current_step: int = 0
+    plan: ExecutionPlan
+    steps: list[ExecutionStep] = Field(default_factory=list)
+    summary: Optional[ExecutionSummary] = None
+    workspace_id: Optional[str] = None
+    created_at: str
+    updated_at: str
+
+
+class ExecutionStepsResponse(BaseModel):
+    run_id: str
+    steps: list[ExecutionStep] = Field(default_factory=list)
+
+
+class MCPToolRecord(BaseModel):
+    name: str
+    label: str
+    family: str
+    description: str
+    provider_id: str
+    provider_kind: ToolProviderKind
+    available: bool = False
+
+
+class MCPServerConfig(BaseModel):
+    id: str
+    name: str
+    description: str
+    family: str
+    transport: MCPTransport
+    kind: ToolProviderKind
+    enabled: bool = True
+    ready: bool = False
+    status: MCPServerStatus = MCPServerStatus.CONFIGURED
+    command: Optional[str] = None
+    args: list[str] = Field(default_factory=list)
+    env: dict[str, str] = Field(default_factory=dict)
+    tool_names: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    updated_at: Optional[str] = None
+    last_error: Optional[str] = None
+
+
+class MCPServerCreateRequest(BaseModel):
+    name: str
+    description: str = ""
+    family: str
+    command: str
+    args: list[str] = Field(default_factory=list)
+    env: dict[str, str] = Field(default_factory=dict)
+    enabled: bool = True
+
+
+class MCPServerUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    family: Optional[str] = None
+    command: Optional[str] = None
+    args: Optional[list[str]] = None
+    env: Optional[dict[str, str]] = None
+    enabled: Optional[bool] = None
+
+
+class MCPServersResponse(BaseModel):
+    servers: list[MCPServerConfig] = Field(default_factory=list)
+
+
+class MCPToolsResponse(BaseModel):
+    tools: list[MCPToolRecord] = Field(default_factory=list)
+
+
 class StepEvent(BaseModel):
     type: Literal["step", "done", "error"]
     step: int
