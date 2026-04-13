@@ -322,6 +322,7 @@ const CoworkPage = () => {
           </div>
         )}
       </div>
+      </div>
     </div>
   );
 };
