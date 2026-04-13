@@ -963,9 +963,16 @@ const CodePage = () => {
           </div>
 
           {/* Desktop chat panel */}
-          {!isMobile && showChat && (
+          {!isMobile && showChat && !showSubAgents && (
             <div className="w-[300px] xl:w-[340px] flex-shrink-0 border-l border-[hsl(0,0%,17%)] bg-[hsl(0,0%,11%)]">
               {chatPanelContent}
+            </div>
+          )}
+
+          {/* Desktop sub-agents panel */}
+          {!isMobile && showSubAgents && (
+            <div className="w-[300px] xl:w-[340px] flex-shrink-0 border-l border-[hsl(0,0%,17%)] bg-[hsl(0,0%,11%)]">
+              <SubAgentPanel onClose={() => setShowSubAgents(false)} />
             </div>
           )}
 
