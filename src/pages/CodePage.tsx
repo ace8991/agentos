@@ -647,6 +647,10 @@ const CodePage = () => {
           className={`flex-1 px-3 py-2.5 text-xs font-medium transition-colors ${leftTab === 'github' ? 'text-foreground bg-[hsl(0,0%,15%)]' : 'text-muted-foreground hover:text-foreground'}`}>
           <GitFork size={12} className="inline mr-1.5" />GitHub
         </button>
+        <button onClick={() => setLeftTab('memory')}
+          className={`flex-1 px-3 py-2.5 text-xs font-medium transition-colors ${leftTab === 'memory' ? 'text-foreground bg-[hsl(0,0%,15%)]' : 'text-muted-foreground hover:text-foreground'}`}>
+          <Brain size={12} className="inline mr-1.5" />Mémoire
+        </button>
       </div>
 
       {leftTab === 'files' ? (
