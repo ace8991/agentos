@@ -480,7 +480,7 @@ export async function executeDesktopCommanderIntent(
       action: 'Searched local files',
       reasoning: '',
       toolLabel: 'Desktop Commander',
-      toolResult: result as Record<string, unknown>,
+      toolResult: result as unknown as Record<string, unknown>,
       resultMarkdown: buildMarkdown(
         result.success ? 'La recherche locale est terminee.' : 'La recherche locale a echoue.',
         result.success
@@ -515,7 +515,7 @@ export async function executeDesktopCommanderIntent(
       action: 'Executed local command',
       reasoning: '',
       toolLabel: 'Desktop Commander',
-      toolResult: result as Record<string, unknown>,
+      toolResult: result as unknown as Record<string, unknown>,
       resultMarkdown: buildMarkdown(
         result.success ? 'La commande a ete executee.' : 'La commande a echoue.',
         result.success
@@ -542,7 +542,7 @@ export async function executeDesktopCommanderIntent(
       action: 'Collected system information',
       reasoning: '',
       toolLabel: 'Desktop Commander',
-      toolResult: result as Record<string, unknown>,
+      toolResult: result as unknown as Record<string, unknown>,
       resultMarkdown: buildMarkdown(
         result.success ? 'Les informations systeme ont ete recuperees.' : 'La lecture des informations systeme a echoue.',
         result.success

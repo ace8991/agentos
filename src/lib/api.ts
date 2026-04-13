@@ -304,6 +304,9 @@ export interface HealthResponse {
     voice_overlay?: boolean;
     mobile_hud?: boolean;
   };
+  desktop_commander?: {
+    enabled?: boolean;
+  };
 }
 
 export async function checkHealth(): Promise<HealthResponse> {

@@ -10,7 +10,7 @@ import ModelSelector, { isAgentModelSupported } from './ModelSelector';
 import ProviderConfigModal from './ProviderConfigModal';
 import ComposerInsertMenu from './chat/ComposerInsertMenu';
 import ArtifactWorkspaceModal from './chat/ArtifactWorkspaceModal';
-import { chatDirect, createBuilderWorkspace } from '@/lib/api';
+import { chatDirect, createBuilderWorkspace, type ChatMessage as ChatMessageType } from '@/lib/api';
 import { collectArtifactsFromEntries, type WorkspaceView } from '@/lib/artifacts';
 import { executeDesktopCommanderIntent } from '@/lib/desktop-commander-intents';
 import {
@@ -493,7 +493,7 @@ const ChatPanel = () => {
     };
     addLogEntry(userEntry);
 
-    const messages: { role: string; content: string }[] = [];
+    const messages: ChatMessageType[] = [];
     const behaviorInstructions = [getBehaviorInstructions(), getComposerInstructions(composerPreferences)]
       .filter(Boolean)
       .join('\n\n');
