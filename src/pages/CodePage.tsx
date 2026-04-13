@@ -10,6 +10,7 @@ import {
   Eye, SplitSquareHorizontal, Code2,
 } from 'lucide-react';
 import TaskSidebar from '@/components/TaskSidebar';
+import TopNavBar from '@/components/TopNavBar';
 import HexLogo from '@/components/HexLogo';
 import { PreviewPanel } from '@/components/code/PreviewPanel';
 import { chatDirect, type ChatMessage as ChatMessageType } from '@/lib/api';
@@ -719,7 +720,9 @@ const CodePage = () => {
   );
 
   return (
-    <div className="flex h-[100dvh] w-full overflow-hidden bg-[hsl(0,0%,10%)]">
+    <div className="flex flex-col h-[100dvh] w-full overflow-hidden bg-[hsl(0,0%,10%)]">
+      <TopNavBar />
+      <div className="flex flex-1 min-h-0">
       <TaskSidebar />
       <div className="flex-1 flex flex-col min-w-0">
         {/* Main content area */}
