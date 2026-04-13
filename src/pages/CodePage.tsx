@@ -445,7 +445,9 @@ const CodePage = () => {
 
   // Layout state
   const [showLeftPanel, setShowLeftPanel] = useState(false);
-  const [leftTab, setLeftTab] = useState<'files' | 'github'>('files');
+  const [leftTab, setLeftTab] = useState<'files' | 'github' | 'memory'>('files');
+  const [showSubAgents, setShowSubAgents] = useState(false);
+  const [permissionMode, setPermissionMode] = useState<'ask' | 'auto'>('auto');
   const [showTerminal, setShowTerminal] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
