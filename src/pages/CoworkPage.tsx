@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, FolderOpen, Plus, ArrowRight, Check, CalendarClock, Plug, Package, MessageSquare, X, Bot, User, Send } from 'lucide-react';
+import { ChevronDown, FolderOpen, Plus, ArrowRight, CalendarClock, Plug, Package, MessageSquare, Bot, User, Send } from 'lucide-react';
 import TopNavBar from '@/components/TopNavBar';
 import CoworkSidebar, { type CoworkView } from '@/components/cowork/CoworkSidebar';
 import DispatchPanel from '@/components/cowork/DispatchPanel';
@@ -10,12 +10,6 @@ import { chatDirect, type ChatMessage as ChatMessageType } from '@/lib/api';
 import { useStore } from '@/store/useStore';
 import ModelSelector from '@/components/ModelSelector';
 
-interface ChecklistItem {
-  id: string;
-  label: string;
-  description: string;
-  done: boolean;
-}
 
 interface ChatMsg {
   id: string;
@@ -46,24 +40,6 @@ const CoworkPage = () => {
   const [isStreaming, setIsStreaming] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
-  const [checklist, setChecklist] = useState<ChecklistItem[]>([
-    { id: 'download', label: 'Télécharger Cowork', description: 'Bienvenue !', done: true },
-    { id: 'connect-tools', label: 'Connectez vos outils quotidiens', description: 'Plus Claude connaît votre configuration, plus il peut en faire', done: false },
-    { id: 'create-something', label: 'Demandez à Claude de créer quelque chose.', description: 'Essayez un tableur, un document ou une présentation', done: false },
-    { id: 'schedule-task', label: 'Planifier une tâche récurrente', description: 'Idéal pour les rappels, rapports ou suivis réguliers', done: false },
-  ]);
-
-  useEffect(() => { chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isStreaming]);
-
-  const toggleItem = (id: string) => {
-    setChecklist((prev) => prev.map((item) => (item.id === id ? { ...item, done: !item.done } : item)));
-    if (id === 'connect-tools') setActiveView('mcp');
-    if (id === 'schedule-task') setActiveView('dispatch');
-    if (id === 'create-something') {
-      setInput('Crée-moi un tableur de suivi de projet');
-      setActiveView('home');
-    }
-  };
 
   const sendToChat = useCallback((text: string) => {
     if (!text.trim() || isStreaming) return;
