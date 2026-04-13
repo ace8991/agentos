@@ -11,7 +11,8 @@ import {
 import TaskSidebar from '@/components/TaskSidebar';
 import HexLogo from '@/components/HexLogo';
 import { PreviewPanel } from '@/components/code/PreviewPanel';
-import { chatDirect } from '@/lib/api';
+import { chatDirect, type ChatMessage as ChatMessageType } from '@/lib/api';
+import ModelSelector from '@/components/ModelSelector';
 import { useStore } from '@/store/useStore';
 import {
   loadRepos, addRepo, removeRepo, switchBranch,
@@ -442,7 +443,7 @@ const CodePage = () => {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
   // Input bar state
-  const [autoAccept, setAutoAccept] = useState(true);
+  const [showCodeModelSelector, setShowCodeModelSelector] = useState(false);
   const [input, setInput] = useState('');
 
   // Chat state
