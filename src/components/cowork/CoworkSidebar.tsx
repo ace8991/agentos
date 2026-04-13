@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import {
   Plus, Search, CalendarClock, FolderOpen, Send as Dispatch,
   Lightbulb, SlidersHorizontal, PanelLeftClose, PanelLeftOpen,
-  Menu, X, Download, ChevronRight,
+  Menu, X, Download, ChevronRight, MessageSquare, Trash2,
 } from 'lucide-react';
 import { useStore, type HistoryRun } from '@/store/useStore';
 import { useAuthStore } from '@/store/authStore';
-import HexLogo from '@/components/HexLogo';
+import { useCoworkStore } from '@/store/coworkStore';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 
@@ -16,14 +16,15 @@ export type CoworkView = 'home' | 'dispatch' | 'mcp' | 'extensions' | 'chat' | '
 interface CoworkSidebarProps {
   activeView: CoworkView;
   onChangeView: (view: CoworkView) => void;
+  onOpenConversation?: (conversationId: string) => void;
 }
 
-const CoworkSidebar = ({ activeView, onChangeView }: CoworkSidebarProps) => {
-  const history = useStore((s) => s.history);
+const CoworkSidebar = ({ activeView, onChangeView, onOpenConversation }: CoworkSidebarProps) => {
   const reset = useStore((s) => s.reset);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const authUser = useAuthStore((s) => s.user);
+  const { conversations, setActiveConversation, deleteConversation } = useCoworkStore();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -31,7 +32,7 @@ const CoworkSidebar = ({ activeView, onChangeView }: CoworkSidebarProps) => {
   const userName = authUser?.display_name || 'Utilisateur';
 
   const menuItems = [
-    { id: 'new', label: 'Nouvelle tâche.', icon: Plus, action: () => { reset(); onChangeView('home'); } },
+    { id: 'new', label: 'Nouvelle tâche', icon: Plus, action: () => { reset(); setActiveConversation(null); onChangeView('home'); } },
     { id: 'search', label: 'Rechercher', icon: Search, action: () => onChangeView('search') },
     { id: 'scheduled', label: 'Programmé', icon: CalendarClock, action: () => onChangeView('dispatch') },
     { id: 'projects', label: 'Projets', icon: FolderOpen, action: () => onChangeView('projects') },
@@ -40,7 +41,14 @@ const CoworkSidebar = ({ activeView, onChangeView }: CoworkSidebarProps) => {
     { id: 'customize', label: 'Personnaliser', icon: SlidersHorizontal, action: () => onChangeView('extensions') },
   ];
 
-  const recentTasks = history.slice(0, 5);
+  const recentConversations = conversations.slice(0, 8);
+
+  const handleOpenConversation = (convId: string) => {
+    setActiveConversation(convId);
+    if (onOpenConversation) onOpenConversation(convId);
+    onChangeView('chat');
+    setMobileOpen(false);
+  };
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-[hsl(0,0%,10%)]">
@@ -61,22 +69,30 @@ const CoworkSidebar = ({ activeView, onChangeView }: CoworkSidebarProps) => {
         })}
       </div>
 
-      {/* Recents */}
+      {/* Recent conversations */}
       <div className="px-4 mt-2">
         <p className="text-xs text-muted-foreground mb-2">Récents</p>
         <div className="space-y-0.5">
-          {recentTasks.length > 0 ? (
-            recentTasks.map((run) => (
-              <button
-                key={run.run_id}
-                onClick={() => { setMobileOpen(false); }}
-                className="w-full text-left px-2 py-1.5 rounded-md text-sm text-foreground/70 hover:bg-[hsl(0,0%,15%)] transition-colors truncate"
-              >
-                {run.task.slice(0, 40)}
-              </button>
+          {recentConversations.length > 0 ? (
+            recentConversations.map((conv) => (
+              <div key={conv.id} className="group flex items-center">
+                <button
+                  onClick={() => handleOpenConversation(conv.id)}
+                  className="flex-1 text-left px-2 py-1.5 rounded-md text-sm text-foreground/70 hover:bg-[hsl(0,0%,15%)] transition-colors truncate flex items-center gap-2"
+                >
+                  <MessageSquare size={12} className="text-muted-foreground flex-shrink-0" />
+                  <span className="truncate">{conv.title}</span>
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); deleteConversation(conv.id); }}
+                  className="p-1 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
+                >
+                  <Trash2 size={11} />
+                </button>
+              </div>
             ))
           ) : (
-            <p className="text-xs text-muted-foreground/60 px-2">Configurer Cowork</p>
+            <p className="text-xs text-muted-foreground/60 px-2">Aucune conversation</p>
           )}
         </div>
       </div>
@@ -85,7 +101,6 @@ const CoworkSidebar = ({ activeView, onChangeView }: CoworkSidebarProps) => {
         Ces tâches s'exécutent localement et ne sont pas synchronisées entre les appareils.
       </p>
 
-      {/* Spacer */}
       <div className="flex-1" />
 
       {/* User profile */}

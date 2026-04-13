@@ -1,5 +1,9 @@
 import { useState } from 'react';
-import { CalendarClock, Plus, Play, Pause, Trash2, Clock, CheckCircle2, AlertCircle, ChevronDown, X } from 'lucide-react';
+import {
+  CalendarClock, Plus, Play, Pause, Trash2, Clock, CheckCircle2,
+  AlertCircle, ChevronDown, X, Send, Loader2
+} from 'lucide-react';
+import { useCoworkStore } from '@/store/coworkStore';
 
 interface ScheduledTask {
   id: string;
@@ -52,17 +56,23 @@ const schedulePresets = [
 ];
 
 const statusConfig = {
-  active: { icon: Play, color: 'text-[hsl(var(--success))]', bg: 'bg-[hsl(var(--success))]/10', label: 'Actif' },
-  paused: { icon: Pause, color: 'text-[hsl(var(--accent))]', bg: 'bg-[hsl(var(--accent))]/10', label: 'Pausé' },
+  active: { icon: Play, color: 'text-[hsl(140,60%,50%)]', bg: 'bg-[hsl(140,60%,50%)]/10', label: 'Actif' },
+  paused: { icon: Pause, color: 'text-accent-foreground', bg: 'bg-accent/10', label: 'Pausé' },
   completed: { icon: CheckCircle2, color: 'text-primary', bg: 'bg-primary/10', label: 'Terminé' },
   error: { icon: AlertCircle, color: 'text-destructive', bg: 'bg-destructive/10', label: 'Erreur' },
 };
 
-const DispatchPanel = () => {
+interface DispatchPanelProps {
+  onSendTask?: (task: string) => void;
+}
+
+const DispatchPanel = ({ onSendTask }: DispatchPanelProps) => {
   const [tasks, setTasks] = useState(sampleTasks);
   const [showCreate, setShowCreate] = useState(false);
   const [newTask, setNewTask] = useState({ name: '', description: '', schedule: '' });
   const [showSchedulePicker, setShowSchedulePicker] = useState(false);
+  const [quickTask, setQuickTask] = useState('');
+  const { dispatchExecutions, addDispatchExecution, updateDispatchExecution } = useCoworkStore();
 
   const toggleStatus = (id: string) => {
     setTasks((prev) =>
@@ -94,12 +104,89 @@ const DispatchPanel = () => {
     setShowCreate(false);
   };
 
+  const handleQuickDispatch = () => {
+    if (!quickTask.trim()) return;
+    const execId = crypto.randomUUID();
+    addDispatchExecution({
+      id: execId,
+      taskId: execId,
+      taskName: quickTask,
+      status: 'running',
+      startedAt: new Date().toISOString(),
+    });
+    // Simulate completion
+    setTimeout(() => {
+      updateDispatchExecution(execId, {
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+        result: 'Tâche exécutée avec succès.',
+      });
+    }, 3000 + Math.random() * 4000);
+    if (onSendTask) onSendTask(quickTask);
+    setQuickTask('');
+  };
+
   return (
     <div className="w-full max-w-[680px] mx-auto">
+      {/* Quick dispatch */}
+      <div className="mb-6 rounded-xl border border-primary/30 bg-primary/5 p-4">
+        <h3 className="text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+          <Send size={14} className="text-primary" />
+          Envoyer une tâche à l'agent
+        </h3>
+        <p className="text-[11px] text-muted-foreground mb-3">
+          Décrivez ce que vous souhaitez accomplir. L'agent exécutera la tâche en arrière-plan.
+        </p>
+        <div className="flex gap-2">
+          <input
+            value={quickTask}
+            onChange={(e) => setQuickTask(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleQuickDispatch()}
+            placeholder="Ex: Compile un rapport des ventes du mois..."
+            className="flex-1 bg-muted/30 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/50 transition-colors"
+          />
+          <button
+            onClick={handleQuickDispatch}
+            disabled={!quickTask.trim()}
+            className="px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+          >
+            <Send size={12} /> Envoyer
+          </button>
+        </div>
+      </div>
+
+      {/* Execution history */}
+      {dispatchExecutions.length > 0 && (
+        <div className="mb-6">
+          <h3 className="text-sm font-medium text-foreground mb-3">Exécutions récentes</h3>
+          <div className="space-y-2">
+            {dispatchExecutions.map((exec) => (
+              <div key={exec.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[hsl(var(--surface))] border border-border">
+                {exec.status === 'running' ? (
+                  <Loader2 size={14} className="text-primary animate-spin flex-shrink-0" />
+                ) : exec.status === 'completed' ? (
+                  <CheckCircle2 size={14} className="text-[hsl(140,60%,50%)] flex-shrink-0" />
+                ) : (
+                  <AlertCircle size={14} className="text-destructive flex-shrink-0" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] text-foreground truncate">{exec.taskName}</p>
+                  {exec.result && <p className="text-[11px] text-muted-foreground truncate">{exec.result}</p>}
+                </div>
+                <span className="text-[10px] text-muted-foreground flex-shrink-0">
+                  {exec.status === 'running' ? 'En cours...' : 'Terminé'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Scheduled tasks header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <CalendarClock size={18} className="text-primary" />
-          <h2 className="text-sm font-semibold text-foreground">Dispatch – Tâches planifiées</h2>
+          <h2 className="text-sm font-semibold text-foreground">Tâches planifiées</h2>
         </div>
         <button
           onClick={() => setShowCreate(!showCreate)}
@@ -134,8 +221,8 @@ const DispatchPanel = () => {
                 <ChevronDown size={11} />
               </button>
               {showSchedulePicker && (
-                <div className="absolute top-full left-0 mt-1 z-50 bg-[hsl(0,0%,13%)] border border-[hsl(0,0%,20%)] rounded-xl shadow-xl overflow-hidden min-w-[220px]">
-                  <div className="px-3 py-2 border-b border-[hsl(0,0%,17%)] flex items-center justify-between">
+                <div className="absolute top-full left-0 mt-1 z-50 bg-[hsl(var(--surface))] border border-border rounded-xl shadow-xl overflow-hidden min-w-[220px]">
+                  <div className="px-3 py-2 border-b border-border flex items-center justify-between">
                     <span className="text-[11px] font-medium text-foreground">Fréquence</span>
                     <button onClick={() => setShowSchedulePicker(false)} className="text-muted-foreground hover:text-foreground">
                       <X size={12} />
@@ -152,14 +239,14 @@ const DispatchPanel = () => {
                         className={`w-full text-left px-3 py-2 text-xs transition-colors ${
                           newTask.schedule === preset
                             ? 'bg-primary/10 text-primary'
-                            : 'text-foreground/80 hover:bg-[hsl(0,0%,17%)]'
+                            : 'text-foreground/80 hover:bg-muted'
                         }`}
                       >
                         {preset}
                       </button>
                     ))}
                   </div>
-                  <div className="px-3 py-2 border-t border-[hsl(0,0%,17%)]">
+                  <div className="px-3 py-2 border-t border-border">
                     <input
                       value={newTask.schedule}
                       onChange={(e) => setNewTask({ ...newTask, schedule: e.target.value })}
