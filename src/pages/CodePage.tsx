@@ -912,9 +912,20 @@ const CodePage = () => {
                   </div>
                   <span className="whitespace-nowrap hidden md:inline">Accepter auto.</span>
                 </label>
-                <button className="flex items-center gap-1 bg-transparent border-none text-muted-foreground text-[12px] cursor-pointer px-1 py-1 rounded whitespace-nowrap">
-                  Opus 4.6 <ChevronDown size={11} />
-                </button>
+                <div className="relative">
+                  <button onClick={() => setShowCodeModelSelector(!showCodeModelSelector)}
+                    className="flex items-center gap-1 bg-transparent border-none text-muted-foreground text-[12px] cursor-pointer px-1 py-1 rounded whitespace-nowrap hover:text-foreground transition-colors">
+                    {getModelShortName()} <ChevronDown size={11} />
+                  </button>
+                  {showCodeModelSelector && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowCodeModelSelector(false)} />
+                      <div className="absolute bottom-full right-0 mb-2 z-50">
+                        <ModelSelector />
+                      </div>
+                    </>
+                  )}
+                </div>
                 <button className="bg-transparent border-none text-muted-foreground cursor-pointer p-1 rounded-md flex items-center">
                   <Mic size={13} />
                 </button>
