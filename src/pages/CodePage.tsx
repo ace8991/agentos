@@ -474,6 +474,18 @@ const CodePage = () => {
   useEffect(() => { chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isStreaming]);
   useEffect(() => { termBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [termLines]);
 
+  const getModelShortName = () => {
+    const parts = model.split('-');
+    if (model.includes('claude')) {
+      const name = parts.find(p => ['sonnet', 'opus', 'haiku'].includes(p));
+      const version = parts.slice(-1)[0];
+      return `${name ? name.charAt(0).toUpperCase() + name.slice(1) : 'Claude'} ${version}`;
+    }
+    if (model.includes('gpt')) return model.replace('gpt-', 'GPT-');
+    if (model.includes('deepseek')) return 'DeepSeek';
+    return model;
+  };
+
   // ─── Handlers ────────────────────────────────────────────
   const sendToChat = useCallback((text: string) => {
     if (!text.trim() || isStreaming) return;
