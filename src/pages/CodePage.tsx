@@ -496,6 +496,47 @@ const CodePage = () => {
     return model;
   };
 
+  // ─── Agentic simulation helpers ──────────────────────────
+  const simulateAgentSteps = useCallback((stepsId: string, text: string) => {
+    const steps: ActionStep[] = [];
+    const addStep = (type: ActionStepType, label: string, detail?: string, delay?: number) => {
+      return new Promise<void>((resolve) => {
+        const step: ActionStep = { id: `${stepsId}-${steps.length}`, type, status: 'running', label };
+        steps.push(step);
+        setMessages(prev => prev.map(m => m.id === stepsId ? { ...m, actionSteps: [...steps] } : m));
+        setTimeout(() => {
+          step.status = 'done';
+          step.detail = detail;
+          step.duration = Math.floor(Math.random() * 800 + 100);
+          setMessages(prev => prev.map(m => m.id === stepsId ? { ...m, actionSteps: [...steps] } : m));
+          resolve();
+        }, delay || Math.floor(Math.random() * 600 + 300));
+      });
+    };
+
+    const lowerText = text.toLowerCase();
+    const isComplex = lowerText.includes('refactor') || lowerText.includes('créer') || lowerText.includes('ajouter') || text.length > 80;
+
+    return (async () => {
+      await addStep('think', 'Analyse de la requête…', `Requête: "${text.slice(0, 100)}"`, 400);
+      if (isComplex) {
+        await addStep('search', 'Recherche dans le codebase…', 'src/components/ — 12 fichiers trouvés', 500);
+        await addStep('read_file', 'Lecture · package.json', '{\n  "name": "agentos",\n  "version": "1.0.0"\n}', 300);
+      }
+      await addStep('read_file', `Lecture · ${selectedFile?.split('/').pop() || 'App.tsx'}`, sampleFileContents[selectedFile || '/src/App.tsx']?.slice(0, 200), 350);
+      if (isComplex) {
+        await addStep('plan', 'Élaboration du plan…', '1. Analyser le code existant\n2. Modifier les composants\n3. Vérifier les tests', 400);
+        // Push terminal output
+        const termCmd: TerminalLine = { id: Date.now().toString(), type: 'input', content: '$ npx tsc --noEmit' };
+        const termOut: TerminalLine = { id: `${Date.now()}-1`, type: 'output', content: '✓ No errors found' };
+        setTermLines(prev => [...prev, termCmd, termOut]);
+        await addStep('bash', 'npx tsc --noEmit', '✓ No errors found', 600);
+        await addStep('write_file', `Écriture · ${selectedFile?.split('/').pop() || 'App.tsx'}`, '+ import { useState } from "react";\n+ const [data, setData] = useState(null);', 400);
+        await addStep('verify', 'Vérification réussie', 'Build OK — 0 erreurs, 0 warnings', 300);
+      }
+    })();
+  }, [selectedFile]);
+
   // ─── Handlers ────────────────────────────────────────────
   const sendToChat = useCallback((text: string) => {
     if (!text.trim() || isStreaming) return;
@@ -503,32 +544,39 @@ const CodePage = () => {
     setMessages(prev => [...prev, userMsg]);
     setIsStreaming(true);
 
-    const assistantId = (Date.now() + 1).toString();
-    setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '' }]);
+    // Insert action steps message
+    const stepsId = (Date.now() + 1).toString();
+    setMessages(prev => [...prev, { id: stepsId, role: 'agent-steps', content: '', actionSteps: [] }]);
 
-    let fullContent = '';
-    chatDirect(
-      [
-        { role: 'system' as const, content: 'Tu es un assistant de programmation expert. Réponds en français. Fournis du code dans des blocs ```language quand approprié.' },
-        ...messages.filter(m => m.role === 'user' || (m.role === 'assistant' && m.content)).map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
-        { role: 'user' as const, content: text },
-      ],
-      model, null, false,
-      (token) => {
-        fullContent += token;
-        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: fullContent } : m));
-      },
-      () => {
-        const codeBlocks = extractCodeBlocks(fullContent);
-        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: fullContent, codeBlocks: codeBlocks.length > 0 ? codeBlocks : undefined } : m));
-        setIsStreaming(false);
-      },
-      (err) => {
-        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: `Erreur: ${err}` } : m));
-        setIsStreaming(false);
-      },
-    );
-  }, [messages, model, isStreaming]);
+    // Simulate agentic steps, then call the AI
+    simulateAgentSteps(stepsId, text).then(() => {
+      const assistantId = (Date.now() + 2).toString();
+      setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '' }]);
+
+      let fullContent = '';
+      chatDirect(
+        [
+          { role: 'system' as const, content: 'Tu es un assistant de programmation expert. Réponds en français. Fournis du code dans des blocs ```language quand approprié.' },
+          ...messages.filter(m => m.role === 'user' || (m.role === 'assistant' && m.content)).map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+          { role: 'user' as const, content: text },
+        ],
+        model, null, false,
+        (token) => {
+          fullContent += token;
+          setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: fullContent } : m));
+        },
+        () => {
+          const codeBlocks = extractCodeBlocks(fullContent);
+          setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: fullContent, codeBlocks: codeBlocks.length > 0 ? codeBlocks : undefined } : m));
+          setIsStreaming(false);
+        },
+        (err) => {
+          setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: `Erreur: ${err}` } : m));
+          setIsStreaming(false);
+        },
+      );
+    });
+  }, [messages, model, isStreaming, simulateAgentSteps]);
 
   const handleMainSubmit = () => { if (!input.trim()) return; setShowChat(true); sendToChat(input); setInput(''); };
   const handleChatSubmit = () => { if (!chatInput.trim()) return; sendToChat(chatInput); setChatInput(''); };
