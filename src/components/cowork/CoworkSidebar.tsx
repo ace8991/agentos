@@ -11,7 +11,7 @@ import HexLogo from '@/components/HexLogo';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 
-export type CoworkView = 'home' | 'dispatch' | 'mcp' | 'extensions' | 'chat';
+export type CoworkView = 'home' | 'dispatch' | 'mcp' | 'extensions' | 'chat' | 'projects' | 'ideas' | 'search';
 
 interface CoworkSidebarProps {
   activeView: CoworkView;
@@ -32,11 +32,11 @@ const CoworkSidebar = ({ activeView, onChangeView }: CoworkSidebarProps) => {
 
   const menuItems = [
     { id: 'new', label: 'Nouvelle tâche.', icon: Plus, action: () => { reset(); onChangeView('home'); } },
-    { id: 'search', label: 'Rechercher', icon: Search, action: () => {} },
+    { id: 'search', label: 'Rechercher', icon: Search, action: () => onChangeView('search') },
     { id: 'scheduled', label: 'Programmé', icon: CalendarClock, action: () => onChangeView('dispatch') },
-    { id: 'projects', label: 'Projets', icon: FolderOpen, action: () => {} },
+    { id: 'projects', label: 'Projets', icon: FolderOpen, action: () => onChangeView('projects') },
     { id: 'dispatch', label: 'Dispatch', icon: Dispatch, action: () => onChangeView('dispatch') },
-    { id: 'ideas', label: 'Idées', icon: Lightbulb, action: () => {} },
+    { id: 'ideas', label: 'Idées', icon: Lightbulb, action: () => onChangeView('ideas') },
     { id: 'customize', label: 'Personnaliser', icon: SlidersHorizontal, action: () => onChangeView('extensions') },
   ];
 
