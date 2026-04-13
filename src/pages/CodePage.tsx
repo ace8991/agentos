@@ -561,7 +561,18 @@ const CodePage = () => {
     if (isMobile) setShowLeftPanel(false);
   };
 
-  const currentLanguage = selectedFile
+  // Open file from navigation state (e.g. from Cowork page)
+  useEffect(() => {
+    const state = location.state as { openFile?: string } | null;
+    if (state?.openFile) {
+      const normalizedPath = state.openFile.startsWith('/') ? state.openFile : `/${state.openFile}`;
+      handleFileSelect(normalizedPath);
+      setShowLeftPanel(true);
+      // Clear the state so it doesn't re-trigger
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
     ? (selectedFile.split('.').pop() || 'txt')
     : 'txt';
 
