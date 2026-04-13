@@ -729,29 +729,44 @@ const CodePage = () => {
         <button onClick={() => setShowChat(false)} className="text-muted-foreground hover:text-foreground"><X size={14} /></button>
       </div>
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
-        {messages.map((msg) => (
-          <div key={msg.id} className={`flex gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-            <div className={`flex-shrink-0 h-6 w-6 rounded-md flex items-center justify-center ${
-              msg.role === 'user' ? 'bg-[hsl(14,74%,52%)]/20' : 'bg-[hsl(0,0%,20%)]'
-            }`}>
-              {msg.role === 'user' ? <User size={12} className="text-[hsl(14,74%,52%)]" /> : <Bot size={12} className="text-muted-foreground" />}
-            </div>
-            <div className={`flex-1 min-w-0 ${msg.role === 'user' ? 'text-right' : ''}`}>
-              <p className="text-[13px] text-foreground/85 whitespace-pre-wrap leading-relaxed">{msg.content.replace(/```[\s\S]*?```/g, '').trim() || msg.content}</p>
-              {msg.codeBlocks?.map((block, i) => (
-                <div key={i} className="mt-2 rounded-lg border border-[hsl(0,0%,20%)] bg-[hsl(0,0%,10%)] overflow-hidden text-left">
-                  <div className="flex items-center justify-between px-3 py-1.5 bg-[hsl(0,0%,15%)] border-b border-[hsl(0,0%,20%)]">
-                    <span className="text-[10px] text-muted-foreground font-mono">{block.file || block.language}</span>
-                    <button onClick={() => handleCopy(block.code, `${msg.id}-${i}`)} className="text-muted-foreground hover:text-foreground">
-                      {copiedId === `${msg.id}-${i}` ? <Check size={12} className="text-[hsl(142,71%,45%)]" /> : <Copy size={12} />}
-                    </button>
+        {messages.map((msg) => {
+          // Agent action steps
+          if (msg.role === 'agent-steps' && msg.actionSteps?.length) {
+            return (
+              <div key={msg.id} className="space-y-0.5 pl-1 border-l-2 border-[hsl(0,0%,17%)] ml-2">
+                {msg.actionSteps.map(step => (
+                  <AgentActionStep key={step.id} step={step} />
+                ))}
+              </div>
+            );
+          }
+          // Skip empty agent-steps
+          if (msg.role === 'agent-steps') return null;
+
+          return (
+            <div key={msg.id} className={`flex gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+              <div className={`flex-shrink-0 h-6 w-6 rounded-md flex items-center justify-center ${
+                msg.role === 'user' ? 'bg-[hsl(14,74%,52%)]/20' : 'bg-[hsl(0,0%,20%)]'
+              }`}>
+                {msg.role === 'user' ? <User size={12} className="text-[hsl(14,74%,52%)]" /> : <Bot size={12} className="text-muted-foreground" />}
+              </div>
+              <div className={`flex-1 min-w-0 ${msg.role === 'user' ? 'text-right' : ''}`}>
+                <p className="text-[13px] text-foreground/85 whitespace-pre-wrap leading-relaxed">{msg.content.replace(/```[\s\S]*?```/g, '').trim() || msg.content}</p>
+                {msg.codeBlocks?.map((block, i) => (
+                  <div key={i} className="mt-2 rounded-lg border border-[hsl(0,0%,20%)] bg-[hsl(0,0%,10%)] overflow-hidden text-left">
+                    <div className="flex items-center justify-between px-3 py-1.5 bg-[hsl(0,0%,15%)] border-b border-[hsl(0,0%,20%)]">
+                      <span className="text-[10px] text-muted-foreground font-mono">{block.file || block.language}</span>
+                      <button onClick={() => handleCopy(block.code, `${msg.id}-${i}`)} className="text-muted-foreground hover:text-foreground">
+                        {copiedId === `${msg.id}-${i}` ? <Check size={12} className="text-[hsl(142,71%,45%)]" /> : <Copy size={12} />}
+                      </button>
+                    </div>
+                    <pre className="p-3 text-[11px] font-mono text-foreground/80 overflow-x-auto"><code>{block.code}</code></pre>
                   </div>
-                  <pre className="p-3 text-[11px] font-mono text-foreground/80 overflow-x-auto"><code>{block.code}</code></pre>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         {isStreaming && messages[messages.length - 1]?.content === '' && (
           <div className="flex gap-2">
             <div className="h-6 w-6 rounded-md bg-[hsl(0,0%,20%)] flex items-center justify-center">
