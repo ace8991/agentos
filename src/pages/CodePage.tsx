@@ -7,10 +7,13 @@ import {
   Send, Bot, User, Copy, Paperclip, X, Undo2, ChevronRight,
   Folder, File, Search, Plus, RefreshCw, ExternalLink, Clock,
   AlertCircle, GitPullRequest, Maximize2, Minimize2, Trash2, Loader2,
-  Eye, SplitSquareHorizontal, Code2,
+  Eye, SplitSquareHorizontal, Code2, Brain, Layers, FileText, Shield, ShieldCheck,
 } from 'lucide-react';
 import TaskSidebar from '@/components/TaskSidebar';
 import TopNavBar from '@/components/TopNavBar';
+import AgentActionStep, { type ActionStep, type ActionStepType } from '@/components/code/AgentActionStep';
+import ClaudeMdEditor from '@/components/code/ClaudeMdEditor';
+import SubAgentPanel from '@/components/code/SubAgentPanel';
 import HexLogo from '@/components/HexLogo';
 import { PreviewPanel } from '@/components/code/PreviewPanel';
 import { chatDirect, type ChatMessage as ChatMessageType } from '@/lib/api';
