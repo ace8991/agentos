@@ -68,7 +68,7 @@ const CoworkSidebar = ({ activeView, onChangeView }: CoworkSidebarProps) => {
           {recentTasks.length > 0 ? (
             recentTasks.map((run) => (
               <button
-                key={run.id}
+                key={run.run_id}
                 onClick={() => { setMobileOpen(false); }}
                 className="w-full text-left px-2 py-1.5 rounded-md text-sm text-foreground/70 hover:bg-[hsl(0,0%,15%)] transition-colors truncate"
               >
