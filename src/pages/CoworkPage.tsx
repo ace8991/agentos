@@ -11,6 +11,7 @@ import ProjectsPanel from '@/components/cowork/ProjectsPanel';
 import IdeasPanel from '@/components/cowork/IdeasPanel';
 import SearchPanel from '@/components/cowork/SearchPanel';
 import { useStore } from '@/store/useStore';
+import { useCoworkStore } from '@/store/coworkStore';
 import ModelSelector from '@/components/ModelSelector';
 
 const sampleFiles = [
@@ -24,10 +25,12 @@ const sampleFiles = [
 const CoworkPage = () => {
   const model = useStore((s) => s.model);
   const navigate = useNavigate();
+  const { setActiveConversation, activeConversationId } = useCoworkStore();
   const [input, setInput] = useState('');
   const [activeView, setActiveView] = useState<CoworkView>('home');
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [chatInitialMessage, setChatInitialMessage] = useState('');
+  const [chatProjectId, setChatProjectId] = useState<string | undefined>();
 
   const getModelShortName = () => {
     const parts = model.split('-');
@@ -43,8 +46,30 @@ const CoworkPage = () => {
 
   const handleGoSubmit = () => {
     if (!input.trim()) return;
+    setActiveConversation(null);
     setChatInitialMessage(input);
+    setChatProjectId(undefined);
     setInput('');
+    setActiveView('chat');
+  };
+
+  const handleOpenProjectChat = (projectId: string) => {
+    setActiveConversation(null);
+    setChatProjectId(projectId);
+    setChatInitialMessage('');
+    setActiveView('chat');
+  };
+
+  const handleOpenConversation = (conversationId: string) => {
+    setChatInitialMessage('');
+    setChatProjectId(undefined);
+    setActiveView('chat');
+  };
+
+  const handleDispatchSendTask = (task: string) => {
+    setActiveConversation(null);
+    setChatInitialMessage(task);
+    setChatProjectId(undefined);
     setActiveView('chat');
   };
 
@@ -56,21 +81,24 @@ const CoworkPage = () => {
     <div className="flex flex-col h-[100dvh] w-full overflow-hidden bg-[hsl(0,0%,10%)]">
       <TopNavBar />
       <div className="flex flex-1 min-h-0">
-        <CoworkSidebar activeView={activeView} onChangeView={setActiveView} />
+        <CoworkSidebar
+          activeView={activeView}
+          onChangeView={setActiveView}
+          onOpenConversation={handleOpenConversation}
+        />
         <div className="flex-1 flex flex-col min-w-0">
 
-          {/* Home view */}
           {activeView === 'home' && (
             <div className="flex-1 overflow-y-auto px-3 py-5 sm:px-8 sm:py-10 flex flex-col items-center" style={{ WebkitOverflowScrolling: 'touch', paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))' }}>
               <div className="text-center mb-4 sm:mb-[18px] w-full max-w-[680px]">
                 <div className="flex items-center justify-center gap-2 sm:gap-2.5 mb-2 flex-wrap">
-                  <span className="text-[26px] sm:text-[32px] text-[hsl(14,74%,52%)]">✳</span>
+                  <span className="text-[26px] sm:text-[32px] text-primary">✳</span>
                   <h1 className="text-[22px] sm:text-[30px] font-bold text-foreground tracking-tight leading-tight">
                     Accomplissons une tâche de votre liste
                   </h1>
                 </div>
-                <p className="text-[12px] sm:text-sm text-[hsl(14,74%,52%)]/60 mt-1 leading-relaxed">
-                  Apprenez à utiliser Cowork en toute sécurité.
+                <p className="text-[12px] sm:text-sm text-primary/60 mt-1 leading-relaxed">
+                  Décrivez ce que vous souhaitez — Cowork s'occupe du reste.
                 </p>
               </div>
 
@@ -78,18 +106,18 @@ const CoworkPage = () => {
                 {sampleFiles.map((file, i) => (
                   <button key={i}
                     onClick={() => handleFileCardClick(file.path)}
-                    className="flex-shrink-0 min-w-[100px] sm:min-w-[115px] max-w-[120px] sm:max-w-[125px] bg-[hsl(0,0%,15%)] border border-[hsl(0,0%,20%)] rounded-lg p-2.5 text-left cursor-pointer hover:bg-[hsl(0,0%,17%)] hover:border-[hsl(14,74%,52%)]/30 active:scale-[0.97] transition-all">
+                    className="flex-shrink-0 min-w-[100px] sm:min-w-[115px] max-w-[120px] sm:max-w-[125px] bg-[hsl(var(--surface))] border border-border rounded-lg p-2.5 text-left cursor-pointer hover:bg-[hsl(var(--surface-elevated))] hover:border-primary/30 active:scale-[0.97] transition-all">
                     <p className="text-[9px] sm:text-[10px] text-muted-foreground leading-[1.4] break-all mb-2 line-clamp-3">{file.path}</p>
                     <span className="inline-block text-[9px] sm:text-[10px] font-bold px-[5px] py-[2px] rounded-[3px] bg-[hsl(214,30%,24%)] text-[hsl(214,46%,63%)]">{file.type}</span>
                   </button>
                 ))}
               </div>
 
-              <div className="bg-[hsl(0,0%,15%)] border border-[hsl(0,0%,20%)] rounded-xl px-3 sm:px-3.5 py-3 w-full max-w-[680px] mb-4 sm:mb-[18px]">
+              <div className="bg-[hsl(var(--surface))] border border-border rounded-xl px-3 sm:px-3.5 py-3 w-full max-w-[680px] mb-4 sm:mb-[18px]">
                 <input value={input} onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleGoSubmit()}
-                  placeholder="Tapez / pour les compétences"
-                  className="w-full bg-transparent border-none outline-none text-muted-foreground text-[14px] sm:text-[15px] placeholder:text-[hsl(0,0%,33%)]" />
+                  placeholder="Décrivez une tâche à accomplir..."
+                  className="w-full bg-transparent border-none outline-none text-muted-foreground text-[14px] sm:text-[15px] placeholder:text-muted-foreground/50" />
                 <div className="flex items-center justify-between mt-2.5 gap-1">
                   <div className="flex items-center gap-0.5 min-w-0 overflow-hidden">
                     <button onClick={() => navigate('/code')}
@@ -117,7 +145,7 @@ const CoworkPage = () => {
                       </>
                     )}
                     <button onClick={handleGoSubmit}
-                      className="bg-[hsl(14,74%,52%)] text-white border-none rounded-lg py-2 px-3 sm:px-3.5 text-[12px] sm:text-[13px] font-semibold cursor-pointer flex items-center gap-1 whitespace-nowrap active:bg-[hsl(14,74%,42%)] transition-colors">
+                      className="bg-primary text-primary-foreground border-none rounded-lg py-2 px-3 sm:px-3.5 text-[12px] sm:text-[13px] font-semibold cursor-pointer flex items-center gap-1 whitespace-nowrap active:bg-primary/80 transition-colors">
                       C'est parti. <ArrowRight size={12} />
                     </button>
                   </div>
@@ -127,12 +155,16 @@ const CoworkPage = () => {
           )}
 
           {activeView === 'chat' && (
-            <CoworkChatView initialMessage={chatInitialMessage} />
+            <CoworkChatView
+              key={activeConversationId || chatInitialMessage || 'new'}
+              initialMessage={chatInitialMessage}
+              projectId={chatProjectId}
+            />
           )}
 
           {activeView === 'dispatch' && (
             <div className="flex-1 overflow-y-auto px-3 py-4 sm:px-8 sm:py-6">
-              <DispatchPanel />
+              <DispatchPanel onSendTask={handleDispatchSendTask} />
             </div>
           )}
 
@@ -150,7 +182,7 @@ const CoworkPage = () => {
 
           {activeView === 'projects' && (
             <div className="flex-1 overflow-y-auto px-3 py-4 sm:px-8 sm:py-6">
-              <ProjectsPanel />
+              <ProjectsPanel onOpenChat={handleOpenProjectChat} />
             </div>
           )}
 
