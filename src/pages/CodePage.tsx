@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   GitBranch, FolderOpen, Check, ChevronDown, Mic, Monitor,
   MessageSquare, Files, GitFork, Terminal as TerminalIcon,
