@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, FolderOpen, Plus, ArrowRight, Check, CalendarClock, Plug, Package, MessageSquare, X, Bot, User, Send } from 'lucide-react';
+import { ChevronDown, FolderOpen, Plus, ArrowRight, CalendarClock, Plug, Package, MessageSquare, Bot, User, Send } from 'lucide-react';
 import TopNavBar from '@/components/TopNavBar';
 import CoworkSidebar, { type CoworkView } from '@/components/cowork/CoworkSidebar';
 import DispatchPanel from '@/components/cowork/DispatchPanel';
@@ -10,12 +10,6 @@ import { chatDirect, type ChatMessage as ChatMessageType } from '@/lib/api';
 import { useStore } from '@/store/useStore';
 import ModelSelector from '@/components/ModelSelector';
 
-interface ChecklistItem {
-  id: string;
-  label: string;
-  description: string;
-  done: boolean;
-}
 
 interface ChatMsg {
   id: string;
@@ -46,24 +40,7 @@ const CoworkPage = () => {
   const [isStreaming, setIsStreaming] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
-  const [checklist, setChecklist] = useState<ChecklistItem[]>([
-    { id: 'download', label: 'Télécharger Cowork', description: 'Bienvenue !', done: true },
-    { id: 'connect-tools', label: 'Connectez vos outils quotidiens', description: 'Plus Claude connaît votre configuration, plus il peut en faire', done: false },
-    { id: 'create-something', label: 'Demandez à Claude de créer quelque chose.', description: 'Essayez un tableur, un document ou une présentation', done: false },
-    { id: 'schedule-task', label: 'Planifier une tâche récurrente', description: 'Idéal pour les rappels, rapports ou suivis réguliers', done: false },
-  ]);
-
   useEffect(() => { chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isStreaming]);
-
-  const toggleItem = (id: string) => {
-    setChecklist((prev) => prev.map((item) => (item.id === id ? { ...item, done: !item.done } : item)));
-    if (id === 'connect-tools') setActiveView('mcp');
-    if (id === 'schedule-task') setActiveView('dispatch');
-    if (id === 'create-something') {
-      setInput('Crée-moi un tableur de suivi de projet');
-      setActiveView('home');
-    }
-  };
 
   const sendToChat = useCallback((text: string) => {
     if (!text.trim() || isStreaming) return;
@@ -157,14 +134,14 @@ const CoworkPage = () => {
           <div className="flex-1 overflow-y-auto px-3 py-5 sm:px-8 sm:py-10 flex flex-col items-center" style={{ WebkitOverflowScrolling: 'touch', paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))' }}>
             {/* Hero */}
             <div className="text-center mb-4 sm:mb-[18px] w-full max-w-[680px]">
-              <div className="flex items-center justify-center gap-2 sm:gap-2.5 mb-1.5 flex-wrap">
-                <span className="text-[22px] sm:text-[26px] text-[hsl(14,74%,52%)]">✳</span>
-                <h1 className="text-[17px] sm:text-[23px] font-bold text-foreground tracking-tight leading-tight">
+              <div className="flex items-center justify-center gap-2 sm:gap-2.5 mb-2 flex-wrap">
+                <span className="text-[26px] sm:text-[32px] text-[hsl(14,74%,52%)]">✳</span>
+                <h1 className="text-[22px] sm:text-[30px] font-bold text-foreground tracking-tight leading-tight">
                   Accomplissons une tâche de votre liste
                 </h1>
               </div>
-              <p className="text-[11px] sm:text-xs text-muted-foreground mt-1 leading-relaxed">
-                Cowork est en aperçu de recherche. <a href="#" className="text-foreground/60 underline cursor-pointer">Découvrez comment l'utiliser en toute sécurité.</a>
+              <p className="text-[12px] sm:text-sm text-[hsl(14,74%,52%)]/60 mt-1 leading-relaxed">
+                Apprenez à utiliser Cowork en toute sécurité.
               </p>
             </div>
 
@@ -184,14 +161,14 @@ const CoworkPage = () => {
             <div className="bg-[hsl(0,0%,15%)] border border-[hsl(0,0%,20%)] rounded-xl px-3 sm:px-3.5 py-3 w-full max-w-[680px] mb-4 sm:mb-[18px]">
               <input value={input} onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleGoSubmit()}
-                placeholder="Que souhaitez-vous accomplir ?"
+                placeholder="Tapez / pour les compétences"
                 className="w-full bg-transparent border-none outline-none text-muted-foreground text-[14px] sm:text-[15px] placeholder:text-[hsl(0,0%,33%)]" />
               <div className="flex items-center justify-between mt-2.5 gap-1">
                 <div className="flex items-center gap-0.5 min-w-0 overflow-hidden">
                   <button onClick={() => navigate('/code')}
                     className="flex items-center gap-1 bg-transparent border-none text-muted-foreground text-[11px] sm:text-[12.5px] cursor-pointer px-1 py-1 rounded-md whitespace-nowrap overflow-hidden shrink-0 hover:text-foreground transition-colors">
                     <FolderOpen size={13} className="flex-shrink-0" />
-                    <span className="whitespace-nowrap overflow-hidden text-ellipsis hidden sm:inline">Ouvrir dans Code</span>
+                    <span className="whitespace-nowrap overflow-hidden text-ellipsis hidden sm:inline">Travailler dans un projet</span>
                     <ChevronDown size={11} className="flex-shrink-0" />
                   </button>
                   <button className="bg-transparent border-none text-muted-foreground cursor-pointer px-1 py-0.5 text-base leading-none flex-shrink-0 hover:text-foreground transition-colors">
@@ -220,39 +197,6 @@ const CoworkPage = () => {
               </div>
             </div>
 
-            {/* Quick actions */}
-            <div className="flex gap-1.5 sm:gap-2 w-full max-w-[680px] mb-5 overflow-x-auto pb-1 scrollbar-none">
-              {[
-                { id: 'dispatch' as const, label: 'Dispatch', icon: CalendarClock },
-                { id: 'mcp' as const, label: 'MCP Servers', icon: Plug },
-                { id: 'extensions' as const, label: 'Extensions', icon: Package },
-              ].map(({ id, label, icon: Icon }) => (
-                <button key={id} onClick={() => setActiveView(id)}
-                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 text-[11px] sm:text-xs rounded-lg bg-[hsl(0,0%,15%)] border border-[hsl(0,0%,20%)] text-muted-foreground hover:text-foreground hover:bg-[hsl(0,0%,17%)] whitespace-nowrap shrink-0 transition-colors">
-                  <Icon size={13} />{label}
-                </button>
-              ))}
-            </div>
-
-            {/* Discover section */}
-            <div className="w-full max-w-[680px]">
-              <h2 className="text-[14px] sm:text-[15px] font-semibold text-foreground/80 mb-3">Découvrez Cowork.</h2>
-              {checklist.map((item) => (
-                <div key={item.id}
-                  className="flex items-start gap-3 py-3 border-b border-[hsl(0,0%,15%)] last:border-b-0 cursor-pointer active:bg-[hsl(0,0%,12%)] transition-colors rounded-lg px-1"
-                  onClick={() => toggleItem(item.id)}>
-                  <div className={`w-[20px] h-[20px] sm:w-[22px] sm:h-[22px] rounded-full border-[1.5px] flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${
-                    item.done ? 'bg-muted-foreground border-muted-foreground' : 'border-[hsl(0,0%,27%)]'
-                  }`}>
-                    {item.done && <Check size={11} className="text-white" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-[13px] font-medium leading-snug ${item.done ? 'text-muted-foreground line-through' : 'text-foreground/85'}`}>{item.label}</p>
-                    <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-[1.45]">{item.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
         )}
 
