@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CalendarClock, Plus, Play, Pause, Trash2, Clock, CheckCircle2, AlertCircle, ChevronDown } from 'lucide-react';
+import { CalendarClock, Plus, Play, Pause, Trash2, Clock, CheckCircle2, AlertCircle, ChevronDown, X } from 'lucide-react';
 
 interface ScheduledTask {
   id: string;
@@ -26,7 +26,7 @@ const sampleTasks: ScheduledTask[] = [
     name: 'Vérification des dépendances',
     schedule: 'Tous les jours à 6h',
     status: 'active',
-    lastRun: 'Aujourd\'hui, 06:00',
+    lastRun: "Aujourd'hui, 06:00",
     nextRun: 'Demain, 06:00',
     description: 'Scanner les vulnérabilités npm et mettre à jour',
   },
@@ -40,9 +40,20 @@ const sampleTasks: ScheduledTask[] = [
   },
 ];
 
+const schedulePresets = [
+  'Toutes les heures',
+  'Tous les jours à 6h',
+  'Tous les jours à 9h',
+  'Tous les jours à 18h',
+  'Tous les lundis à 9h',
+  'Tous les vendredis à 17h',
+  'Tous les dimanches à 2h',
+  'Toutes les 30 minutes',
+];
+
 const statusConfig = {
-  active: { icon: Play, color: 'text-success', bg: 'bg-success/10', label: 'Actif' },
-  paused: { icon: Pause, color: 'text-accent', bg: 'bg-accent/10', label: 'Pausé' },
+  active: { icon: Play, color: 'text-[hsl(var(--success))]', bg: 'bg-[hsl(var(--success))]/10', label: 'Actif' },
+  paused: { icon: Pause, color: 'text-[hsl(var(--accent))]', bg: 'bg-[hsl(var(--accent))]/10', label: 'Pausé' },
   completed: { icon: CheckCircle2, color: 'text-primary', bg: 'bg-primary/10', label: 'Terminé' },
   error: { icon: AlertCircle, color: 'text-destructive', bg: 'bg-destructive/10', label: 'Erreur' },
 };
@@ -51,6 +62,7 @@ const DispatchPanel = () => {
   const [tasks, setTasks] = useState(sampleTasks);
   const [showCreate, setShowCreate] = useState(false);
   const [newTask, setNewTask] = useState({ name: '', description: '', schedule: '' });
+  const [showSchedulePicker, setShowSchedulePicker] = useState(false);
 
   const toggleStatus = (id: string) => {
     setTasks((prev) =>
@@ -66,12 +78,13 @@ const DispatchPanel = () => {
 
   const createTask = () => {
     if (!newTask.name.trim()) return;
+    const schedule = newTask.schedule || 'Tous les jours à 9h';
     setTasks((prev) => [
       ...prev,
       {
         id: Date.now().toString(),
-        ...newTask,
-        schedule: newTask.schedule || 'Tous les jours à 9h',
+        name: newTask.name,
+        schedule,
         status: 'active' as const,
         nextRun: 'Demain, 09:00',
         description: newTask.description || 'Tâche personnalisée',
@@ -102,27 +115,70 @@ const DispatchPanel = () => {
             value={newTask.name}
             onChange={(e) => setNewTask({ ...newTask, name: e.target.value })}
             placeholder="Nom de la tâche"
-            className="w-full bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+            className="w-full bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/50 transition-colors"
           />
           <input
             value={newTask.description}
             onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
             placeholder="Description"
-            className="w-full bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+            className="w-full bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/50 transition-colors"
           />
-          <div className="flex items-center gap-2">
-            <button className="flex items-center gap-1 px-3 py-2 text-xs rounded-lg bg-muted text-muted-foreground hover:bg-muted/80 border border-border">
-              <Clock size={12} />
-              Planifier
-              <ChevronDown size={11} />
-            </button>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+            <div className="relative">
+              <button
+                onClick={() => setShowSchedulePicker(!showSchedulePicker)}
+                className="flex items-center gap-1 px-3 py-2 text-xs rounded-lg bg-muted text-muted-foreground hover:bg-muted/80 border border-border transition-colors"
+              >
+                <Clock size={12} />
+                {newTask.schedule || 'Planifier'}
+                <ChevronDown size={11} />
+              </button>
+              {showSchedulePicker && (
+                <div className="absolute top-full left-0 mt-1 z-50 bg-[hsl(0,0%,13%)] border border-[hsl(0,0%,20%)] rounded-xl shadow-xl overflow-hidden min-w-[220px]">
+                  <div className="px-3 py-2 border-b border-[hsl(0,0%,17%)] flex items-center justify-between">
+                    <span className="text-[11px] font-medium text-foreground">Fréquence</span>
+                    <button onClick={() => setShowSchedulePicker(false)} className="text-muted-foreground hover:text-foreground">
+                      <X size={12} />
+                    </button>
+                  </div>
+                  <div className="py-1 max-h-[200px] overflow-y-auto">
+                    {schedulePresets.map((preset) => (
+                      <button
+                        key={preset}
+                        onClick={() => {
+                          setNewTask({ ...newTask, schedule: preset });
+                          setShowSchedulePicker(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 text-xs transition-colors ${
+                          newTask.schedule === preset
+                            ? 'bg-primary/10 text-primary'
+                            : 'text-foreground/80 hover:bg-[hsl(0,0%,17%)]'
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="px-3 py-2 border-t border-[hsl(0,0%,17%)]">
+                    <input
+                      value={newTask.schedule}
+                      onChange={(e) => setNewTask({ ...newTask, schedule: e.target.value })}
+                      placeholder="Ou saisissez un cron..."
+                      className="w-full bg-muted/30 border border-border rounded-md px-2 py-1.5 text-[11px] text-foreground outline-none placeholder:text-muted-foreground"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="flex-1" />
-            <button onClick={() => setShowCreate(false)} className="px-3 py-2 text-xs rounded-lg text-muted-foreground hover:text-foreground">
-              Annuler
-            </button>
-            <button onClick={createTask} className="px-4 py-2 text-xs rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">
-              Créer
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => { setShowCreate(false); setShowSchedulePicker(false); }} className="px-3 py-2 text-xs rounded-lg text-muted-foreground hover:text-foreground transition-colors">
+                Annuler
+              </button>
+              <button onClick={createTask} disabled={!newTask.name.trim()} className="px-4 py-2 text-xs rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors">
+                Créer
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -135,14 +191,14 @@ const DispatchPanel = () => {
             <div key={task.id} className="rounded-xl border border-border bg-[hsl(var(--surface))] p-3.5 hover:bg-[hsl(var(--surface-elevated))] transition-colors">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <p className="text-sm font-medium text-foreground truncate">{task.name}</p>
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] rounded-full ${config.bg} ${config.color}`}>
                       <StatusIcon size={10} /> {config.label}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground mb-2">{task.description}</p>
-                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
                     <span className="flex items-center gap-1">
                       <Clock size={10} /> {task.schedule}
                     </span>
@@ -173,6 +229,9 @@ const DispatchPanel = () => {
           <div className="text-center py-8">
             <CalendarClock size={28} className="mx-auto text-muted-foreground/40 mb-2" />
             <p className="text-sm text-muted-foreground">Aucune tâche planifiée</p>
+            <button onClick={() => setShowCreate(true)} className="mt-3 text-xs text-primary hover:underline">
+              Créer votre première tâche
+            </button>
           </div>
         )}
       </div>

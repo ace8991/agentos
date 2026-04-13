@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ChevronDown, FolderOpen, Plus, ArrowRight, Check, CalendarClock, Plug, Package, MessageSquare, X, Bot, User, Send } from 'lucide-react';
 import TaskSidebar from '@/components/TaskSidebar';
 import DispatchPanel from '@/components/cowork/DispatchPanel';
 import MCPPanel from '@/components/cowork/MCPPanel';
 import ExtensionsMarketplace from '@/components/cowork/ExtensionsMarketplace';
-import { chatDirect } from '@/lib/api';
+import { chatDirect, type ChatMessage as ChatMessageType } from '@/lib/api';
 import { useStore } from '@/store/useStore';
+import ModelSelector from '@/components/ModelSelector';
 
 interface ChecklistItem {
   id: string;
@@ -32,8 +34,10 @@ type CoworkView = 'home' | 'dispatch' | 'mcp' | 'extensions' | 'chat';
 
 const CoworkPage = () => {
   const model = useStore((s) => s.model);
+  const navigate = useNavigate();
   const [input, setInput] = useState('');
   const [activeView, setActiveView] = useState<CoworkView>('home');
+  const [showModelSelector, setShowModelSelector] = useState(false);
 
   // Chat state
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -54,6 +58,10 @@ const CoworkPage = () => {
     setChecklist((prev) => prev.map((item) => (item.id === id ? { ...item, done: !item.done } : item)));
     if (id === 'connect-tools') setActiveView('mcp');
     if (id === 'schedule-task') setActiveView('dispatch');
+    if (id === 'create-something') {
+      setInput('Crée-moi un tableur de suivi de projet');
+      setActiveView('home');
+    }
   };
 
   const sendToChat = useCallback((text: string) => {
@@ -66,12 +74,13 @@ const CoworkPage = () => {
     setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '' }]);
 
     let fullContent = '';
+    const chatMessages: ChatMessageType[] = [
+      { role: 'system', content: 'Tu es un assistant polyvalent qui aide à accomplir des tâches. Réponds en français de manière concise et utile.' },
+      ...messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+      { role: 'user' as const, content: text },
+    ];
     chatDirect(
-      [
-        { role: 'system', content: 'Tu es un assistant polyvalent qui aide à accomplir des tâches. Réponds en français de manière concise et utile.' },
-        ...messages.map(m => ({ role: m.role, content: m.content })),
-        { role: 'user', content: text },
-      ],
+      chatMessages,
       model, null, false,
       (token) => {
         fullContent += token;
@@ -87,6 +96,22 @@ const CoworkPage = () => {
 
   const handleGoSubmit = () => { if (!input.trim()) return; setActiveView('chat'); sendToChat(input); setInput(''); };
   const handleChatSubmit = () => { if (!chatInput.trim()) return; sendToChat(chatInput); setChatInput(''); };
+
+  const handleFileCardClick = (filePath: string) => {
+    navigate('/code', { state: { openFile: filePath } });
+  };
+
+  const getModelShortName = () => {
+    const parts = model.split('-');
+    if (model.includes('claude')) {
+      const name = parts.find(p => ['sonnet', 'opus', 'haiku'].includes(p));
+      const version = parts.slice(-1)[0];
+      return `${name ? name.charAt(0).toUpperCase() + name.slice(1) : 'Claude'} ${version}`;
+    }
+    if (model.includes('gpt')) return model.replace('gpt-', 'GPT-');
+    if (model.includes('deepseek')) return 'DeepSeek';
+    return model;
+  };
 
   const viewTabs: { id: CoworkView; label: string; icon: typeof CalendarClock }[] = [
     { id: 'home', label: 'Accueil', icon: FolderOpen },
@@ -143,7 +168,9 @@ const CoworkPage = () => {
             {/* File cards strip */}
             <div className="flex gap-2 sm:gap-[9px] w-full max-w-[740px] overflow-x-auto mb-4 pb-1.5 scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
               {sampleFiles.map((file, i) => (
-                <button key={i} className="flex-shrink-0 min-w-[100px] sm:min-w-[115px] max-w-[120px] sm:max-w-[125px] bg-[hsl(0,0%,15%)] border border-[hsl(0,0%,20%)] rounded-lg p-2.5 text-left cursor-pointer active:bg-[hsl(0,0%,17%)] transition-colors">
+                <button key={i}
+                  onClick={() => handleFileCardClick(file.path)}
+                  className="flex-shrink-0 min-w-[100px] sm:min-w-[115px] max-w-[120px] sm:max-w-[125px] bg-[hsl(0,0%,15%)] border border-[hsl(0,0%,20%)] rounded-lg p-2.5 text-left cursor-pointer hover:bg-[hsl(0,0%,17%)] hover:border-[hsl(14,74%,52%)]/30 active:scale-[0.97] transition-all">
                   <p className="text-[9px] sm:text-[10px] text-muted-foreground leading-[1.4] break-all mb-2 line-clamp-3">{file.path}</p>
                   <span className="inline-block text-[9px] sm:text-[10px] font-bold px-[5px] py-[2px] rounded-[3px] bg-[hsl(214,30%,24%)] text-[hsl(214,46%,63%)]">{file.type}</span>
                 </button>
@@ -158,19 +185,30 @@ const CoworkPage = () => {
                 className="w-full bg-transparent border-none outline-none text-muted-foreground text-[14px] sm:text-[15px] placeholder:text-[hsl(0,0%,33%)]" />
               <div className="flex items-center justify-between mt-2.5 gap-1">
                 <div className="flex items-center gap-0.5 min-w-0 overflow-hidden">
-                  <button className="flex items-center gap-1 bg-transparent border-none text-muted-foreground text-[11px] sm:text-[12.5px] cursor-pointer px-1 py-1 rounded-md whitespace-nowrap overflow-hidden shrink-0">
+                  <button onClick={() => navigate('/code')}
+                    className="flex items-center gap-1 bg-transparent border-none text-muted-foreground text-[11px] sm:text-[12.5px] cursor-pointer px-1 py-1 rounded-md whitespace-nowrap overflow-hidden shrink-0 hover:text-foreground transition-colors">
                     <FolderOpen size={13} className="flex-shrink-0" />
-                    <span className="whitespace-nowrap overflow-hidden text-ellipsis hidden sm:inline">Travailler dans un projet</span>
+                    <span className="whitespace-nowrap overflow-hidden text-ellipsis hidden sm:inline">Ouvrir dans Code</span>
                     <ChevronDown size={11} className="flex-shrink-0" />
                   </button>
-                  <button className="bg-transparent border-none text-muted-foreground cursor-pointer px-1 py-0.5 text-base leading-none flex-shrink-0">
+                  <button className="bg-transparent border-none text-muted-foreground cursor-pointer px-1 py-0.5 text-base leading-none flex-shrink-0 hover:text-foreground transition-colors">
                     <Plus size={14} />
                   </button>
                 </div>
-                <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
-                  <button className="flex items-center gap-1 bg-transparent border-none text-muted-foreground text-[11px] sm:text-[12.5px] cursor-pointer whitespace-nowrap">
-                    Sonnet 4.6 <ChevronDown size={11} />
+                <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0 relative">
+                  <button
+                    onClick={() => setShowModelSelector(!showModelSelector)}
+                    className="flex items-center gap-1 bg-transparent border-none text-muted-foreground text-[11px] sm:text-[12.5px] cursor-pointer whitespace-nowrap hover:text-foreground transition-colors">
+                    {getModelShortName()} <ChevronDown size={11} />
                   </button>
+                  {showModelSelector && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowModelSelector(false)} />
+                      <div className="absolute bottom-full right-0 mb-2 z-50">
+                        <ModelSelector />
+                      </div>
+                    </>
+                  )}
                   <button onClick={handleGoSubmit}
                     className="bg-[hsl(14,74%,52%)] text-white border-none rounded-lg py-2 px-3 sm:px-3.5 text-[12px] sm:text-[13px] font-semibold cursor-pointer flex items-center gap-1 whitespace-nowrap active:bg-[hsl(14,74%,42%)] transition-colors">
                     C'est parti. <ArrowRight size={12} />

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   GitBranch, FolderOpen, Check, ChevronDown, Mic, Monitor,
   MessageSquare, Files, GitFork, Terminal as TerminalIcon,
@@ -11,7 +12,8 @@ import {
 import TaskSidebar from '@/components/TaskSidebar';
 import HexLogo from '@/components/HexLogo';
 import { PreviewPanel } from '@/components/code/PreviewPanel';
-import { chatDirect } from '@/lib/api';
+import { chatDirect, type ChatMessage as ChatMessageType } from '@/lib/api';
+import ModelSelector from '@/components/ModelSelector';
 import { useStore } from '@/store/useStore';
 import {
   loadRepos, addRepo, removeRepo, switchBranch,
@@ -418,6 +420,7 @@ const BranchPicker = ({ repo, onClose }: { repo: GitHubRepo; onClose: () => void
 const CodePage = () => {
   const model = useStore((s) => s.model);
   const isMobile = useIsMobile();
+  const location = useLocation();
 
   // GitHub state
   const [repos, setRepos] = useState<GitHubRepo[]>(loadRepos());
@@ -443,6 +446,7 @@ const CodePage = () => {
 
   // Input bar state
   const [autoAccept, setAutoAccept] = useState(true);
+  const [showCodeModelSelector, setShowCodeModelSelector] = useState(false);
   const [input, setInput] = useState('');
 
   // Chat state
@@ -471,6 +475,18 @@ const CodePage = () => {
 
   useEffect(() => { chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isStreaming]);
   useEffect(() => { termBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [termLines]);
+
+  const getModelShortName = () => {
+    const parts = model.split('-');
+    if (model.includes('claude')) {
+      const name = parts.find(p => ['sonnet', 'opus', 'haiku'].includes(p));
+      const version = parts.slice(-1)[0];
+      return `${name ? name.charAt(0).toUpperCase() + name.slice(1) : 'Claude'} ${version}`;
+    }
+    if (model.includes('gpt')) return model.replace('gpt-', 'GPT-');
+    if (model.includes('deepseek')) return 'DeepSeek';
+    return model;
+  };
 
   // ─── Handlers ────────────────────────────────────────────
   const sendToChat = useCallback((text: string) => {
@@ -544,6 +560,18 @@ const CodePage = () => {
     if (!pendingDiff) setPendingDiff(sampleDiff);
     if (isMobile) setShowLeftPanel(false);
   };
+
+  // Open file from navigation state (e.g. from Cowork page)
+  useEffect(() => {
+    const state = location.state as { openFile?: string } | null;
+    if (state?.openFile) {
+      const normalizedPath = state.openFile.startsWith('/') ? state.openFile : `/${state.openFile}`;
+      handleFileSelect(normalizedPath);
+      setShowLeftPanel(true);
+      // Clear the state so it doesn't re-trigger
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const currentLanguage = selectedFile
     ? (selectedFile.split('.').pop() || 'txt')
@@ -898,9 +926,20 @@ const CodePage = () => {
                   </div>
                   <span className="whitespace-nowrap hidden md:inline">Accepter auto.</span>
                 </label>
-                <button className="flex items-center gap-1 bg-transparent border-none text-muted-foreground text-[12px] cursor-pointer px-1 py-1 rounded whitespace-nowrap">
-                  Opus 4.6 <ChevronDown size={11} />
-                </button>
+                <div className="relative">
+                  <button onClick={() => setShowCodeModelSelector(!showCodeModelSelector)}
+                    className="flex items-center gap-1 bg-transparent border-none text-muted-foreground text-[12px] cursor-pointer px-1 py-1 rounded whitespace-nowrap hover:text-foreground transition-colors">
+                    {getModelShortName()} <ChevronDown size={11} />
+                  </button>
+                  {showCodeModelSelector && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowCodeModelSelector(false)} />
+                      <div className="absolute bottom-full right-0 mb-2 z-50">
+                        <ModelSelector />
+                      </div>
+                    </>
+                  )}
+                </div>
                 <button className="bg-transparent border-none text-muted-foreground cursor-pointer p-1 rounded-md flex items-center">
                   <Mic size={13} />
                 </button>
