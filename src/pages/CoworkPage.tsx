@@ -40,6 +40,7 @@ const CoworkPage = () => {
   const [isStreaming, setIsStreaming] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => { chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isStreaming]);
 
   const sendToChat = useCallback((text: string) => {
     if (!text.trim() || isStreaming) return;
