@@ -1017,6 +1017,7 @@ const CodePage = () => {
       {showBranchPicker && activeRepoState && (
         <BranchPicker repo={activeRepoState} onClose={() => setShowBranchPicker(false)} />
       )}
+      </div>
     </div>
   );
 };
