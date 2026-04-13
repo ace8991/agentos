@@ -493,7 +493,7 @@ const ChatPanel = () => {
     };
     addLogEntry(userEntry);
 
-    const messages: { role: string; content: string }[] = [];
+    const messages: ChatMessage[] = [];
     const behaviorInstructions = [getBehaviorInstructions(), getComposerInstructions(composerPreferences)]
       .filter(Boolean)
       .join('\n\n');
