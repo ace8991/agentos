@@ -666,7 +666,7 @@ const CodePage = () => {
               selectedFile={selectedFile || undefined} onFileSelect={handleFileSelect} />
           ))}
         </div>
-      ) : (
+      ) : leftTab === 'github' ? (
         <div className="flex-1 overflow-y-auto">
           <div className="flex items-center justify-between px-3 py-2 border-b border-[hsl(0,0%,17%)]">
             <span className="text-xs font-medium text-foreground">Repositories</span>
@@ -712,9 +712,9 @@ const CodePage = () => {
             </button>
           </div>
         </div>
-      ) : leftTab === 'memory' ? (
+      ) : (
         <ClaudeMdEditor />
-      ) : null}
+      )}
     </div>
   );
 
