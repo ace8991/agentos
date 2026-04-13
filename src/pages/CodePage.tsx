@@ -443,6 +443,7 @@ const CodePage = () => {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
   // Input bar state
+  const [autoAccept, setAutoAccept] = useState(true);
   const [showCodeModelSelector, setShowCodeModelSelector] = useState(false);
   const [input, setInput] = useState('');
 
