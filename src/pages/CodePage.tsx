@@ -420,6 +420,7 @@ const BranchPicker = ({ repo, onClose }: { repo: GitHubRepo; onClose: () => void
 const CodePage = () => {
   const model = useStore((s) => s.model);
   const isMobile = useIsMobile();
+  const location = useLocation();
 
   // GitHub state
   const [repos, setRepos] = useState<GitHubRepo[]>(loadRepos());
