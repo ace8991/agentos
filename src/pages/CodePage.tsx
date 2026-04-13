@@ -30,9 +30,11 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 // ─── Types ───────────────────────────────────────────────────────────
 interface ChatMsg {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'agent-steps' | 'plan-approve';
   content: string;
   codeBlocks?: { language: string; code: string; file?: string }[];
+  actionSteps?: ActionStep[];
+  planApproved?: boolean;
 }
 
 interface FileNode {
