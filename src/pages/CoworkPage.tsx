@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDown, FolderOpen, Plus, ArrowRight, Check, CalendarClock, Plug, Package, MessageSquare, X, Bot, User, Send } from 'lucide-react';
-import TaskSidebar from '@/components/TaskSidebar';
+import TopNavBar from '@/components/TopNavBar';
+import CoworkSidebar, { type CoworkView } from '@/components/cowork/CoworkSidebar';
 import DispatchPanel from '@/components/cowork/DispatchPanel';
 import MCPPanel from '@/components/cowork/MCPPanel';
 import ExtensionsMarketplace from '@/components/cowork/ExtensionsMarketplace';
@@ -30,7 +31,7 @@ const sampleFiles = [
   { path: 'src/index.css', type: 'CSS' },
 ];
 
-type CoworkView = 'home' | 'dispatch' | 'mcp' | 'extensions' | 'chat';
+type _CoworkView = 'home' | 'dispatch' | 'mcp' | 'extensions' | 'chat';
 
 const CoworkPage = () => {
   const model = useStore((s) => s.model);
