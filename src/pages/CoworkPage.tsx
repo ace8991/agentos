@@ -202,9 +202,12 @@ const CoworkPage = () => {
                     {getModelShortName()} <ChevronDown size={11} />
                   </button>
                   {showModelSelector && (
-                    <div className="absolute bottom-full right-0 mb-2 z-50">
-                      <ModelSelector onClose={() => setShowModelSelector(false)} />
-                    </div>
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowModelSelector(false)} />
+                      <div className="absolute bottom-full right-0 mb-2 z-50">
+                        <ModelSelector />
+                      </div>
+                    </>
                   )}
                   <button onClick={handleGoSubmit}
                     className="bg-[hsl(14,74%,52%)] text-white border-none rounded-lg py-2 px-3 sm:px-3.5 text-[12px] sm:text-[13px] font-semibold cursor-pointer flex items-center gap-1 whitespace-nowrap active:bg-[hsl(14,74%,42%)] transition-colors">
