@@ -1,86 +1,84 @@
 
 
-# Plan : Reproduire le fonctionnement de Claude Cowork
+# Plan : Aligner la page Code sur l'architecture Claude Code
 
-## Contexte
+## Analyse de l'existant
 
-L'utilisateur a fourni une description exhaustive de Claude Cowork d'Anthropic. L'objectif est d'aligner notre page Cowork sur ces fonctionnalites : chat agentique avec execution visible, projets persistants, dispatch/taches planifiees, connecteurs MCP, et computer use.
+La page Code actuelle (1025 lignes) dispose deja de :
+- Explorateur de fichiers, editeur avec diff/split/preview
+- Terminal simule, chat de code, repos GitHub, branches
+- Layout responsive avec Sheets mobiles
 
-## Ce qui existe deja et fonctionne
+## Ce qui manque par rapport a Claude Code
 
-- Sidebar Cowork avec menu (Nouvelle tache, Rechercher, Programme, Projets, Dispatch, Idees, Personnaliser)
-- Chat avec artifacts (split-view)
-- DispatchPanel avec CRUD de taches planifiees
-- ProjectsPanel basique (creation/liste)
-- MCPPanel (serveurs MCP)
-- ExtensionsMarketplace
-- TopNavBar avec Chat/Cowork/Code
+D'apres la description fournie, Claude Code est un **assistant agentique terminal-first** avec une boucle agentique (contexte -> plan -> execution -> verification). Voici les ecarts :
 
-## Ce qui manque pour correspondre a Claude Cowork
+### 1. Boucle agentique visible dans le chat
+Le chat actuel est un simple Q&A. Claude Code montre les **etapes d'execution** : lecture de fichiers, execution de commandes, modifications, tests.
 
-### 1. Chat agentique avec etapes visibles
-Le chat actuel envoie des messages et affiche la reponse. Il faut montrer les **etapes d'execution** comme Claude Cowork : "Lecture du fichier...", "Analyse en cours...", "Creation du document...", avec indicateurs visuels (icones, spinners, statuts).
+**Modifications dans `CodePage.tsx` (chat section) :**
+- Ajouter des types `ActionStep` (read_file, write_file, bash, search, test, think)
+- Afficher chaque etape avec icone, statut (running/done/error) et contenu collapsible
+- Simuler la boucle agentique : quand l'utilisateur envoie une tache, l'IA genere un plan puis execute les etapes une par une
 
-**Modifications :**
-- `CoworkChatView.tsx` : Ajouter un systeme d'**action steps** affiches dans le chat (phase thinking, file read, file write, search, etc.) avec animations
-- Ajouter un mode "plan & approve" : Claude montre son plan, l'utilisateur approuve avant execution
-- Afficher les fichiers crees/modifies en tant qu'artifacts cliquables dans le panneau droit
+### 2. CLAUDE.md - Memoire de projet
+Claude Code lit un fichier `CLAUDE.md` au debut de chaque session.
 
-### 2. Acces aux fichiers locaux (simulation)
-Claude Cowork lit/ecrit dans les dossiers locaux. Nous simulons cela avec un **file browser** integre.
+**Nouveau composant `src/components/code/ClaudeMdEditor.tsx` :**
+- Editeur de fichier CLAUDE.md accessible depuis la sidebar (onglet "Memoire")
+- Champs : stack technique, conventions, instructions recurrentes
+- Persiste dans localStorage
 
-**Modifications :**
-- `CoworkChatView.tsx` : Ajouter un bouton "Attacher un dossier" dans l'input qui ouvre un selecteur de fichiers
-- Afficher les fichiers du projet dans le contexte du chat
-- Les actions de l'agent sur les fichiers sont loggees et visibles
+### 3. Systeme de permissions & checkpoints
+Claude Code demande l'approbation avant les actions sensibles et permet de revenir en arriere.
 
-### 3. Projets persistants avec contexte
-Les projets Claude ont fichiers, instructions et memoire.
+**Modifications dans `CodePage.tsx` :**
+- Ajouter un systeme de "checkpoints" : avant chaque modification de fichier, afficher un diff avec Accepter/Rejeter
+- Bouton "Undo" global pour revenir au dernier checkpoint
+- Indicateur de permissions dans la toolbar (auto-accept toggle deja present, l'enrichir)
 
-**Modifications :**
-- `ProjectsPanel.tsx` : Refonte avec vue detail par projet (fichiers, instructions, memoire, taches liees)
-- Ajouter `instructions` et `memory` aux projets
-- Permettre d'ouvrir un chat dans le contexte d'un projet (les fichiers du projet sont automatiquement fournis a l'IA)
+### 4. Terminal connecte a l'agent
+Le terminal actuel est decoratif. Claude Code execute vraiment des commandes.
 
-### 4. Dispatch depuis mobile (envoi de taches)
-Claude permet d'envoyer une tache depuis le telephone.
+**Modifications dans le terminal :**
+- Quand l'IA decide d'executer une commande, l'afficher dans le terminal automatiquement
+- Lier les sorties terminal au chat (l'IA voit les resultats)
+- Ajouter des commandes agent : `/plan`, `/undo`, `/context`
 
-**Modifications :**
-- `DispatchPanel.tsx` : Ajouter un champ "Envoyer une tache a l'agent" en haut du panneau
-- Les taches dispatch sont executees par le chat agentique
-- Historique des executions avec statut (en cours, termine, erreur)
+### 5. Sous-agents (Task tool)
+Claude Code decompose le travail en sous-taches paralleles.
 
-### 5. Computer Use (simulation visuelle)
-Claude peut controler l'ecran. Nous affichons les actions desktop dans le chat.
+**Nouveau composant `src/components/code/SubAgentPanel.tsx` :**
+- Panneau montrant les sous-taches actives
+- Chaque sous-tache a son propre contexte et statut
+- Accessible depuis la toolbar
 
-**Modifications :**
-- `CoworkChatView.tsx` : Quand l'agent utilise des outils desktop (click, type, scroll), afficher un **screenshot simulee** ou une representation visuelle de l'action
-- Lier avec le `desktop-commander` existant du backend
+### 6. LSP & recherche semantique (simulation)
+Claude Code utilise LSP pour naviguer le code.
 
-### 6. Sidebar avec conversations recentes fonctionnelles
-Les taches recentes dans la sidebar doivent ouvrir la conversation correspondante.
+**Enrichir l'explorateur de fichiers :**
+- Ajouter "Go to definition", "Find references" dans le menu contextuel des fichiers
+- Recherche globale dans le codebase (deja partiellement present avec le champ recherche)
 
-**Modifications :**
-- `CoworkSidebar.tsx` : Stocker les conversations Cowork dans le store, cliquer sur un recent charge la conversation
-- Ajouter un store `coworkStore` ou etendre `useStore` avec `coworkConversations`
+## Fichiers a modifier/creer
 
-## Fichiers a modifier
-
-| Fichier | Changement |
-|---------|-----------|
-| `src/components/cowork/CoworkChatView.tsx` | Refonte majeure : action steps, plan & approve, file context, computer use visuel |
-| `src/components/cowork/ProjectsPanel.tsx` | Vue detail projet avec fichiers, instructions, memoire |
-| `src/components/cowork/DispatchPanel.tsx` | Champ envoi de tache + historique d'execution |
-| `src/components/cowork/CoworkSidebar.tsx` | Conversations recentes fonctionnelles, contexte projet actif |
-| `src/pages/CoworkPage.tsx` | Gestion du contexte projet actif, passage au chat avec contexte |
-| `src/store/useStore.ts` | Ajouter `coworkConversations`, `activeProject` au store |
+| Fichier | Action |
+|---------|--------|
+| `src/pages/CodePage.tsx` | Refonte du chat avec action steps, terminal connecte, checkpoints, permissions |
+| `src/components/code/ClaudeMdEditor.tsx` | Creer - Editeur CLAUDE.md (memoire de projet) |
+| `src/components/code/SubAgentPanel.tsx` | Creer - Panneau de sous-agents |
+| `src/components/code/AgentActionStep.tsx` | Creer - Composant d'affichage d'etape agentique |
 
 ## Ordre d'implementation
 
-1. Etendre le store avec les conversations et projets Cowork
-2. Refondre le chat agentique avec action steps visibles
-3. Refondre les projets avec vue detail
-4. Ameliorer le dispatch avec envoi de taches
-5. Connecter la sidebar aux conversations
-6. Polish responsive mobile
+1. Creer `AgentActionStep.tsx` - composant reutilisable pour les etapes
+2. Refondre le chat dans `CodePage.tsx` avec la boucle agentique
+3. Connecter le terminal aux actions de l'agent
+4. Creer `ClaudeMdEditor.tsx` et l'integrer dans la sidebar
+5. Creer `SubAgentPanel.tsx` et l'ajouter a la toolbar
+6. Ajouter le systeme de checkpoints/undo
+
+## Detail technique
+
+Les etapes agentiques seront simulees avec des delais (`setTimeout`) pour reproduire l'experience visuelle de Claude Code. L'IA genere toujours ses reponses via `chatDirect`, mais le rendu affiche les actions intermediaires (lecture de fichier, commande shell, modification) avant la reponse finale.
 
