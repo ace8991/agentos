@@ -507,9 +507,9 @@ const CodePage = () => {
     let fullContent = '';
     chatDirect(
       [
-        { role: 'system', content: 'Tu es un assistant de programmation expert. Réponds en français. Fournis du code dans des blocs ```language quand approprié.' },
-        ...messages.filter(m => m.role !== 'assistant' || m.content).map(m => ({ role: m.role, content: m.content })),
-        { role: 'user', content: text },
+        { role: 'system' as const, content: 'Tu es un assistant de programmation expert. Réponds en français. Fournis du code dans des blocs ```language quand approprié.' },
+        ...messages.filter(m => m.role === 'user' || (m.role === 'assistant' && m.content)).map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+        { role: 'user' as const, content: text },
       ],
       model, null, false,
       (token) => {
