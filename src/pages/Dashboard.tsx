@@ -46,22 +46,23 @@ const Dashboard = () => {
   }
 
   return (
-      <div className="flex flex-col h-screen w-full overflow-hidden">
+    <div className="flex flex-col h-screen w-full overflow-hidden">
       <TopNavBar />
       <div className="flex flex-1 min-h-0">
-      <TaskSidebar />
-      <ChatPanel />
-      <WorkspaceDock
-        workspace={activeWorkspace}
-        open={workspacePanelOpen}
-        view={workspacePanelView}
-        onClose={closeWorkspacePanel}
-        onChangeView={setWorkspacePanelView}
-      />
-      <Suspense fallback={null}>
-        <SettingsModal />
-      </Suspense>
-      <BackendOfflineOverlay />
+        <TaskSidebar />
+        <ChatPanel />
+        <WorkspaceDock
+          workspace={activeWorkspace}
+          open={workspacePanelOpen}
+          view={workspacePanelView}
+          onClose={closeWorkspacePanel}
+          onChangeView={setWorkspacePanelView}
+        />
+        <Suspense fallback={null}>
+          <SettingsModal />
+        </Suspense>
+        <BackendOfflineOverlay />
+      </div>
     </div>
   );
 };
