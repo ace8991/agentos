@@ -712,7 +712,9 @@ const CodePage = () => {
             </button>
           </div>
         </div>
-      )}
+      ) : leftTab === 'memory' ? (
+        <ClaudeMdEditor />
+      ) : null}
     </div>
   );
 
