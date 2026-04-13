@@ -573,6 +573,7 @@ const CodePage = () => {
     }
   }, [location.state]);
 
+  const currentLanguage = selectedFile
     ? (selectedFile.split('.').pop() || 'txt')
     : 'txt';
 
