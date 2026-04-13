@@ -1068,6 +1068,21 @@ const CodePage = () => {
               <MessageSquare size={12} />Chat
             </button>
 
+            <button onClick={() => setShowSubAgents(!showSubAgents)}
+              className={`flex items-center gap-[5px] border text-[11px] sm:text-xs py-[6px] sm:py-[7px] px-2 sm:px-2.5 rounded-[7px] cursor-pointer whitespace-nowrap shrink-0 ${
+                showSubAgents ? 'bg-sky-500/20 border-sky-500/30 text-sky-400' : 'bg-[hsl(0,0%,15%)] border-[hsl(0,0%,20%)] text-muted-foreground'
+              }`}>
+              <Layers size={12} />Agents
+            </button>
+
+            <button onClick={() => setPermissionMode(p => p === 'auto' ? 'ask' : 'auto')}
+              className={`flex items-center gap-[5px] border text-[11px] sm:text-xs py-[6px] sm:py-[7px] px-2 sm:px-2.5 rounded-[7px] cursor-pointer whitespace-nowrap shrink-0 ${
+                permissionMode === 'ask' ? 'bg-amber-500/20 border-amber-500/30 text-amber-400' : 'bg-[hsl(0,0%,15%)] border-[hsl(0,0%,20%)] text-muted-foreground'
+              }`}>
+              {permissionMode === 'ask' ? <Shield size={12} /> : <ShieldCheck size={12} />}
+              {permissionMode === 'ask' ? 'Demander' : 'Auto'}
+            </button>
+
             <button
               onClick={() => {
                 if (!selectedFile) {
