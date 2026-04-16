@@ -157,6 +157,14 @@ export async function chatDirect(
           } else if (event.type === 'content_block_delta' && event.delta?.text) {
             hasContent = true;
             onToken(event.delta.text);
+          } else if (event.type === 'content_block_delta' && event.delta?.type === 'thinking_delta' && event.delta?.thinking) {
+            // Extended Thinking tokens
+            options?.onThinking?.(event.delta.thinking);
+          } else if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
+            // Tool use block detected
+            options?.onToolUse?.(event.content_block.name, event.content_block.input || {});
+          } else if (event.type === 'content_block_delta' && event.delta?.type === 'input_json_delta') {
+            // Tool use input streaming — accumulate silently
           } else if (event.type === 'done') {
             onDone();
             return;
