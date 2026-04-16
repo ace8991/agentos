@@ -1,84 +1,77 @@
 
 
-# Plan : Aligner la page Code sur l'architecture Claude Code
+# Plan : Ajouter la fonctionnalite Parlor (conversation vocale + vision en temps reel)
 
-## Analyse de l'existant
+## Qu'est-ce que Parlor ?
 
-La page Code actuelle (1025 lignes) dispose deja de :
-- Explorateur de fichiers, editeur avec diff/split/preview
-- Terminal simule, chat de code, repos GitHub, branches
-- Layout responsive avec Sheets mobiles
+Parlor est un systeme de conversation IA multimodal en temps reel : l'utilisateur parle et montre sa camera, l'IA comprend la parole et la vision, puis repond vocalement. Le tout fonctionne avec detection automatique de la voix (VAD), interruption possible (barge-in) et streaming audio.
 
-## Ce qui manque par rapport a Claude Code
+## Ce qui existe deja dans l'app
 
-D'apres la description fournie, Claude Code est un **assistant agentique terminal-first** avec une boucle agentique (contexte -> plan -> execution -> verification). Voici les ecarts :
+- `useSpeechInput` : reconnaissance vocale (speech-to-text) via l'API Web Speech
+- `LiveBrowserView` : flux WebSocket pour le streaming video
+- Pages Chat, Cowork, Code avec TopNavBar
 
-### 1. Boucle agentique visible dans le chat
-Le chat actuel est un simple Q&A. Claude Code montre les **etapes d'execution** : lecture de fichiers, execution de commandes, modifications, tests.
+## Plan d'implementation
 
-**Modifications dans `CodePage.tsx` (chat section) :**
-- Ajouter des types `ActionStep` (read_file, write_file, bash, search, test, think)
-- Afficher chaque etape avec icone, statut (running/done/error) et contenu collapsible
-- Simuler la boucle agentique : quand l'utilisateur envoie une tache, l'IA genere un plan puis execute les etapes une par une
+### 1. Creer la page Parlor (`src/pages/ParlorPage.tsx`)
 
-### 2. CLAUDE.md - Memoire de projet
-Claude Code lit un fichier `CLAUDE.md` au debut de chaque session.
+Interface immersive plein ecran avec :
+- **Flux camera** en arriere-plan (WebRTC `getUserMedia` video)
+- **Visualiseur audio** (canvas waveform) montrant l'activite vocale
+- **Transcript** en temps reel (messages utilisateur + reponses IA)
+- **Indicateur d'etat** : Loading, Listening, Thinking, Speaking
+- **Bouton camera on/off** et indicateur "On-device"
+- Design sombre avec effets de glow autour du viewport camera
 
-**Nouveau composant `src/components/code/ClaudeMdEditor.tsx` :**
-- Editeur de fichier CLAUDE.md accessible depuis la sidebar (onglet "Memoire")
-- Champs : stack technique, conventions, instructions recurrentes
-- Persiste dans localStorage
+### 2. Ajouter la route et la navigation
 
-### 3. Systeme de permissions & checkpoints
-Claude Code demande l'approbation avant les actions sensibles et permet de revenir en arriere.
+- `App.tsx` : ajouter `Route path="/parlor"`
+- `TopNavBar.tsx` : ajouter un 4eme bouton "Parlor" avec icone `Video`
 
-**Modifications dans `CodePage.tsx` :**
-- Ajouter un systeme de "checkpoints" : avant chaque modification de fichier, afficher un diff avec Accepter/Rejeter
-- Bouton "Undo" global pour revenir au dernier checkpoint
-- Indicateur de permissions dans la toolbar (auto-accept toggle deja present, l'enrichir)
+### 3. Logique vocale complete (`src/hooks/useParlorSession.ts`)
 
-### 4. Terminal connecte a l'agent
-Le terminal actuel est decoratif. Claude Code execute vraiment des commandes.
+- Capture audio via `getUserMedia` avec `MediaRecorder`
+- Detection d'activite vocale (VAD) pour mode mains-libres
+- Envoi de l'audio capture + frame camera (JPEG) a l'IA
+- Reception et lecture de la reponse audio via `Web Speech API` (TTS)
+- Gestion du barge-in (interruption quand l'utilisateur parle)
+- Machine a etats : `idle → listening → processing → speaking → idle`
 
-**Modifications dans le terminal :**
-- Quand l'IA decide d'executer une commande, l'afficher dans le terminal automatiquement
-- Lier les sorties terminal au chat (l'IA voit les resultats)
-- Ajouter des commandes agent : `/plan`, `/undo`, `/context`
+### 4. Composant de visualisation audio (`src/components/parlor/AudioWaveform.tsx`)
 
-### 5. Sous-agents (Task tool)
-Claude Code decompose le travail en sous-taches paralleles.
+- Canvas anime montrant les niveaux audio en temps reel
+- Utilise `AnalyserNode` de l'API Web Audio
+- Animations fluides avec `requestAnimationFrame`
 
-**Nouveau composant `src/components/code/SubAgentPanel.tsx` :**
-- Panneau montrant les sous-taches actives
-- Chaque sous-tache a son propre contexte et statut
-- Accessible depuis la toolbar
+### 5. Composant viewport camera (`src/components/parlor/CameraViewport.tsx`)
 
-### 6. LSP & recherche semantique (simulation)
-Claude Code utilise LSP pour naviguer le code.
+- Element `<video>` avec flux camera
+- Effet de glow pulse quand l'IA "regarde"
+- Toggle on/off avec transition
 
-**Enrichir l'explorateur de fichiers :**
-- Ajouter "Go to definition", "Find references" dans le menu contextuel des fichiers
-- Recherche globale dans le codebase (deja partiellement present avec le champ recherche)
+### 6. Integration avec le systeme IA existant
 
-## Fichiers a modifier/creer
+- Les transcripts vocaux sont envoyes au meme backend IA (`chatDirect`)
+- Les reponses textuelles sont converties en parole via `SpeechSynthesis`
+- Les frames camera sont capturees periodiquement et envoyees comme contexte visuel
+
+## Fichiers a creer/modifier
 
 | Fichier | Action |
 |---------|--------|
-| `src/pages/CodePage.tsx` | Refonte du chat avec action steps, terminal connecte, checkpoints, permissions |
-| `src/components/code/ClaudeMdEditor.tsx` | Creer - Editeur CLAUDE.md (memoire de projet) |
-| `src/components/code/SubAgentPanel.tsx` | Creer - Panneau de sous-agents |
-| `src/components/code/AgentActionStep.tsx` | Creer - Composant d'affichage d'etape agentique |
+| `src/pages/ParlorPage.tsx` | Creer - page principale immersive |
+| `src/hooks/useParlorSession.ts` | Creer - logique voix + vision + etats |
+| `src/components/parlor/AudioWaveform.tsx` | Creer - visualiseur audio canvas |
+| `src/components/parlor/CameraViewport.tsx` | Creer - composant camera avec glow |
+| `src/App.tsx` | Modifier - ajouter route /parlor |
+| `src/components/TopNavBar.tsx` | Modifier - ajouter bouton Parlor |
 
-## Ordre d'implementation
+## Details techniques
 
-1. Creer `AgentActionStep.tsx` - composant reutilisable pour les etapes
-2. Refondre le chat dans `CodePage.tsx` avec la boucle agentique
-3. Connecter le terminal aux actions de l'agent
-4. Creer `ClaudeMdEditor.tsx` et l'integrer dans la sidebar
-5. Creer `SubAgentPanel.tsx` et l'ajouter a la toolbar
-6. Ajouter le systeme de checkpoints/undo
-
-## Detail technique
-
-Les etapes agentiques seront simulees avec des delais (`setTimeout`) pour reproduire l'experience visuelle de Claude Code. L'IA genere toujours ses reponses via `chatDirect`, mais le rendu affiche les actions intermediaires (lecture de fichier, commande shell, modification) avant la reponse finale.
+- **Camera** : `navigator.mediaDevices.getUserMedia({ video: true, audio: true })`
+- **VAD** : detection de volume via `AnalyserNode.getByteFrequencyData()` avec seuil configurable
+- **TTS** : `window.speechSynthesis.speak()` pour les reponses vocales
+- **Capture frames** : `canvas.drawImage(video)` → `canvas.toDataURL('image/jpeg')` envoye comme contexte
+- **Barge-in** : `speechSynthesis.cancel()` quand le VAD detecte une voix pendant la lecture
 
