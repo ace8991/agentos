@@ -1,77 +1,108 @@
 
 
-# Plan : Ajouter la fonctionnalite Parlor (conversation vocale + vision en temps reel)
+# Plan : Configurer le pipeline complet Claude AI dans le projet
 
-## Qu'est-ce que Parlor ?
+## Contexte
 
-Parlor est un systeme de conversation IA multimodal en temps reel : l'utilisateur parle et montre sa camera, l'IA comprend la parole et la vision, puis repond vocalement. Le tout fonctionne avec detection automatique de la voix (VAD), interruption possible (barge-in) et streaming audio.
+L'utilisateur a fourni une description technique exhaustive du fonctionnement interne de Claude AI (12 phases). L'objectif est d'aligner le systeme de chat et d'agent sur cette architecture : system prompt structure, streaming SSE, tool use avec pauses, artifacts React/HTML dans iframe, extended thinking, et rendu Markdown progressif.
 
-## Ce qui existe deja dans l'app
+## Ce qui existe deja
 
-- `useSpeechInput` : reconnaissance vocale (speech-to-text) via l'API Web Speech
-- `LiveBrowserView` : flux WebSocket pour le streaming video
-- Pages Chat, Cowork, Code avec TopNavBar
+- **Chat streaming SSE** via `chatDirect()` dans `src/lib/api.ts` — fonctionne avec Anthropic/OpenAI/DeepSeek
+- **System prompt** structure dans `src/lib/system-prompt.ts` — skills, agent mode, security rules
+- **ChatMessage** avec rendu Markdown (code blocks, listes, headers) et tool steps collapsibles
+- **Artifacts** systeme avec types (code, html, app, slides, markdown, etc.) et `ArtifactCard`
+- **Agent mode** avec boucle perceive/plan/act/verify et LogEntry
+- **Tool use** : Desktop Commander, file operations, shell execution
 
-## Plan d'implementation
+## Ce qui manque pour reproduire Claude AI
 
-### 1. Creer la page Parlor (`src/pages/ParlorPage.tsx`)
+### 1. System prompt structure comme l'API Anthropic (Phase 1)
 
-Interface immersive plein ecran avec :
-- **Flux camera** en arriere-plan (WebRTC `getUserMedia` video)
-- **Visualiseur audio** (canvas waveform) montrant l'activite vocale
-- **Transcript** en temps reel (messages utilisateur + reponses IA)
-- **Indicateur d'etat** : Loading, Listening, Thinking, Speaking
-- **Bouton camera on/off** et indicateur "On-device"
-- Design sombre avec effets de glow autour du viewport camera
+Le system prompt actuel est fonctionnel mais ne suit pas la structure exacte Claude. Il faut :
+- Separer clairement : regles de securite, outils disponibles (avec schemas JSON), memoires injectees, preferences utilisateur
+- Ajouter l'injection automatique des memoires inter-sessions (deja partiellement fait via projets)
+- Structurer les `tools` au format Anthropic (name, description, input_schema)
 
-### 2. Ajouter la route et la navigation
+**Fichier :** `src/lib/system-prompt.ts`
 
-- `App.tsx` : ajouter `Route path="/parlor"`
-- `TopNavBar.tsx` : ajouter un 4eme bouton "Parlor" avec icone `Video`
+### 2. Extended Thinking visible (Phase 5)
 
-### 3. Logique vocale complete (`src/hooks/useParlorSession.ts`)
+Le composant `ThinkingStep` existe mais est basique. Il faut :
+- Ajouter un budget de tokens de reflexion configurable (low/medium/high)
+- Afficher les thinking tokens dans un bloc collapsible avec compteur
+- Distinguer visuellement "Extended Thinking" du simple "Thinking..."
+- Envoyer `reasoning_effort` au backend (deja supporte)
 
-- Capture audio via `getUserMedia` avec `MediaRecorder`
-- Detection d'activite vocale (VAD) pour mode mains-libres
-- Envoi de l'audio capture + frame camera (JPEG) a l'IA
-- Reception et lecture de la reponse audio via `Web Speech API` (TTS)
-- Gestion du barge-in (interruption quand l'utilisateur parle)
-- Machine a etats : `idle → listening → processing → speaking → idle`
+**Fichiers :** `src/components/chat/ChatMessage.tsx`, `src/components/ChatPanel.tsx`
 
-### 4. Composant de visualisation audio (`src/components/parlor/AudioWaveform.tsx`)
+### 3. Tool Use avec pauses et format structure (Phase 7)
 
-- Canvas anime montrant les niveaux audio en temps reel
-- Utilise `AnalyserNode` de l'API Web Audio
-- Animations fluides avec `requestAnimationFrame`
+Le systeme de tool steps existe mais il faut :
+- Ajouter des indicateurs de chargement pendant l'execution d'un outil (spinner + duree)
+- Afficher le format des appels d'outils (nom + parametres) de facon structuree
+- Gerer les pauses visibles pendant l'execution (l'IA s'arrete, l'outil tourne, le resultat revient)
+- Ajouter un compteur de temps par outil
 
-### 5. Composant viewport camera (`src/components/parlor/CameraViewport.tsx`)
+**Fichier :** `src/components/chat/ChatMessage.tsx`
 
-- Element `<video>` avec flux camera
-- Effet de glow pulse quand l'IA "regarde"
-- Toggle on/off avec transition
+### 4. Artifacts React/HTML dans iframe sandboxe (Phase 10)
 
-### 6. Integration avec le systeme IA existant
+Le systeme `ArtifactCard` existe mais ne fait pas de rendu live. Il faut :
+- Creer un composant `ArtifactPreview` qui execute les artifacts React dans un `<iframe>` sandboxe
+- Transpiler le JSX via `@babel/standalone` dans le navigateur
+- Injecter React, Tailwind, lucide-react via import map
+- Gerer les erreurs de compilation/runtime dans l'iframe
+- Ajouter les boutons "Copier", "Telecharger", "Ouvrir en plein ecran"
 
-- Les transcripts vocaux sont envoyes au meme backend IA (`chatDirect`)
-- Les reponses textuelles sont converties en parole via `SpeechSynthesis`
-- Les frames camera sont capturees periodiquement et envoyees comme contexte visuel
+**Nouveau fichier :** `src/components/chat/ArtifactPreview.tsx`
+**Modifier :** `src/components/chat/ArtifactCard.tsx`
+
+### 5. Rendu Markdown progressif pendant le streaming (Phase 9)
+
+Le rendu Markdown actuel (`Md` dans ChatMessage) est basique. Il faut :
+- Ajouter le syntax highlighting pour les blocs de code (via highlight.js ou Prism)
+- Supporter les tables Markdown
+- Supporter les blockquotes
+- Gerer le rendu progressif sans saut visuel pendant le streaming
+
+**Fichier :** `src/components/chat/ChatMessage.tsx`
+
+### 6. Pipeline de construction de requete complet (Phase 1+8)
+
+Aligner `chatDirect()` pour :
+- Structurer le corps exactement comme l'API Anthropic (system, messages, tools, max_tokens, stream)
+- Gerer le format SSE Anthropic natif (content_block_delta, message_stop, tool_use blocks)
+- Ajouter la gestion des `stop_sequences` personnalisees
+- Ajouter le support des images base64 dans les messages
+
+**Fichier :** `src/lib/api.ts`
 
 ## Fichiers a creer/modifier
 
 | Fichier | Action |
 |---------|--------|
-| `src/pages/ParlorPage.tsx` | Creer - page principale immersive |
-| `src/hooks/useParlorSession.ts` | Creer - logique voix + vision + etats |
-| `src/components/parlor/AudioWaveform.tsx` | Creer - visualiseur audio canvas |
-| `src/components/parlor/CameraViewport.tsx` | Creer - composant camera avec glow |
-| `src/App.tsx` | Modifier - ajouter route /parlor |
-| `src/components/TopNavBar.tsx` | Modifier - ajouter bouton Parlor |
+| `src/lib/system-prompt.ts` | Restructurer : regles, tools JSON, memoires, preferences |
+| `src/lib/api.ts` | Ajouter support images base64, stop_sequences, tool_use blocks |
+| `src/components/chat/ChatMessage.tsx` | Extended thinking enrichi, tool steps avec timing, Markdown avance (tables, blockquotes, syntax highlighting) |
+| `src/components/chat/ArtifactPreview.tsx` | Creer — iframe sandboxe avec transpilation Babel pour artifacts React/HTML |
+| `src/components/chat/ArtifactCard.tsx` | Integrer ArtifactPreview pour le rendu live |
+| `src/components/ChatPanel.tsx` | Passer le thinking budget, gerer les tool_use pauses |
 
-## Details techniques
+## Ordre d'implementation
 
-- **Camera** : `navigator.mediaDevices.getUserMedia({ video: true, audio: true })`
-- **VAD** : detection de volume via `AnalyserNode.getByteFrequencyData()` avec seuil configurable
-- **TTS** : `window.speechSynthesis.speak()` pour les reponses vocales
-- **Capture frames** : `canvas.drawImage(video)` → `canvas.toDataURL('image/jpeg')` envoye comme contexte
-- **Barge-in** : `speechSynthesis.cancel()` quand le VAD detecte une voix pendant la lecture
+1. Enrichir le rendu Markdown (tables, blockquotes, syntax highlighting)
+2. Ameliorer les tool steps (timing, format structure, spinners)
+3. Enrichir l'Extended Thinking (budget, compteur, visuel)
+4. Creer ArtifactPreview avec iframe sandboxe + Babel
+5. Restructurer le system prompt
+6. Ameliorer le pipeline API (images, tool_use blocks)
+
+## Detail technique
+
+- **Syntax highlighting** : utilisation de Prism.js inline (pas de dependance lourde), detection automatique du langage
+- **Iframe sandbox** : attributs `sandbox="allow-scripts"`, CSP strict, communication via `postMessage`
+- **Babel transpilation** : `@babel/standalone` charge en CDN dans l'iframe, transforme JSX → JS
+- **Tables Markdown** : detection du pattern `| col | col |` avec alignement
+- **Timing des outils** : `performance.now()` au debut et fin de chaque tool step
 
