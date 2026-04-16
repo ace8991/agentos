@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import {
   FileText, Code, Image, Download, Copy, Check, Maximize2, Minimize2,
   ExternalLink, FileCode, FileSpreadsheet, Globe, Terminal as TerminalIcon,
-  Eye, AppWindow, Presentation, FileArchive
+  Eye, AppWindow, Presentation, FileArchive, Play,
 } from 'lucide-react';
 import {
   type Artifact,
@@ -11,6 +11,8 @@ import {
   getArtifactPreviewHtml,
   languageLabels,
 } from '@/lib/artifacts';
+
+const ArtifactPreview = lazy(() => import('./ArtifactPreview'));
 
 const artifactIcons: Record<ArtifactType, typeof FileText> = {
   code: Code,
@@ -48,9 +50,13 @@ const ArtifactCard = ({ artifact }: ArtifactCardProps) => {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
+  const [livePreview, setLivePreview] = useState(false);
 
   const Icon = artifactIcons[artifact.type] || FileText;
   const borderColor = artifactColors[artifact.type] || 'border-border bg-muted/30';
+  const isExecutable = ['html', 'app'].includes(artifact.type);
+  const isReactArtifact = artifact.language && ['jsx', 'tsx'].includes(artifact.language.toLowerCase())
+    && /import\s+React|from\s+['"]react['"]|useState|useEffect/.test(artifact.content);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(artifact.content);
@@ -78,10 +84,21 @@ const ArtifactCard = ({ artifact }: ArtifactCardProps) => {
   const isLong = lines.length > maxCollapsedLines;
   const displayContent = expanded ? artifact.content : lines.slice(0, maxCollapsedLines).join('\n');
 
+  // Live preview mode for executable artifacts
+  if (livePreview && (isExecutable || isReactArtifact)) {
+    return (
+      <div className={`mt-3 rounded-xl border ${borderColor} overflow-hidden transition-all`}>
+        <Suspense fallback={<div className="p-4 text-[12px] text-foreground/30">Loading preview…</div>}>
+          <ArtifactPreview artifact={artifact} />
+        </Suspense>
+      </div>
+    );
+  }
+
   return (
     <div className={`mt-3 rounded-xl border ${borderColor} overflow-hidden transition-all`}>
       {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2 border-b border-border/50">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border/50">
         <div className="flex items-center gap-2 min-w-0">
           <Icon size={14} className="text-muted-foreground shrink-0" />
           <span className="text-xs font-medium text-foreground truncate">{artifact.title}</span>
@@ -92,7 +109,17 @@ const ArtifactCard = ({ artifact }: ArtifactCardProps) => {
           )}
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
-          {['html', 'app'].includes(artifact.type) && (
+          {/* Run button for executable artifacts */}
+          {(isExecutable || isReactArtifact) && (
+            <button
+              onClick={() => setLivePreview(true)}
+              className="p-1.5 rounded-md text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+              title="Run in sandbox"
+            >
+              <Play size={12} />
+            </button>
+          )}
+          {isExecutable && (
             <button
               onClick={() => setPreviewMode(!previewMode)}
               className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
@@ -137,7 +164,7 @@ const ArtifactCard = ({ artifact }: ArtifactCardProps) => {
               className="max-w-full rounded-lg border border-border/30"
             />
           </div>
-        ) : ['html', 'app'].includes(artifact.type) && previewMode ? (
+        ) : isExecutable && previewMode ? (
           <div className="p-3">
             <iframe
               srcDoc={getArtifactPreviewHtml(artifact) || artifact.content}

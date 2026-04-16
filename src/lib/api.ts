@@ -10,9 +10,16 @@ const getBase = () => {
 export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || getBase()).replace(/\/$/, '');
 const BASE = API_BASE_URL;
 
+export interface ChatMessageContentPart {
+  type: 'text' | 'image';
+  text?: string;
+  source?: { type: 'base64'; media_type: string; data: string };
+}
+
 export interface ChatMessage {
-  role: 'user' | 'assistant' | 'system';
-  content: string;
+  role: 'user' | 'assistant' | 'system' | 'tool';
+  content: string | ChatMessageContentPart[];
+  tool_use_id?: string;
 }
 
 const MODEL_FIX: Record<string, string> = {
@@ -72,13 +79,25 @@ export async function chatDirect(
   onToken: (token: string) => void,
   onDone: () => void,
   onError: (error: string) => void,
+  options?: {
+    stopSequences?: string[];
+    onToolUse?: (toolName: string, args: Record<string, unknown>) => void;
+    onThinking?: (text: string) => void;
+    images?: Array<{ media_type: string; data: string }>;
+  },
 ): Promise<void> {
   const normalizedModel = normalizeModel(model);
-  const userPrompt = [...messages].reverse().find((message) => message.role === 'user')?.content ?? '';
-  const mode = messages.some((message) => message.role === 'system' && message.content.includes('agent'))
+  const userPrompt = [...messages].reverse().find((message) => {
+    if (message.role !== 'user') return false;
+    return typeof message.content === 'string' ? true : message.content.some(p => p.type === 'text');
+  });
+  const userText = userPrompt
+    ? typeof userPrompt.content === 'string' ? userPrompt.content : userPrompt.content.find(p => p.type === 'text')?.text || ''
+    : '';
+  const mode = messages.some((message) => message.role === 'system' && typeof message.content === 'string' && message.content.includes('agent'))
     ? 'agent'
     : 'chat';
-  const system = buildChatSystemPrompt(userPrompt, normalizedModel, mode, true);
+  const system = buildChatSystemPrompt(userText, normalizedModel, mode, true);
   const payloadMessages = messages.filter((message) => message.role !== 'system');
 
   try {
@@ -93,6 +112,7 @@ export async function chatDirect(
         reasoning_effort: reasoningEffort ?? null,
         web_search: webResearch,
         system,
+        ...(options?.stopSequences?.length ? { stop_sequences: options.stopSequences } : {}),
       }),
     });
 
@@ -137,6 +157,14 @@ export async function chatDirect(
           } else if (event.type === 'content_block_delta' && event.delta?.text) {
             hasContent = true;
             onToken(event.delta.text);
+          } else if (event.type === 'content_block_delta' && event.delta?.type === 'thinking_delta' && event.delta?.thinking) {
+            // Extended Thinking tokens
+            options?.onThinking?.(event.delta.thinking);
+          } else if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
+            // Tool use block detected
+            options?.onToolUse?.(event.content_block.name, event.content_block.input || {});
+          } else if (event.type === 'content_block_delta' && event.delta?.type === 'input_json_delta') {
+            // Tool use input streaming — accumulate silently
           } else if (event.type === 'done') {
             onDone();
             return;
