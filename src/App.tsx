@@ -20,6 +20,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
 const CodePage = lazy(() => import("./pages/CodePage.tsx"));
 const CoworkPage = lazy(() => import("./pages/CoworkPage.tsx"));
 const AgentDockWindow = lazy(() => import("./pages/AgentDockWindow.tsx"));
+const ParlorPage = lazy(() => import("./pages/ParlorPage.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
 const queryClient = new QueryClient();
@@ -209,6 +210,7 @@ const App = () => (
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/code" element={<ProtectedRoute><CodePage /></ProtectedRoute>} />
             <Route path="/cowork" element={<ProtectedRoute><CoworkPage /></ProtectedRoute>} />
+            <Route path="/parlor" element={<ProtectedRoute><ParlorPage /></ProtectedRoute>} />
             <Route path="/agent-dock" element={<AgentDockWindow />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

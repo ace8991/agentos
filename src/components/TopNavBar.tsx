@@ -1,10 +1,11 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { MessageSquare, Users, Code2 } from 'lucide-react';
+import { MessageSquare, Users, Code2, Video } from 'lucide-react';
 
 const navItems = [
   { path: '/dashboard', label: 'Chat', icon: MessageSquare },
   { path: '/cowork', label: 'Cowork', icon: Users },
   { path: '/code', label: 'Code', icon: Code2 },
+  { path: '/parlor', label: 'Parlor', icon: Video },
 ] as const;
 
 const TopNavBar = () => {
