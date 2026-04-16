@@ -1,13 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import {
   AlertTriangle, Brain, Check, ChevronDown, ChevronRight,
-  Copy, Eye, FileText, FolderOpen, Globe,
+  Copy, Eye, FileText, FolderOpen, Globe, Loader2,
   MessageCircleQuestion, Search, Sparkles, Terminal, Zap,
+  Clock, Hash,
 } from 'lucide-react';
 import { type LogEntry } from '@/store/useStore';
 import { parseArtifacts } from '@/lib/artifacts';
 import ArtifactCard from './ArtifactCard';
 
+/* ── Tool config ── */
 const TOOL: Record<string, { label: string; Icon: typeof Eye; color: string }> = {
   file_read:       { label: 'Reading',     Icon: FileText,   color: 'text-amber-400/70'   },
   file_write:      { label: 'Writing',     Icon: FileText,   color: 'text-amber-400/70'   },
@@ -38,6 +40,107 @@ const STEPS = new Set(['perceive','plan','act','verify','browser','web','shell',
 const isStep = (e: LogEntry) =>
   STEPS.has(e.type as string) || (e.actionType||'').startsWith('file') || e.actionType === 'dc_shell';
 
+/* ── Syntax highlighting (lightweight inline) ── */
+const SYNTAX_RULES: Record<string, Array<[RegExp, string]>> = {
+  javascript: [
+    [/\b(const|let|var|function|return|if|else|for|while|class|import|export|from|default|async|await|new|typeof|instanceof|try|catch|throw|switch|case|break|continue|yield|delete|in|of|void)\b/g, 'text-purple-400'],
+    [/\b(true|false|null|undefined|NaN|Infinity)\b/g, 'text-orange-400'],
+    [/\b(\d+\.?\d*)\b/g, 'text-amber-300'],
+    [/(\/\/.*$)/gm, 'text-foreground/30 italic'],
+    [/('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`)/g, 'text-green-400'],
+    [/\b(console|window|document|Math|JSON|Array|Object|String|Number|Promise|Map|Set)\b/g, 'text-sky-400'],
+  ],
+  typescript: [], // filled below
+  python: [
+    [/\b(def|class|return|if|elif|else|for|while|import|from|as|with|try|except|raise|yield|lambda|pass|break|continue|global|nonlocal|assert|del|in|not|and|or|is)\b/g, 'text-purple-400'],
+    [/\b(True|False|None)\b/g, 'text-orange-400'],
+    [/\b(\d+\.?\d*)\b/g, 'text-amber-300'],
+    [/(#.*$)/gm, 'text-foreground/30 italic'],
+    [/('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|"""[\s\S]*?"""|'''[\s\S]*?''')/g, 'text-green-400'],
+    [/\b(print|len|range|list|dict|set|tuple|int|float|str|bool|type|isinstance|enumerate|zip|map|filter|sorted|super|self)\b/g, 'text-sky-400'],
+  ],
+  html: [
+    [/(<\/?[\w-]+)/g, 'text-red-400'],
+    [/([\w-]+)(?==)/g, 'text-amber-300'],
+    [/("(?:[^"\\]|\\.)*")/g, 'text-green-400'],
+    [/(<!--[\s\S]*?-->)/g, 'text-foreground/30 italic'],
+  ],
+  css: [
+    [/([.#][\w-]+)/g, 'text-amber-300'],
+    [/([\w-]+)(?=\s*:)/g, 'text-sky-400'],
+    [/(\/\*[\s\S]*?\*\/)/g, 'text-foreground/30 italic'],
+    [/(\b\d+\.?\d*(px|rem|em|%|vh|vw|s|ms)?\b)/g, 'text-orange-400'],
+  ],
+  sql: [
+    [/\b(SELECT|FROM|WHERE|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TABLE|INDEX|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AND|OR|NOT|IN|IS|NULL|AS|ORDER|BY|GROUP|HAVING|LIMIT|OFFSET|SET|VALUES|INTO|DISTINCT|UNION|EXISTS|BETWEEN|LIKE|CASE|WHEN|THEN|ELSE|END|PRIMARY|KEY|FOREIGN|REFERENCES|CONSTRAINT|DEFAULT|CHECK|UNIQUE)\b/gi, 'text-purple-400'],
+    [/('(?:[^'\\]|\\.)*')/g, 'text-green-400'],
+    [/(--.*$)/gm, 'text-foreground/30 italic'],
+    [/\b(\d+\.?\d*)\b/g, 'text-amber-300'],
+  ],
+  json: [
+    [/("(?:[^"\\]|\\.)*")\s*:/g, 'text-sky-400'],
+    [/:\s*("(?:[^"\\]|\\.)*")/g, 'text-green-400'],
+    [/\b(true|false|null)\b/g, 'text-orange-400'],
+    [/\b(\d+\.?\d*)\b/g, 'text-amber-300'],
+  ],
+  bash: [
+    [/\b(if|then|else|elif|fi|for|do|done|while|case|esac|function|return|exit|export|source|alias|cd|echo|sudo|chmod|chown|mkdir|rm|cp|mv|ls|cat|grep|sed|awk|find|curl|wget|npm|yarn|pip|git|docker)\b/g, 'text-purple-400'],
+    [/(#.*$)/gm, 'text-foreground/30 italic'],
+    [/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g, 'text-green-400'],
+    [/(\$[\w{]+}?)/g, 'text-amber-300'],
+  ],
+};
+SYNTAX_RULES.typescript = SYNTAX_RULES.javascript;
+SYNTAX_RULES.jsx = SYNTAX_RULES.javascript;
+SYNTAX_RULES.tsx = SYNTAX_RULES.javascript;
+SYNTAX_RULES.js = SYNTAX_RULES.javascript;
+SYNTAX_RULES.ts = SYNTAX_RULES.javascript;
+SYNTAX_RULES.sh = SYNTAX_RULES.bash;
+SYNTAX_RULES.shell = SYNTAX_RULES.bash;
+SYNTAX_RULES.powershell = SYNTAX_RULES.bash;
+SYNTAX_RULES.py = SYNTAX_RULES.python;
+
+function highlightCode(code: string, lang: string): React.ReactNode[] {
+  const rules = SYNTAX_RULES[lang.toLowerCase()];
+  if (!rules || !rules.length) {
+    return [<span key="0">{code}</span>];
+  }
+
+  // Simple line-by-line approach
+  return code.split('\n').map((line, li) => {
+    let segments: Array<{ text: string; cls?: string }> = [{ text: line }];
+
+    for (const [regex, cls] of rules) {
+      const next: typeof segments = [];
+      for (const seg of segments) {
+        if (seg.cls) { next.push(seg); continue; }
+        const r = new RegExp(regex.source, regex.flags);
+        let last = 0;
+        let m: RegExpExecArray | null;
+        while ((m = r.exec(seg.text)) !== null) {
+          if (m.index > last) next.push({ text: seg.text.slice(last, m.index) });
+          next.push({ text: m[1] || m[0], cls });
+          last = m.index + m[0].length;
+          if (!regex.global) break;
+        }
+        if (last < seg.text.length) next.push({ text: seg.text.slice(last) });
+        if (last === 0 && next[next.length - 1] !== seg) next.push(seg);
+      }
+      segments = next;
+    }
+
+    return (
+      <span key={li}>
+        {segments.map((s, si) =>
+          s.cls ? <span key={si} className={s.cls}>{s.text}</span> : <span key={si}>{s.text}</span>
+        )}
+        {li < code.split('\n').length - 1 ? '\n' : ''}
+      </span>
+    );
+  });
+}
+
+/* ── Copy button ── */
 function CopyBtn({ text }: { text: string }) {
   const [ok, setOk] = useState(false);
   return (
@@ -48,6 +151,7 @@ function CopyBtn({ text }: { text: string }) {
   );
 }
 
+/* ── Inline Markdown ── */
 function IL(text: string): React.ReactNode {
   const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g);
   return <>{parts.map((p, i) => {
@@ -60,31 +164,133 @@ function IL(text: string): React.ReactNode {
   })}</>;
 }
 
+/* ── Markdown renderer with tables, blockquotes, syntax highlighting ── */
 function Md({ text }: { text: string }) {
   if (!text?.trim()) return null;
-  const blocks = text.split(/\n{2,}/).map(b => b.trim()).filter(Boolean);
+
+  // Split into blocks but handle code blocks as atomic units
+  const rawBlocks: string[] = [];
+  let current = '';
+  let inCode = false;
+
+  for (const line of text.split('\n')) {
+    if (line.trimStart().startsWith('```') && !inCode) {
+      if (current.trim()) rawBlocks.push(current.trim());
+      current = line + '\n';
+      inCode = true;
+    } else if (line.trimStart().startsWith('```') && inCode) {
+      current += line;
+      rawBlocks.push(current.trim());
+      current = '';
+      inCode = false;
+    } else if (inCode) {
+      current += line + '\n';
+    } else {
+      current += line + '\n';
+    }
+  }
+  if (current.trim()) rawBlocks.push(current.trim());
+
+  // Now split non-code blocks by double newlines
+  const blocks: string[] = [];
+  for (const raw of rawBlocks) {
+    if (raw.startsWith('```')) {
+      blocks.push(raw);
+    } else {
+      raw.split(/\n{2,}/).map(b => b.trim()).filter(Boolean).forEach(b => blocks.push(b));
+    }
+  }
+
   return (
     <div className="space-y-3">
       {blocks.map((block, bi) => {
+        // Code block with syntax highlighting
         if (block.startsWith('```')) {
           const lines = block.split('\n');
           const lang = lines[0].slice(3).trim();
           const end = lines.lastIndexOf('```');
           const code = lines.slice(1, end > 0 ? end : undefined).join('\n');
+          const lineCount = code.split('\n').length;
           return (
             <div key={bi} className="rounded-xl overflow-hidden border border-white/[0.07] bg-black/25">
               <div className="flex items-center justify-between px-4 py-1.5 border-b border-white/[0.05] bg-white/[0.02]">
-                <span className="text-[11px] text-foreground/35 font-mono">{lang || 'code'}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-foreground/35 font-mono">{lang || 'code'}</span>
+                  <span className="text-[10px] text-foreground/20 font-mono">{lineCount} lines</span>
+                </div>
                 <CopyBtn text={code} />
               </div>
-              <pre className="p-4 text-[12.5px] font-mono text-foreground/78 leading-[1.65] overflow-x-auto whitespace-pre-wrap">{code}</pre>
+              <div className="flex">
+                {/* Line numbers */}
+                <div className="select-none py-4 pl-3 pr-2 text-right border-r border-white/[0.04]">
+                  {code.split('\n').map((_, i) => (
+                    <div key={i} className="text-[11px] font-mono text-foreground/15 leading-[1.65]">{i + 1}</div>
+                  ))}
+                </div>
+                <pre className="flex-1 p-4 text-[12.5px] font-mono leading-[1.65] overflow-x-auto whitespace-pre-wrap">
+                  <code>{highlightCode(code, lang)}</code>
+                </pre>
+              </div>
             </div>
           );
         }
+
+        // Blockquote
+        if (block.split('\n').every(l => l.startsWith('> ') || l === '>')) {
+          const content = block.split('\n').map(l => l.replace(/^>\s?/, '')).join('\n');
+          return (
+            <blockquote key={bi} className="border-l-2 border-foreground/15 pl-4 py-1 text-[14.5px] text-foreground/60 italic leading-7">
+              {IL(content)}
+            </blockquote>
+          );
+        }
+
+        // Table
+        if (block.includes('|') && block.split('\n').length >= 2) {
+          const tableLines = block.split('\n').filter(l => l.trim().startsWith('|'));
+          if (tableLines.length >= 2) {
+            const parseRow = (line: string) =>
+              line.split('|').slice(1, -1).map(c => c.trim());
+            const headerRow = parseRow(tableLines[0]);
+            // Check if second line is separator
+            const isSep = /^[\s|:-]+$/.test(tableLines[1]);
+            const dataRows = tableLines.slice(isSep ? 2 : 1).map(parseRow);
+
+            if (headerRow.length > 0 && (isSep || dataRows.length > 0)) {
+              return (
+                <div key={bi} className="overflow-x-auto rounded-lg border border-white/[0.07]">
+                  <table className="w-full text-[13px]">
+                    <thead>
+                      <tr className="border-b border-white/[0.1] bg-white/[0.03]">
+                        {headerRow.map((h, i) => (
+                          <th key={i} className="px-3 py-2 text-left font-semibold text-foreground/70">{IL(h)}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dataRows.map((row, ri) => (
+                        <tr key={ri} className="border-b border-white/[0.04] hover:bg-white/[0.02]">
+                          {row.map((cell, ci) => (
+                            <td key={ci} className="px-3 py-2 text-foreground/65">{IL(cell)}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            }
+          }
+        }
+
+        // Headers
+        if (block.startsWith('#### ')) return <h4 key={bi} className="text-[13px] font-semibold text-foreground/85 mt-1">{IL(block.slice(5))}</h4>;
         if (block.startsWith('### ')) return <h3 key={bi} className="text-[13.5px] font-semibold text-foreground/90 mt-1">{IL(block.slice(4))}</h3>;
         if (block.startsWith('## '))  return <h2 key={bi} className="text-[15px] font-semibold text-foreground/95 mt-1">{IL(block.slice(3))}</h2>;
         if (block.startsWith('# '))   return <h1 key={bi} className="text-[17px] font-bold text-foreground">{IL(block.slice(2))}</h1>;
         if (/^[-*]{3,}$/.test(block)) return <hr key={bi} className="border-white/[0.08]" />;
+
+        // Lists
         const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
         if (lines.length && lines.every(l => /^[-*+]\s/.test(l)))
           return <ul key={bi} className="space-y-1.5 pl-0.5">{lines.map((l,i) => (
@@ -98,16 +304,40 @@ function Md({ text }: { text: string }) {
               <span className="shrink-0 font-mono text-[12px] text-foreground/30 mt-1.5 w-5 text-right">{i+1}.</span>
               <span className="leading-7">{IL(l.replace(/^\d+[.)]\s/,''))}</span>
             </li>))}</ol>;
+
         return <p key={bi} className="text-[15px] text-foreground/85 leading-7">{IL(block)}</p>;
       })}
     </div>
   );
 }
 
+/* ── Tool Step with timing & spinner ── */
 function ToolStep({ entry }: { entry: LogEntry }) {
   const [open, setOpen] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const cfg = toolCfg(entry);
   const { Icon } = cfg;
+
+  const isRunning = !entry.tool_result && entry.type !== 'error';
+  const startTime = useRef(Date.now());
+
+  useEffect(() => {
+    if (!isRunning) return;
+    const iv = setInterval(() => setElapsed(Date.now() - startTime.current), 100);
+    return () => clearInterval(iv);
+  }, [isRunning]);
+
+  const duration = useMemo(() => {
+    if (isRunning) return `${(elapsed / 1000).toFixed(1)}s`;
+    const tr = entry.tool_result as any;
+    if (tr?.duration_ms) return `${(tr.duration_ms / 1000).toFixed(1)}s`;
+    if (tr?.completed_at && tr?.started_at) {
+      const d = new Date(tr.completed_at).getTime() - new Date(tr.started_at).getTime();
+      return `${(d / 1000).toFixed(1)}s`;
+    }
+    return null;
+  }, [isRunning, elapsed, entry.tool_result]);
+
   const label = useMemo(() => {
     const r = entry.tool_result as any;
     const tl = entry.toolLabel || '';
@@ -121,6 +351,7 @@ function ToolStep({ entry }: { entry: LogEntry }) {
     if (cmd)  return `${cfg.label} · ${cmd.slice(0, 55)}`;
     return act || cfg.label;
   }, [entry, cfg]);
+
   const detail = useMemo(() => {
     const r = entry.tool_result as any;
     if (!r) return '';
@@ -136,21 +367,55 @@ function ToolStep({ entry }: { entry: LogEntry }) {
       return r.results.slice(0,8).map((i:any)=>i.path||i.name||String(i)).join('\n');
     return '';
   }, [entry]);
+
+  // Structured params display
+  const params = useMemo(() => {
+    const r = entry.tool_result as any;
+    if (!r) return null;
+    const p: Record<string, string> = {};
+    if (r.path) p['path'] = r.path;
+    if (r.command) p['cmd'] = r.command.slice(0, 60);
+    if (r.url) p['url'] = r.url.slice(0, 60);
+    if (r.query) p['query'] = r.query.slice(0, 40);
+    return Object.keys(p).length > 0 ? p : null;
+  }, [entry]);
+
   const isErr = (entry.tool_result as any)?.exit_code > 0 || entry.type === 'error';
+
   return (
     <div className="flex items-start gap-2.5 py-0.5 group">
       <div className={`mt-[3px] flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-sm ${isErr?'bg-red-500/10':'bg-white/[0.04]'}`}>
-        <Icon size={11} className={isErr?'text-red-400/70':cfg.color} />
+        {isRunning ? (
+          <Loader2 size={11} className={`${cfg.color} animate-spin`} />
+        ) : (
+          <Icon size={11} className={isErr?'text-red-400/70':cfg.color} />
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <button onClick={()=>detail&&setOpen(o=>!o)}
           className={`flex w-full items-center gap-1.5 text-left ${detail?'cursor-pointer':'cursor-default'}`}>
           <span className="text-[13px] text-foreground/45 leading-5 truncate">{label}</span>
+          {duration && (
+            <span className="flex items-center gap-0.5 text-[10px] text-foreground/20 font-mono shrink-0">
+              <Clock size={8} />
+              {duration}
+            </span>
+          )}
           {detail && (open
             ? <ChevronDown size={12} className="shrink-0 text-foreground/30"/>
             : <ChevronRight size={12} className="shrink-0 text-foreground/20 group-hover:text-foreground/35 transition-colors"/>
           )}
         </button>
+        {/* Structured params */}
+        {params && !open && (
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+            {Object.entries(params).map(([k, v]) => (
+              <span key={k} className="text-[10.5px] text-foreground/20 font-mono truncate max-w-[240px]">
+                {k}=<span className="text-foreground/30">{v}</span>
+              </span>
+            ))}
+          </div>
+        )}
         {open && detail && (
           <div className="mt-1.5 rounded-lg border border-white/[0.07] bg-black/20">
             <pre className="p-3 text-[11.5px] font-mono leading-5 text-foreground/52 whitespace-pre-wrap max-h-52 overflow-y-auto">{detail}</pre>
@@ -161,8 +426,21 @@ function ToolStep({ entry }: { entry: LogEntry }) {
   );
 }
 
+/* ── Extended Thinking with budget + token count ── */
 function ThinkingStep({ entry }: { entry: LogEntry }) {
   const [open, setOpen] = useState(false);
+  const tokenCount = useMemo(() => {
+    if (!entry.reasoning) return 0;
+    // Rough estimate: ~4 chars per token
+    return Math.ceil(entry.reasoning.length / 4);
+  }, [entry.reasoning]);
+
+  const budgetLabel = useMemo(() => {
+    if (tokenCount > 2000) return 'Extended';
+    if (tokenCount > 500) return 'Deep';
+    return 'Quick';
+  }, [tokenCount]);
+
   return (
     <div className="flex items-start gap-2.5 py-0.5">
       <div className="mt-[3px] flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-sm bg-purple-500/10">
@@ -171,13 +449,27 @@ function ThinkingStep({ entry }: { entry: LogEntry }) {
       <div className="flex-1">
         <button onClick={()=>entry.reasoning&&setOpen(o=>!o)}
           className={`flex items-center gap-1.5 ${entry.reasoning?'cursor-pointer':'cursor-default'}`}>
-          <span className="text-[13px] italic text-foreground/30">Thinking…</span>
+          <span className="text-[13px] italic text-foreground/30">
+            {entry.reasoning ? `${budgetLabel} Thinking` : 'Thinking…'}
+          </span>
+          {tokenCount > 0 && (
+            <span className="flex items-center gap-0.5 text-[10px] text-purple-400/30 font-mono">
+              <Hash size={8} />
+              ~{tokenCount} tokens
+            </span>
+          )}
           {entry.reasoning && (open
             ? <ChevronDown size={12} className="text-foreground/25"/>
             : <ChevronRight size={12} className="text-foreground/18"/>)}
         </button>
         {open && entry.reasoning && (
           <div className="mt-1.5 rounded-lg border border-purple-500/15 bg-purple-500/5 px-4 py-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] text-purple-400/40 font-mono uppercase tracking-wider">
+                {budgetLabel} Thinking · ~{tokenCount} tokens
+              </span>
+              <CopyBtn text={entry.reasoning} />
+            </div>
             <p className="text-[12px] italic leading-5 text-foreground/38 whitespace-pre-wrap">{entry.reasoning}</p>
           </div>
         )}
@@ -186,6 +478,7 @@ function ThinkingStep({ entry }: { entry: LogEntry }) {
   );
 }
 
+/* ── Main ChatMessage ── */
 export const ChatMessage = ({ entry, onAskReply }: { entry: LogEntry; onAskReply?: (id:string,a:string)=>void }) => {
   const [askInput, setAskInput] = useState('');
   const isResult = entry.type === 'result';
@@ -208,7 +501,7 @@ export const ChatMessage = ({ entry, onAskReply }: { entry: LogEntry; onAskReply
     <div className="px-4 pb-0.5 log-entry-enter"><ThinkingStep entry={entry} /></div>
   );
 
-  // Tool step (compact + collapsible — Claude style)
+  // Tool step
   if (isStep(entry)) return (
     <div className="px-4 pb-0.5 log-entry-enter"><ToolStep entry={entry} /></div>
   );
@@ -255,7 +548,7 @@ export const ChatMessage = ({ entry, onAskReply }: { entry: LogEntry; onAskReply
     </div>
   );
 
-  // AI response — Claude style
+  // AI response
   const responseText = isResult ? txt : entry.action;
   if (!responseText?.trim() && !artifacts.length) return null;
   return (
