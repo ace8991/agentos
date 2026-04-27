@@ -117,6 +117,21 @@ export const MODEL_PROVIDERS: ModelProvider[] = [
       { id: 'lmstudio/local-model', name: 'Local Model', description: 'Free • Configure in LM Studio' },
     ],
   },
+  {
+    id: 'qwen',
+    name: 'Qwen (Alibaba)',
+    icon: '🟤',
+    requiresKey: true,
+    keyName: 'QWEN_API_KEY',
+    defaultBaseUrl: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+    baseUrlConfigurable: false,
+    models: [
+      { id: 'qwen-max', name: 'Qwen Max', description: 'Best Qwen model — complex reasoning tasks' },
+      { id: 'qwen-plus', name: 'Qwen Plus', description: 'Balanced performance & cost — 131K context' },
+      { id: 'qwen-turbo', name: 'Qwen Turbo', description: 'Fast & cheap — 1M context window' },
+      { id: 'qwen3-235b-a22b-instruct-2507', name: 'Qwen3 235B (latest)', description: 'Qwen3 flagship — 262K context, tool use' },
+    ],
+  },
 ];
 
 const AGENT_SUPPORTED_MODELS = new Set([

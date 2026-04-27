@@ -1,11 +1,12 @@
 """AgentOS — Chat endpoint v2.1 — Streaming SSE"""
 from __future__ import annotations
-import json, logging, os
+import json, logging
 from typing import AsyncIterator, Optional
 import httpx
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from app.services.runtime_config import get_runtime_value, has_runtime_value
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -55,8 +56,10 @@ def sse_done() -> str: return sse({'type':'done'})
 def sse_err(e: str) -> str: return sse({'type':'error','error':e})
 
 async def _anthropic(req: ChatReq) -> AsyncIterator[str]:
-    key = os.getenv('ANTHROPIC_API_KEY','').strip()
-    if not key: yield sse_err('ANTHROPIC_API_KEY not set in .env'); return
+    key = (get_runtime_value('ANTHROPIC_API_KEY') or '').strip()
+    if not key:
+        yield sse_err('ANTHROPIC_API_KEY is not configured on the backend. Save it in Settings or .env.')
+        return
     model = _norm(req.model)
     system = req.system or next((m.content for m in req.messages if m.role=='system'),'')
     msgs = [{'role':m.role,'content':m.content} for m in req.messages if m.role!='system']
@@ -98,8 +101,11 @@ async def _anthropic(req: ChatReq) -> AsyncIterator[str]:
 
 async def _openai(req: ChatReq, base='https://api.openai.com/v1') -> AsyncIterator[str]:
     ds = 'deepseek' in base
-    key = os.getenv('DEEPSEEK_API_KEY' if ds else 'OPENAI_API_KEY','').strip()
-    if not key: yield sse_err(f"{'DEEPSEEK' if ds else 'OPENAI'}_API_KEY not set in .env"); return
+    env_name = 'DEEPSEEK_API_KEY' if ds else 'OPENAI_API_KEY'
+    key = (get_runtime_value(env_name) or '').strip()
+    if not key:
+        yield sse_err(f'{env_name} is not configured on the backend. Save it in Settings or .env.')
+        return
     model = _norm(req.model)
     system = req.system or next((m.content for m in req.messages if m.role=='system'),'')
     msgs = []
@@ -139,7 +145,7 @@ async def chat(req: ChatReq):
         if p=='anthropic':
             async for c in _anthropic(req): yield c
         elif p=='deepseek':
-            async for c in _openai(req,'https://api.deepseek.com/v1'): yield c
+            async for c in _openai(req,'https://api.deepseek.com'): yield c
         else:
             async for c in _openai(req): yield c
     return StreamingResponse(gen(), media_type='text/event-stream',
@@ -147,9 +153,9 @@ async def chat(req: ChatReq):
 
 @router.get('/models/available')
 async def models():
-    a = bool(os.getenv('ANTHROPIC_API_KEY','').strip())
-    o = bool(os.getenv('OPENAI_API_KEY','').strip())
-    d = bool(os.getenv('DEEPSEEK_API_KEY','').strip())
+    a = has_runtime_value('ANTHROPIC_API_KEY')
+    o = has_runtime_value('OPENAI_API_KEY')
+    d = has_runtime_value('DEEPSEEK_API_KEY')
     mods = []
     if a: mods += [
         {'id':'claude-sonnet-4-6','name':'Claude Sonnet 4.6','provider':'anthropic','default':True},

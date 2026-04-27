@@ -82,6 +82,12 @@ export async function chatDirect(
   const payloadMessages = messages.filter((message) => message.role !== 'system');
 
   try {
+    try {
+      await syncRuntimeConfig();
+    } catch {
+      // Best effort: if sync fails we still attempt the request so existing backend env keys can work.
+    }
+
     const response = await fetch(`${BASE}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
