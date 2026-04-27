@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   GitBranch, FolderOpen, Check, ChevronDown, Mic, Monitor,
   MessageSquare, Files, GitFork, Terminal as TerminalIcon,
@@ -6,12 +7,17 @@ import {
   Send, Bot, User, Copy, Paperclip, X, Undo2, ChevronRight,
   Folder, File, Search, Plus, RefreshCw, ExternalLink, Clock,
   AlertCircle, GitPullRequest, Maximize2, Minimize2, Trash2, Loader2,
-  Eye, SplitSquareHorizontal, Code2,
+  Eye, SplitSquareHorizontal, Code2, Brain, Layers, FileText, Shield, ShieldCheck,
 } from 'lucide-react';
 import TaskSidebar from '@/components/TaskSidebar';
+import TopNavBar from '@/components/TopNavBar';
+import AgentActionStep, { type ActionStep, type ActionStepType } from '@/components/code/AgentActionStep';
+import ClaudeMdEditor from '@/components/code/ClaudeMdEditor';
+import SubAgentPanel from '@/components/code/SubAgentPanel';
 import HexLogo from '@/components/HexLogo';
 import { PreviewPanel } from '@/components/code/PreviewPanel';
-import { chatDirect } from '@/lib/api';
+import { chatDirect, type ChatMessage as ChatMessageType } from '@/lib/api';
+import ModelSelector from '@/components/ModelSelector';
 import { useStore } from '@/store/useStore';
 import {
   loadRepos, addRepo, removeRepo, switchBranch,
@@ -24,9 +30,11 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 // ─── Types ───────────────────────────────────────────────────────────
 interface ChatMsg {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'agent-steps' | 'plan-approve';
   content: string;
   codeBlocks?: { language: string; code: string; file?: string }[];
+  actionSteps?: ActionStep[];
+  planApproved?: boolean;
 }
 
 interface FileNode {
@@ -418,6 +426,7 @@ const BranchPicker = ({ repo, onClose }: { repo: GitHubRepo; onClose: () => void
 const CodePage = () => {
   const model = useStore((s) => s.model);
   const isMobile = useIsMobile();
+  const location = useLocation();
 
   // GitHub state
   const [repos, setRepos] = useState<GitHubRepo[]>(loadRepos());
@@ -436,13 +445,16 @@ const CodePage = () => {
 
   // Layout state
   const [showLeftPanel, setShowLeftPanel] = useState(false);
-  const [leftTab, setLeftTab] = useState<'files' | 'github'>('files');
+  const [leftTab, setLeftTab] = useState<'files' | 'github' | 'memory'>('files');
+  const [showSubAgents, setShowSubAgents] = useState(false);
+  const [permissionMode, setPermissionMode] = useState<'ask' | 'auto'>('auto');
   const [showTerminal, setShowTerminal] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
   // Input bar state
   const [autoAccept, setAutoAccept] = useState(true);
+  const [showCodeModelSelector, setShowCodeModelSelector] = useState(false);
   const [input, setInput] = useState('');
 
   // Chat state
@@ -472,6 +484,59 @@ const CodePage = () => {
   useEffect(() => { chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isStreaming]);
   useEffect(() => { termBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [termLines]);
 
+  const getModelShortName = () => {
+    const parts = model.split('-');
+    if (model.includes('claude')) {
+      const name = parts.find(p => ['sonnet', 'opus', 'haiku'].includes(p));
+      const version = parts.slice(-1)[0];
+      return `${name ? name.charAt(0).toUpperCase() + name.slice(1) : 'Claude'} ${version}`;
+    }
+    if (model.includes('gpt')) return model.replace('gpt-', 'GPT-');
+    if (model.includes('deepseek')) return 'DeepSeek';
+    return model;
+  };
+
+  // ─── Agentic simulation helpers ──────────────────────────
+  const simulateAgentSteps = useCallback((stepsId: string, text: string) => {
+    const steps: ActionStep[] = [];
+    const addStep = (type: ActionStepType, label: string, detail?: string, delay?: number) => {
+      return new Promise<void>((resolve) => {
+        const step: ActionStep = { id: `${stepsId}-${steps.length}`, type, status: 'running', label };
+        steps.push(step);
+        setMessages(prev => prev.map(m => m.id === stepsId ? { ...m, actionSteps: [...steps] } : m));
+        setTimeout(() => {
+          step.status = 'done';
+          step.detail = detail;
+          step.duration = Math.floor(Math.random() * 800 + 100);
+          setMessages(prev => prev.map(m => m.id === stepsId ? { ...m, actionSteps: [...steps] } : m));
+          resolve();
+        }, delay || Math.floor(Math.random() * 600 + 300));
+      });
+    };
+
+    const lowerText = text.toLowerCase();
+    const isComplex = lowerText.includes('refactor') || lowerText.includes('créer') || lowerText.includes('ajouter') || text.length > 80;
+
+    return (async () => {
+      await addStep('think', 'Analyse de la requête…', `Requête: "${text.slice(0, 100)}"`, 400);
+      if (isComplex) {
+        await addStep('search', 'Recherche dans le codebase…', 'src/components/ — 12 fichiers trouvés', 500);
+        await addStep('read_file', 'Lecture · package.json', '{\n  "name": "agentos",\n  "version": "1.0.0"\n}', 300);
+      }
+      await addStep('read_file', `Lecture · ${selectedFile?.split('/').pop() || 'App.tsx'}`, sampleFileContents[selectedFile || '/src/App.tsx']?.slice(0, 200), 350);
+      if (isComplex) {
+        await addStep('plan', 'Élaboration du plan…', '1. Analyser le code existant\n2. Modifier les composants\n3. Vérifier les tests', 400);
+        // Push terminal output
+        const termCmd: TerminalLine = { id: Date.now().toString(), type: 'input', content: '$ npx tsc --noEmit' };
+        const termOut: TerminalLine = { id: `${Date.now()}-1`, type: 'output', content: '✓ No errors found' };
+        setTermLines(prev => [...prev, termCmd, termOut]);
+        await addStep('bash', 'npx tsc --noEmit', '✓ No errors found', 600);
+        await addStep('write_file', `Écriture · ${selectedFile?.split('/').pop() || 'App.tsx'}`, '+ import { useState } from "react";\n+ const [data, setData] = useState(null);', 400);
+        await addStep('verify', 'Vérification réussie', 'Build OK — 0 erreurs, 0 warnings', 300);
+      }
+    })();
+  }, [selectedFile]);
+
   // ─── Handlers ────────────────────────────────────────────
   const sendToChat = useCallback((text: string) => {
     if (!text.trim() || isStreaming) return;
@@ -479,32 +544,39 @@ const CodePage = () => {
     setMessages(prev => [...prev, userMsg]);
     setIsStreaming(true);
 
-    const assistantId = (Date.now() + 1).toString();
-    setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '' }]);
+    // Insert action steps message
+    const stepsId = (Date.now() + 1).toString();
+    setMessages(prev => [...prev, { id: stepsId, role: 'agent-steps', content: '', actionSteps: [] }]);
 
-    let fullContent = '';
-    chatDirect(
-      [
-        { role: 'system', content: 'Tu es un assistant de programmation expert. Réponds en français. Fournis du code dans des blocs ```language quand approprié.' },
-        ...messages.filter(m => m.role !== 'assistant' || m.content).map(m => ({ role: m.role, content: m.content })),
-        { role: 'user', content: text },
-      ],
-      model, null, false,
-      (token) => {
-        fullContent += token;
-        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: fullContent } : m));
-      },
-      () => {
-        const codeBlocks = extractCodeBlocks(fullContent);
-        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: fullContent, codeBlocks: codeBlocks.length > 0 ? codeBlocks : undefined } : m));
-        setIsStreaming(false);
-      },
-      (err) => {
-        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: `Erreur: ${err}` } : m));
-        setIsStreaming(false);
-      },
-    );
-  }, [messages, model, isStreaming]);
+    // Simulate agentic steps, then call the AI
+    simulateAgentSteps(stepsId, text).then(() => {
+      const assistantId = (Date.now() + 2).toString();
+      setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '' }]);
+
+      let fullContent = '';
+      chatDirect(
+        [
+          { role: 'system' as const, content: 'Tu es un assistant de programmation expert. Réponds en français. Fournis du code dans des blocs ```language quand approprié.' },
+          ...messages.filter(m => m.role === 'user' || (m.role === 'assistant' && m.content)).map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+          { role: 'user' as const, content: text },
+        ],
+        model, null, false,
+        (token) => {
+          fullContent += token;
+          setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: fullContent } : m));
+        },
+        () => {
+          const codeBlocks = extractCodeBlocks(fullContent);
+          setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: fullContent, codeBlocks: codeBlocks.length > 0 ? codeBlocks : undefined } : m));
+          setIsStreaming(false);
+        },
+        (err) => {
+          setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: `Erreur: ${err}` } : m));
+          setIsStreaming(false);
+        },
+      );
+    });
+  }, [messages, model, isStreaming, simulateAgentSteps]);
 
   const handleMainSubmit = () => { if (!input.trim()) return; setShowChat(true); sendToChat(input); setInput(''); };
   const handleChatSubmit = () => { if (!chatInput.trim()) return; sendToChat(chatInput); setChatInput(''); };
@@ -545,6 +617,18 @@ const CodePage = () => {
     if (isMobile) setShowLeftPanel(false);
   };
 
+  // Open file from navigation state (e.g. from Cowork page)
+  useEffect(() => {
+    const state = location.state as { openFile?: string } | null;
+    if (state?.openFile) {
+      const normalizedPath = state.openFile.startsWith('/') ? state.openFile : `/${state.openFile}`;
+      handleFileSelect(normalizedPath);
+      setShowLeftPanel(true);
+      // Clear the state so it doesn't re-trigger
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
   const currentLanguage = selectedFile
     ? (selectedFile.split('.').pop() || 'txt')
     : 'txt';
@@ -563,6 +647,10 @@ const CodePage = () => {
           className={`flex-1 px-3 py-2.5 text-xs font-medium transition-colors ${leftTab === 'github' ? 'text-foreground bg-[hsl(0,0%,15%)]' : 'text-muted-foreground hover:text-foreground'}`}>
           <GitFork size={12} className="inline mr-1.5" />GitHub
         </button>
+        <button onClick={() => setLeftTab('memory')}
+          className={`flex-1 px-3 py-2.5 text-xs font-medium transition-colors ${leftTab === 'memory' ? 'text-foreground bg-[hsl(0,0%,15%)]' : 'text-muted-foreground hover:text-foreground'}`}>
+          <Brain size={12} className="inline mr-1.5" />Mémoire
+        </button>
       </div>
 
       {leftTab === 'files' ? (
@@ -578,7 +666,7 @@ const CodePage = () => {
               selectedFile={selectedFile || undefined} onFileSelect={handleFileSelect} />
           ))}
         </div>
-      ) : (
+      ) : leftTab === 'github' ? (
         <div className="flex-1 overflow-y-auto">
           <div className="flex items-center justify-between px-3 py-2 border-b border-[hsl(0,0%,17%)]">
             <span className="text-xs font-medium text-foreground">Repositories</span>
@@ -624,6 +712,8 @@ const CodePage = () => {
             </button>
           </div>
         </div>
+      ) : (
+        <ClaudeMdEditor />
       )}
     </div>
   );
@@ -639,29 +729,44 @@ const CodePage = () => {
         <button onClick={() => setShowChat(false)} className="text-muted-foreground hover:text-foreground"><X size={14} /></button>
       </div>
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
-        {messages.map((msg) => (
-          <div key={msg.id} className={`flex gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-            <div className={`flex-shrink-0 h-6 w-6 rounded-md flex items-center justify-center ${
-              msg.role === 'user' ? 'bg-[hsl(14,74%,52%)]/20' : 'bg-[hsl(0,0%,20%)]'
-            }`}>
-              {msg.role === 'user' ? <User size={12} className="text-[hsl(14,74%,52%)]" /> : <Bot size={12} className="text-muted-foreground" />}
-            </div>
-            <div className={`flex-1 min-w-0 ${msg.role === 'user' ? 'text-right' : ''}`}>
-              <p className="text-[13px] text-foreground/85 whitespace-pre-wrap leading-relaxed">{msg.content.replace(/```[\s\S]*?```/g, '').trim() || msg.content}</p>
-              {msg.codeBlocks?.map((block, i) => (
-                <div key={i} className="mt-2 rounded-lg border border-[hsl(0,0%,20%)] bg-[hsl(0,0%,10%)] overflow-hidden text-left">
-                  <div className="flex items-center justify-between px-3 py-1.5 bg-[hsl(0,0%,15%)] border-b border-[hsl(0,0%,20%)]">
-                    <span className="text-[10px] text-muted-foreground font-mono">{block.file || block.language}</span>
-                    <button onClick={() => handleCopy(block.code, `${msg.id}-${i}`)} className="text-muted-foreground hover:text-foreground">
-                      {copiedId === `${msg.id}-${i}` ? <Check size={12} className="text-[hsl(142,71%,45%)]" /> : <Copy size={12} />}
-                    </button>
+        {messages.map((msg) => {
+          // Agent action steps
+          if (msg.role === 'agent-steps' && msg.actionSteps?.length) {
+            return (
+              <div key={msg.id} className="space-y-0.5 pl-1 border-l-2 border-[hsl(0,0%,17%)] ml-2">
+                {msg.actionSteps.map(step => (
+                  <AgentActionStep key={step.id} step={step} />
+                ))}
+              </div>
+            );
+          }
+          // Skip empty agent-steps
+          if (msg.role === 'agent-steps') return null;
+
+          return (
+            <div key={msg.id} className={`flex gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+              <div className={`flex-shrink-0 h-6 w-6 rounded-md flex items-center justify-center ${
+                msg.role === 'user' ? 'bg-[hsl(14,74%,52%)]/20' : 'bg-[hsl(0,0%,20%)]'
+              }`}>
+                {msg.role === 'user' ? <User size={12} className="text-[hsl(14,74%,52%)]" /> : <Bot size={12} className="text-muted-foreground" />}
+              </div>
+              <div className={`flex-1 min-w-0 ${msg.role === 'user' ? 'text-right' : ''}`}>
+                <p className="text-[13px] text-foreground/85 whitespace-pre-wrap leading-relaxed">{msg.content.replace(/```[\s\S]*?```/g, '').trim() || msg.content}</p>
+                {msg.codeBlocks?.map((block, i) => (
+                  <div key={i} className="mt-2 rounded-lg border border-[hsl(0,0%,20%)] bg-[hsl(0,0%,10%)] overflow-hidden text-left">
+                    <div className="flex items-center justify-between px-3 py-1.5 bg-[hsl(0,0%,15%)] border-b border-[hsl(0,0%,20%)]">
+                      <span className="text-[10px] text-muted-foreground font-mono">{block.file || block.language}</span>
+                      <button onClick={() => handleCopy(block.code, `${msg.id}-${i}`)} className="text-muted-foreground hover:text-foreground">
+                        {copiedId === `${msg.id}-${i}` ? <Check size={12} className="text-[hsl(142,71%,45%)]" /> : <Copy size={12} />}
+                      </button>
+                    </div>
+                    <pre className="p-3 text-[11px] font-mono text-foreground/80 overflow-x-auto"><code>{block.code}</code></pre>
                   </div>
-                  <pre className="p-3 text-[11px] font-mono text-foreground/80 overflow-x-auto"><code>{block.code}</code></pre>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         {isStreaming && messages[messages.length - 1]?.content === '' && (
           <div className="flex gap-2">
             <div className="h-6 w-6 rounded-md bg-[hsl(0,0%,20%)] flex items-center justify-center">
@@ -691,7 +796,9 @@ const CodePage = () => {
   );
 
   return (
-    <div className="flex h-[100dvh] w-full overflow-hidden bg-[hsl(0,0%,10%)]">
+    <div className="flex flex-col h-[100dvh] w-full overflow-hidden bg-[hsl(0,0%,10%)]">
+      <TopNavBar />
+      <div className="flex flex-1 min-h-0">
       <TaskSidebar />
       <div className="flex-1 flex flex-col min-w-0">
         {/* Main content area */}
@@ -856,9 +963,16 @@ const CodePage = () => {
           </div>
 
           {/* Desktop chat panel */}
-          {!isMobile && showChat && (
+          {!isMobile && showChat && !showSubAgents && (
             <div className="w-[300px] xl:w-[340px] flex-shrink-0 border-l border-[hsl(0,0%,17%)] bg-[hsl(0,0%,11%)]">
               {chatPanelContent}
+            </div>
+          )}
+
+          {/* Desktop sub-agents panel */}
+          {!isMobile && showSubAgents && (
+            <div className="w-[300px] xl:w-[340px] flex-shrink-0 border-l border-[hsl(0,0%,17%)] bg-[hsl(0,0%,11%)]">
+              <SubAgentPanel onClose={() => setShowSubAgents(false)} />
             </div>
           )}
 
@@ -898,9 +1012,20 @@ const CodePage = () => {
                   </div>
                   <span className="whitespace-nowrap hidden md:inline">Accepter auto.</span>
                 </label>
-                <button className="flex items-center gap-1 bg-transparent border-none text-muted-foreground text-[12px] cursor-pointer px-1 py-1 rounded whitespace-nowrap">
-                  Opus 4.6 <ChevronDown size={11} />
-                </button>
+                <div className="relative">
+                  <button onClick={() => setShowCodeModelSelector(!showCodeModelSelector)}
+                    className="flex items-center gap-1 bg-transparent border-none text-muted-foreground text-[12px] cursor-pointer px-1 py-1 rounded whitespace-nowrap hover:text-foreground transition-colors">
+                    {getModelShortName()} <ChevronDown size={11} />
+                  </button>
+                  {showCodeModelSelector && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowCodeModelSelector(false)} />
+                      <div className="absolute bottom-full right-0 mb-2 z-50">
+                        <ModelSelector />
+                      </div>
+                    </>
+                  )}
+                </div>
                 <button className="bg-transparent border-none text-muted-foreground cursor-pointer p-1 rounded-md flex items-center">
                   <Mic size={13} />
                 </button>
@@ -950,6 +1075,21 @@ const CodePage = () => {
               <MessageSquare size={12} />Chat
             </button>
 
+            <button onClick={() => setShowSubAgents(!showSubAgents)}
+              className={`flex items-center gap-[5px] border text-[11px] sm:text-xs py-[6px] sm:py-[7px] px-2 sm:px-2.5 rounded-[7px] cursor-pointer whitespace-nowrap shrink-0 ${
+                showSubAgents ? 'bg-sky-500/20 border-sky-500/30 text-sky-400' : 'bg-[hsl(0,0%,15%)] border-[hsl(0,0%,20%)] text-muted-foreground'
+              }`}>
+              <Layers size={12} />Agents
+            </button>
+
+            <button onClick={() => setPermissionMode(p => p === 'auto' ? 'ask' : 'auto')}
+              className={`flex items-center gap-[5px] border text-[11px] sm:text-xs py-[6px] sm:py-[7px] px-2 sm:px-2.5 rounded-[7px] cursor-pointer whitespace-nowrap shrink-0 ${
+                permissionMode === 'ask' ? 'bg-amber-500/20 border-amber-500/30 text-amber-400' : 'bg-[hsl(0,0%,15%)] border-[hsl(0,0%,20%)] text-muted-foreground'
+              }`}>
+              {permissionMode === 'ask' ? <Shield size={12} /> : <ShieldCheck size={12} />}
+              {permissionMode === 'ask' ? 'Demander' : 'Auto'}
+            </button>
+
             <button
               onClick={() => {
                 if (!selectedFile) {
@@ -975,6 +1115,7 @@ const CodePage = () => {
       {showBranchPicker && activeRepoState && (
         <BranchPicker repo={activeRepoState} onClose={() => setShowBranchPicker(false)} />
       )}
+      </div>
     </div>
   );
 };
