@@ -21,7 +21,7 @@ const buildSandboxHtml = (artifact: Artifact): string => {
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>${artifact.title}</title>
-  <script src="https://cdn.tailwindcss.com"><\/script>
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root{color-scheme:light dark}
     body{margin:0;min-height:100vh;font-family:Inter,system-ui,sans-serif;background:#0f172a;color:#f1f5f9}
@@ -38,12 +38,12 @@ const buildSandboxHtml = (artifact: Artifact): string => {
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>${artifact.title}</title>
-  <script src="https://cdn.tailwindcss.com"><\/script>
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin><\/script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin><\/script>
-  <script src="${BABEL_CDN}"><\/script>
-  <script src="https://unpkg.com/lucide-react@0.344.0/dist/umd/lucide-react.min.js" crossorigin><\/script>
-  <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.min.js" crossorigin><\/script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="${BABEL_CDN}"></script>
+  <script src="https://unpkg.com/lucide-react@0.344.0/dist/umd/lucide-react.min.js" crossorigin></script>
+  <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.min.js" crossorigin></script>
   <style>
     :root{color-scheme:light dark}
     body{margin:0;min-height:100vh;font-family:Inter,system-ui,sans-serif;background:#0f172a;color:#f1f5f9}
@@ -76,13 +76,13 @@ const buildSandboxHtml = (artifact: Artifact): string => {
       document.getElementById('error-overlay').style.display = 'block';
       document.getElementById('error-overlay').textContent = 'Runtime Error:\\n' + e.message + '\\n\\n' + (e.stack || '');
     }
-  <\/script>
+  </script>
   <script>
     window.addEventListener('error', function(e) {
       var el = document.getElementById('error-overlay');
       if (el) { el.style.display='block'; el.textContent = 'Error:\\n' + e.message + (e.filename ? '\\n' + e.filename + ':' + e.lineno : ''); }
     });
-  <\/script>
+  </script>
 </body>
 </html>`;
 };

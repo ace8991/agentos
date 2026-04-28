@@ -28,7 +28,6 @@ export interface DownloadProgress {
 
 // ─── WebLLM Engine (lazy, no static import) ─────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let engine: any = null;
 let currentLoadedModel: string | null = null;
 

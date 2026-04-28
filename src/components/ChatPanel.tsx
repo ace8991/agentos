@@ -289,7 +289,7 @@ const ChatPanel = () => {
     const text = inputValue.trim();
     if (!text) return;
     setComposerMenuOpen(false);
-    const attachmentContext = await buildAttachmentContext(attachments);
+    let attachmentContext = await buildAttachmentContext(attachments);
     const shouldUseBuilder = shouldUseBuilderWorkspace(text, composerPreferences);
     const shouldUseAgent =
       shouldRouteToAgent(text, mode, backendOnline) ||
@@ -311,10 +311,18 @@ const ChatPanel = () => {
     }
 
     if (mode !== 'agent') {
-      const desktopCommanderExecution = await handleDesktopCommanderSend(text);
-      if (desktopCommanderExecution) {
+      const dcResult = await handleDesktopCommanderSend(text);
+      if (dcResult === true) {
+        // Desktop Commander a géré une action simple (création fichier, dossier, etc.)
         return;
       }
+      if (typeof dcResult === 'string') {
+        // Desktop Commander a collecté des données système → les injecter comme contexte pour l'IA
+        attachmentContext = attachmentContext
+          ? `${attachmentContext}\n\n---\nDonnées collectées par Desktop Commander:\n${dcResult}`
+          : `Données collectées par Desktop Commander:\n${dcResult}`;
+      }
+      // Si dcResult === null → pas une intention DC → continuer normalement vers l'IA
     }
 
     if (shouldUseAgent) {
@@ -341,13 +349,19 @@ const ChatPanel = () => {
     await handleChatSend(text, attachmentContext);
   };
 
-  const handleDesktopCommanderSend = async (text: string) => {
+  /**
+   * Gère les intentions Desktop Commander.
+   * @returns `true` si l'action a été exécutée directement (fichier créé, commande shell)
+   *          `string` (contexte) si des données ont été collectées pour analyse par l'IA
+   *          `null` si ce n'est pas une intention Desktop Commander
+   */
+  const handleDesktopCommanderSend = async (text: string): Promise<boolean | string | null> => {
     setChatLoading(true);
     try {
       const execution = await executeDesktopCommanderIntent(text);
       if (!execution) {
         setChatLoading(false);
-        return false;
+        return null;
       }
 
       setComposerMenuOpen(false);
@@ -376,6 +390,25 @@ const ChatPanel = () => {
         toolLabel: execution.toolLabel,
       });
 
+      // Pour les intentions d'analyse (système, recherche, lecture), on retourne les données
+      // comme contexte pour que l'IA les analyse intelligemment
+      const analysisIntents = ['system_info', 'file_search', 'file_read'];
+      if (analysisIntents.includes(execution.actionType)) {
+        addLogEntry({
+          id: crypto.randomUUID(),
+          step: 1,
+          timestamp: new Date().toISOString(),
+          type: 'result',
+          action: execution.resultMarkdown,
+          reasoning: '',
+          toolLabel: 'Desktop Commander result',
+        });
+        useStore.getState().saveConversationSnapshot({ label: text, thread: 'chat' });
+        setChatLoading(false);
+        return execution.resultMarkdown;
+      }
+
+      // Pour les actions simples (fichier créé, dossier, commande shell), on arrête ici
       addLogEntry({
         id: crypto.randomUUID(),
         step: 1,
@@ -385,7 +418,6 @@ const ChatPanel = () => {
         reasoning: '',
         toolLabel: 'Desktop Commander result',
       });
-
       useStore.getState().saveConversationSnapshot({ label: text, thread: 'chat' });
       setChatLoading(false);
       return true;

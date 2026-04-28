@@ -18,9 +18,9 @@ const DEVICE_WIDTHS: Record<DeviceMode, string> = {
 // ─── Babel transpiler (lazy-loaded) ─────────────────────────────────
 const transpileReact = (code: string): string => {
   try {
-    // @ts-ignore
+    // @ts-expect-error - Babel is loaded dynamically
     if (!window.Babel) return '';
-    // @ts-ignore
+    // @ts-expect-error - Babel is loaded dynamically
     const result = window.Babel.transform(code, {
       presets: ['react'],
       plugins: [],
@@ -58,8 +58,8 @@ ${content}
   if (lang === 'jsx' || lang === 'tsx') {
     const transpiled = transpileReact(content);
     return `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<script src="https://unpkg.com/react@18/umd/react.development.js"><\/script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"><\/script>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <style>body{font-family:system-ui,sans-serif;margin:0;padding:16px;background:#fff;color:#111}*{box-sizing:border-box}</style>
 </head><body><div id="root"></div>
 <script>
@@ -77,7 +77,7 @@ if (exported && typeof exported === 'function') {
 } catch(e) {
   document.getElementById('root').innerHTML = '<div style="padding:16px;background:#fee2e2;border-radius:8px;font-size:13px;font-family:monospace"><b>Erreur de rendu:</b><br>' + e.message + '</div>';
 }
-<\/script>
+</script>
 </body></html>`;
   }
 
@@ -104,7 +104,7 @@ ${content}
 } catch(e) {
   log('err', '❌ ' + e.message);
 }
-<\/script></body></html>`;
+</script></body></html>`;
   }
 
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:monospace;margin:0;padding:16px;background:#0f172a;color:#94a3b8;font-size:12px;white-space:pre-wrap;word-break:break-all}</style></head><body>${content.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</body></html>`;
@@ -125,7 +125,7 @@ export const PreviewPanel = ({ content, language, filePath }: PreviewPanelProps)
   // Load Babel lazily for JSX/TSX
   useEffect(() => {
     if (!NEEDS_BABEL.has(language)) { setBabelReady(true); return; }
-    // @ts-ignore
+    // @ts-expect-error - Babel is loaded dynamically
     if (window.Babel) { setBabelReady(true); return; }
     const script = document.createElement('script');
     script.src = 'https://unpkg.com/@babel/standalone/babel.min.js';

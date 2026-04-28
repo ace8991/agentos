@@ -33,14 +33,30 @@ const VALID = new Set([
   'claude-sonnet-4-6',
   'claude-sonnet-4-5',
   'claude-opus-4-5',
-  'claude-haiku-4-5',
+  'claude-haiku-3-5',
+  'gpt-5.4',
+  'gpt-5.3-codex',
+  'gpt-5.2-codex',
+  'gpt-5.1',
   'gpt-4o',
   'gpt-4o-mini',
-  'deepseek-chat',
-  'deepseek-reasoner',
+  'o1',
   'o3',
   'o3-mini',
   'o4-mini',
+  'deepseek-chat',
+  'deepseek-reasoner',
+  'gemini-2.5-pro',
+  'gemini-2.5-flash',
+  'mistral-large-latest',
+  'mistral-medium-latest',
+  'codestral-latest',
+  'llama-3.3-70b-versatile',
+  'mixtral-8x7b-32768',
+  'qwen-max',
+  'qwen-plus',
+  'qwen-turbo',
+  'qwen3-235b-a22b-instruct-2507',
 ]);
 
 export function normalizeModel(model: string): string {
@@ -50,8 +66,12 @@ export function normalizeModel(model: string): string {
   if (VALID.has(lowered)) return lowered;
   if (lowered.includes('deepseek')) return 'deepseek-chat';
   if (lowered.includes('gpt')) return 'gpt-4o';
+  if (lowered.includes('gemini')) return 'gemini-2.5-pro';
+  if (lowered.includes('mistral') || lowered.includes('codestral')) return 'mistral-large-latest';
+  if (lowered.includes('llama') || lowered.includes('mixtral')) return 'llama-3.3-70b-versatile';
+  if (lowered.includes('qwen')) return 'qwen-max';
   if (lowered.includes('opus')) return 'claude-opus-4-5';
-  if (lowered.includes('haiku')) return 'claude-haiku-4-5';
+  if (lowered.includes('haiku')) return 'claude-haiku-3-5';
   return 'claude-sonnet-4-6';
 }
 

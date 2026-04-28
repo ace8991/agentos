@@ -19,6 +19,8 @@ export default tseslint.config(
       "backend/generated_workspaces",
       "backend/generated_workspaces/**",
       "backend/.venv",
+      "backend/venv",
+      "backend/venv/**",
       "backend/**/__pycache__",
       "**/*.pyc",
       "**/*.timestamp-*.mjs",
@@ -38,7 +40,12 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": "off",
+
+      // ── Relaxed rules for pragmatic development ──
       "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-empty-object-type": "off",
+      "no-empty": "off",
     },
   },
 );

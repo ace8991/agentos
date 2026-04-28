@@ -35,6 +35,9 @@ def detect_capabilities() -> dict:
             "openai": has_runtime_value("OPENAI_API_KEY"),
             "deepseek": has_runtime_value("DEEPSEEK_API_KEY"),
             "google": has_runtime_value("GOOGLE_API_KEY"),
+            "mistral": has_runtime_value("MISTRAL_API_KEY"),
+            "groq": has_runtime_value("GROQ_API_KEY"),
+            "qwen": has_runtime_value("QWEN_API_KEY"),
             "tavily": has_runtime_value("TAVILY_API_KEY"),
         },
         "runtime": {

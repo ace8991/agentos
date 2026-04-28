@@ -46,6 +46,7 @@ const ProviderConfigModal = ({ providerId, onClose }: ProviderConfigModalProps) 
     google: { url: 'https://aistudio.google.com/app/apikey', instructions: 'Get an API key from Google AI Studio.' },
     mistral: { url: 'https://console.mistral.ai/api-keys/', instructions: 'Create an API key in the Mistral Console.' },
     groq: { url: 'https://console.groq.com/keys', instructions: 'Create an API key in the Groq Console.' },
+    qwen: { url: 'https://bailian.console.aliyun.com/?apiKey=1#/api-key', instructions: 'Create an API key in the Alibaba Cloud (DashScope) Console.' },
     ollama: { url: 'https://ollama.com/download', instructions: 'Install Ollama locally and pull models with `ollama pull <model>`.' },
     lmstudio: { url: 'https://lmstudio.ai/', instructions: 'Download LM Studio, load a model, and start the local server (port 1234 by default).' },
   };

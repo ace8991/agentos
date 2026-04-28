@@ -3,7 +3,7 @@
  * Aligned with Claude AI pipeline: structured tools, security layers, memory injection
  */
 export type AgentMode = 'chat' | 'agent' | 'smart';
-export type ModelProvider = 'anthropic' | 'openai' | 'deepseek' | 'google' | 'unknown';
+export type ModelProvider = 'anthropic' | 'openai' | 'deepseek' | 'google' | 'mistral' | 'groq' | 'qwen' | 'ollama' | 'lmstudio' | 'unknown';
 
 export interface ToolSchema {
   name: string;
@@ -218,6 +218,11 @@ export function detectProvider(model: string): ModelProvider {
   if (m.includes('gpt') || /^o[134]/.test(m)) return 'openai';
   if (m.includes('deepseek')) return 'deepseek';
   if (m.includes('gemini')) return 'google';
+  if (m.includes('mistral') || m.includes('codestral')) return 'mistral';
+  if (m.includes('llama') || m.includes('mixtral')) return 'groq';
+  if (m.includes('qwen')) return 'qwen';
+  if (m.startsWith('ollama/')) return 'ollama';
+  if (m.startsWith('lmstudio/')) return 'lmstudio';
   return 'unknown';
 }
 
