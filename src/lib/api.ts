@@ -193,11 +193,14 @@ export async function chatDirect(
           } else if (event.type === 'text' && event.text) {
             hasContent = true;
             onToken(event.text);
+          } else if (event.type === 'thinking' && event.text) {
+            // Reasoning tokens from Qwen3 / DeepSeek-R1 / Gemini
+            options?.onThinking?.(event.text);
           } else if (event.type === 'content_block_delta' && event.delta?.text) {
             hasContent = true;
             onToken(event.delta.text);
           } else if (event.type === 'content_block_delta' && event.delta?.type === 'thinking_delta' && event.delta?.thinking) {
-            // Extended Thinking tokens
+            // Claude Extended Thinking tokens
             options?.onThinking?.(event.delta.thinking);
           } else if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
             // Tool use block detected

@@ -170,18 +170,32 @@ export function isAgentModelSupported(modelId: string) {
   return AGENT_SUPPORTED_MODELS.has(modelId);
 }
 
+const REASONING_MODELS = new Set([
+  // OpenAI — native reasoning_effort
+  'gpt-5.4', 'gpt-5.3-codex', 'gpt-5.2-codex', 'gpt-5.1',
+  'o1', 'o3-mini',
+  // Anthropic — extended thinking
+  'claude-opus-4-5', 'claude-sonnet-4-6',
+  // Qwen3 — enable_thinking
+  'qwen3-235b-a22b-instruct-2507',
+  // DeepSeek-R1 — chain-of-thought
+  'deepseek-reasoner',
+  // Gemini — supports thinking
+  'gemini-2.5-pro',
+]);
+
 export function supportsReasoningEffort(modelId: string) {
-  return /^gpt-5(\.|-|$)/.test(modelId);
+  return REASONING_MODELS.has(modelId);
 }
 
 export function getReasoningEffortOptions(modelId: string): ReasoningEffort[] {
   if (!supportsReasoningEffort(modelId)) {
     return ['medium'];
   }
-  if (modelId === 'gpt-5.1') {
-    return ['none', 'low', 'medium', 'high'];
+  if (/^gpt-5(\.|-|$)/.test(modelId) && modelId !== 'gpt-5.1') {
+    return ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
   }
-  return ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+  return ['none', 'low', 'medium', 'high'];
 }
 
 export function getProviderForModel(modelId: string): ModelProvider | undefined {

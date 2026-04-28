@@ -133,6 +133,9 @@ async def _anthropic(req: ChatReq) -> AsyncIterator[str]:
 
 # ── Generic OpenAI-compatible (OpenAI, DeepSeek, Mistral, Groq, Qwen, Google, LMStudio) ──
 
+def _reasoning_budget(effort: str | None) -> int:
+    return {'low': 4096, 'medium': 12000, 'high': 32000}.get(effort or '', 0)
+
 async def _openai_compat(
     req: ChatReq,
     base_url: str,
@@ -140,6 +143,7 @@ async def _openai_compat(
     provider_label: str,
     model_override: str | None = None,
     require_key: bool = True,
+    extra_params: dict | None = None,
 ) -> AsyncIterator[str]:
     key = (get_runtime_value(key_name) or '').strip() if key_name else ''
     if require_key and not key:
@@ -154,6 +158,8 @@ async def _openai_compat(
     payload: dict = {'model': model, 'messages': msgs, 'stream': True, 'max_tokens': req.max_tokens}
     if req.temperature is not None:
         payload['temperature'] = req.temperature
+    if extra_params:
+        payload.update(extra_params)
     headers = {'Content-Type': 'application/json'}
     if key:
         headers['Authorization'] = f'Bearer {key}'
@@ -178,7 +184,12 @@ async def _openai_compat(
                     if not raw:
                         continue
                     try:
-                        text = json.loads(raw)['choices'][0].get('delta', {}).get('content', '')
+                        delta = json.loads(raw)['choices'][0].get('delta', {})
+                        # Reasoning/thinking tokens (Qwen3, DeepSeek-R1)
+                        thinking = delta.get('reasoning_content', '')
+                        if thinking:
+                            yield sse({'type': 'thinking', 'text': thinking})
+                        text = delta.get('content', '')
                         if text:
                             yield sse_t(text)
                     except Exception:
@@ -243,17 +254,30 @@ async def chat(req: ChatReq):
         if p == 'anthropic':
             async for c in _anthropic(req):
                 yield c
+
         elif p == 'openai':
+            openai_extra: dict = {}
+            oai_model = _norm_openai(req.model)
+            # o1/o3/o4 reasoning models support reasoning_effort
+            if req.reasoning_effort and any(oai_model.startswith(p) for p in ('o1', 'o3', 'o4')):
+                openai_extra['reasoning_effort'] = req.reasoning_effort
             async for c in _openai_compat(
                 req, 'https://api.openai.com/v1', 'OPENAI_API_KEY', 'OpenAI',
-                model_override=_norm_openai(req.model),
+                model_override=oai_model, extra_params=openai_extra or None,
             ):
                 yield c
+
         elif p == 'deepseek':
+            # DeepSeek-R1 exposes reasoning_content in stream — handled by parser
+            ds_extra: dict = {}
+            if req.reasoning_effort and 'reasoner' in req.model:
+                ds_extra['temperature'] = 0.6  # recommended for R1
             async for c in _openai_compat(
                 req, 'https://api.deepseek.com', 'DEEPSEEK_API_KEY', 'DeepSeek',
+                extra_params=ds_extra or None,
             ):
                 yield c
+
         elif p == 'google':
             async for c in _openai_compat(
                 req,
@@ -261,26 +285,45 @@ async def chat(req: ChatReq):
                 'GOOGLE_API_KEY', 'Google',
             ):
                 yield c
+
         elif p == 'mistral':
             async for c in _openai_compat(
                 req, 'https://api.mistral.ai/v1', 'MISTRAL_API_KEY', 'Mistral',
+                extra_params={'temperature': 0.7},
             ):
                 yield c
+
         elif p == 'groq':
             async for c in _openai_compat(
                 req, 'https://api.groq.com/openai/v1', 'GROQ_API_KEY', 'Groq',
+                extra_params={'temperature': 0.7},
             ):
                 yield c
+
         elif p == 'qwen':
+            qwen_extra: dict = {
+                'temperature': req.temperature if req.temperature is not None else 0.7,
+                'repetition_penalty': 1.05,  # prevents repetition loops
+                'top_p': 0.9,
+            }
+            # Qwen3 supports extended thinking via enable_thinking
+            if req.reasoning_effort and 'qwen3' in req.model.lower():
+                budget = _reasoning_budget(req.reasoning_effort)
+                if budget:
+                    qwen_extra['enable_thinking'] = True
+                    qwen_extra['thinking_budget'] = budget
             async for c in _openai_compat(
                 req,
                 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
                 'QWEN_API_KEY', 'Qwen',
+                extra_params=qwen_extra,
             ):
                 yield c
+
         elif p == 'ollama':
             async for c in _ollama(req):
                 yield c
+
         elif p == 'lmstudio':
             base = (get_runtime_value('LMSTUDIO_BASE_URL') or 'http://localhost:1234').rstrip('/')
             model = req.model.replace('lmstudio/', '', 1)
@@ -289,6 +332,7 @@ async def chat(req: ChatReq):
                 model_override=model, require_key=False,
             ):
                 yield c
+
         else:
             yield sse_err(f'Unsupported provider for model: {req.model}')
 
