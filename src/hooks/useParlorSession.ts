@@ -32,8 +32,12 @@ export const useParlorSession = () => {
   const lastFrameRef = useRef<string | null>(null);
   const isActiveRef = useRef(false);
   const vadRafRef = useRef<number>(0);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const model = useStore((s) => s.model);
+
+  // Keep ref in sync so the unmount cleanup always sees the latest stream
+  useEffect(() => { streamRef.current = stream; }, [stream]);
 
   // Initialize media
   const startSession = useCallback(async () => {
@@ -81,7 +85,7 @@ export const useParlorSession = () => {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start');
     }
-  }, [cameraEnabled]);
+  }, [cameraEnabled, captureFrame, startListening]);
 
   const captureFrame = useCallback(() => {
     const video = document.querySelector('video[autoplay]') as HTMLVideoElement | null;
@@ -140,7 +144,7 @@ export const useParlorSession = () => {
     };
 
     try { recognition.start(); } catch {}
-  }, [state]);
+  }, [state, processUserInput]);
 
   const processUserInput = useCallback(async (text: string) => {
     // Barge-in: cancel any ongoing speech
@@ -205,7 +209,7 @@ export const useParlorSession = () => {
       setState('listening');
       try { recognitionRef.current?.start(); } catch {}
     }
-  }, [model]);
+  }, [model, speakText]);
 
   const speakText = useCallback((text: string) => {
     setState('speaking');
@@ -265,8 +269,9 @@ export const useParlorSession = () => {
       try { recognitionRef.current?.abort(); } catch {}
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       cancelAnimationFrame(vadRafRef.current);
-      stream?.getTracks().forEach(t => t.stop());
+      streamRef.current?.getTracks().forEach(t => t.stop());
       audioCtxRef.current?.close();
     };
   }, []);

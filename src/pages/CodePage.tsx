@@ -608,13 +608,13 @@ const CodePage = () => {
     setTermInput('');
   };
 
-  const handleFileSelect = (path: string) => {
+  const handleFileSelect = useCallback((path: string) => {
     setSelectedFile(path);
     const content = sampleFileContents[path] || `// Fichier: ${path}\n// Contenu simulé`;
     setEditableContent(content);
     if (!pendingDiff) setPendingDiff(sampleDiff);
     if (isMobile) setShowLeftPanel(false);
-  };
+  }, [pendingDiff, isMobile]);
 
   // Open file from navigation state (e.g. from Cowork page)
   useEffect(() => {
@@ -626,7 +626,7 @@ const CodePage = () => {
       // Clear the state so it doesn't re-trigger
       window.history.replaceState({}, document.title);
     }
-  }, [location.state]);
+  }, [location.state, handleFileSelect]);
 
   const currentLanguage = selectedFile
     ? (selectedFile.split('.').pop() || 'txt')

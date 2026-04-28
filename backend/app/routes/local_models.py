@@ -8,7 +8,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/local-models", tags=["local-models"])
@@ -22,12 +22,14 @@ _loaded_model_path: Optional[str] = None
 
 
 class LoadModelRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
     hf_repo: str
     file_name: str
     model_id: str
 
 
 class ChatRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
     model_id: str
     messages: list[dict]
     temperature: float = 0.7

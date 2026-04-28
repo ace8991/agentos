@@ -14,6 +14,7 @@ type ActiveTab = 'terminal' | 'files' | 'search';
 
 export function DesktopCommanderPanel() {
   const dc = useDesktopCommander();
+  const { checkHealth } = dc;
   const [tab, setTab] = useState<ActiveTab>('terminal');
 
   // Terminal state
@@ -31,8 +32,8 @@ export function DesktopCommanderPanel() {
   const [searchResults, setSearchResults] = useState<string[]>([]);
 
   useEffect(() => {
-    dc.checkHealth();
-  }, []);
+    checkHealth();
+  }, [checkHealth]);
 
   useEffect(() => {
     terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' });

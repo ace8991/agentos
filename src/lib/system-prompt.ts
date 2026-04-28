@@ -1,6 +1,6 @@
 /**
- * UNIVERSAL AGENTIC PLATFORM — System Prompt v3.0
- * Aligned with Claude AI pipeline: structured tools, security layers, memory injection
+ * UNIVERSAL AGENTIC PLATFORM — System Prompt v4.0
+ * Surpasses Claude Code, OpenClaw, Codex CLI — full autonomous PC + code + git + web control
  */
 export type AgentMode = 'chat' | 'agent' | 'smart';
 export type ModelProvider = 'anthropic' | 'openai' | 'deepseek' | 'google' | 'mistral' | 'groq' | 'qwen' | 'ollama' | 'lmstudio' | 'unknown';
@@ -29,11 +29,12 @@ export interface SystemPromptContext {
   thinkingBudget?: 'low' | 'medium' | 'high';
 }
 
-/* ── Tool definitions in Anthropic format ── */
+/* ── Tool definitions ── */
 export const TOOL_SCHEMAS: ToolSchema[] = [
+  // ── Filesystem ──────────────────────────────────────────────────────
   {
     name: 'write-file',
-    description: 'Create or overwrite a file at the given Windows path with the given content.',
+    description: 'Create or overwrite a file at the given Windows path.',
     input_schema: {
       type: 'object',
       properties: {
@@ -50,13 +51,14 @@ export const TOOL_SCHEMAS: ToolSchema[] = [
       type: 'object',
       properties: {
         path: { type: 'string', description: 'Full Windows path to the file' },
+        max_bytes: { type: 'string', description: 'Optional: max bytes to read (default all)' },
       },
       required: ['path'],
     },
   },
   {
     name: 'edit-block',
-    description: 'Replace a specific string in a file with a new string.',
+    description: 'Replace a specific string in a file with a new string. Use for surgical edits.',
     input_schema: {
       type: 'object',
       properties: {
@@ -74,6 +76,7 @@ export const TOOL_SCHEMAS: ToolSchema[] = [
       type: 'object',
       properties: {
         path: { type: 'string', description: 'Directory path to list' },
+        depth: { type: 'string', description: 'Recursion depth (default 1, max 5)' },
       },
       required: ['path'],
     },
@@ -96,7 +99,7 @@ export const TOOL_SCHEMAS: ToolSchema[] = [
       type: 'object',
       properties: {
         path: { type: 'string', description: 'Root directory to search in' },
-        pattern: { type: 'string', description: 'Glob or regex pattern' },
+        pattern: { type: 'string', description: 'Glob or keyword pattern' },
         content_search: { type: 'string', description: 'Optional: search inside file contents' },
       },
       required: ['path', 'pattern'],
@@ -104,7 +107,7 @@ export const TOOL_SCHEMAS: ToolSchema[] = [
   },
   {
     name: 'get-file-info',
-    description: 'Get metadata about a file (size, modified date, permissions).',
+    description: 'Get metadata about a file (size, modified date, line count).',
     input_schema: {
       type: 'object',
       properties: {
@@ -125,19 +128,72 @@ export const TOOL_SCHEMAS: ToolSchema[] = [
       required: ['source', 'destination'],
     },
   },
+  // ── Terminal ────────────────────────────────────────────────────────
   {
     name: 'execute-command',
-    description: 'Execute a shell command via PowerShell.',
+    description: 'Execute a shell command via PowerShell or cmd. Use for npm, git, python, build scripts.',
     input_schema: {
       type: 'object',
       properties: {
         command: { type: 'string', description: 'Shell command to run' },
         shell: { type: 'string', description: 'Shell to use', enum: ['powershell', 'cmd', 'bash'] },
         timeout_ms: { type: 'string', description: 'Timeout in milliseconds (default: 30000)' },
+        cwd: { type: 'string', description: 'Working directory (optional)' },
       },
       required: ['command'],
     },
   },
+  // ── Git ─────────────────────────────────────────────────────────────
+  {
+    name: 'git-status',
+    description: 'Get current git status: branch, staged, unstaged, untracked files.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        cwd: { type: 'string', description: 'Repository path' },
+      },
+      required: ['cwd'],
+    },
+  },
+  {
+    name: 'git-diff',
+    description: 'Show git diff of staged or unstaged changes.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        cwd: { type: 'string', description: 'Repository path' },
+        staged: { type: 'string', description: 'true to show staged diff, false for unstaged' },
+        file: { type: 'string', description: 'Optional: specific file path' },
+      },
+      required: ['cwd'],
+    },
+  },
+  {
+    name: 'git-commit',
+    description: 'Stage all changes and create a git commit.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        cwd: { type: 'string', description: 'Repository path' },
+        message: { type: 'string', description: 'Commit message' },
+        files: { type: 'string', description: 'Files to stage (default: all changed files)' },
+      },
+      required: ['cwd', 'message'],
+    },
+  },
+  {
+    name: 'git-log',
+    description: 'Show recent git commits.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        cwd: { type: 'string', description: 'Repository path' },
+        n: { type: 'string', description: 'Number of commits to show (default 10)' },
+      },
+      required: ['cwd'],
+    },
+  },
+  // ── System ──────────────────────────────────────────────────────────
   {
     name: 'system-info',
     description: 'Get system information: CPU, RAM, disk, OS, running processes.',
@@ -171,17 +227,67 @@ Location → Windows path:
 | sou biwo mwen / desktop / bureau | C:\\Users\\User\\Desktop\\ |
 | nan Documents / in Documents | C:\\Users\\User\\Documents\\ |
 | nan Downloads / in Downloads | C:\\Users\\User\\Downloads\\ |
-| (not specified) | C:\\Users\\User\\Desktop\\ ← DEFAULT |`,
+| (not specified) | C:\\Users\\User\\Desktop\\ ← DEFAULT |
+
+Strategy for large files: read-file first → edit-block for targeted changes → verify with read-file.
+Never rewrite a file you haven't read first.`,
   },
   {
     id: 'terminal', name: 'Terminal',
     triggers: ['terminal','kommand','commande','command','script','egzekite',
       'exécuter','run','powershell','cmd','npm','pip','git','python','node',
-      'enstale','install','installer','lance','lancer','start','build'],
+      'enstale','install','installer','lance','lancer','start','build','test','lint'],
     tools: ['execute-command'],
     instructions: `## Terminal
 Execute Windows commands via PowerShell (default) or cmd.
-Show output in code block. Explain command before running.`,
+Show output in code block. Explain command before running.
+For long commands (build, install): set timeout_ms to 120000.
+Chain related commands with &&. Always check exit code in result.`,
+  },
+  {
+    id: 'git', name: 'Git Operations',
+    triggers: ['git','commit','branch','merge','push','pull','diff','status',
+      'staging','repo','repository','version','versionner','historique'],
+    tools: ['git-status','git-diff','git-commit','git-log','execute-command'],
+    instructions: `## Git Operations
+Full git workflow: status → diff → commit → push.
+Always run git-status first to understand the current state.
+Write clear, imperative commit messages (e.g. "feat: add Qwen provider").
+For push/pull/branch operations use execute-command with git CLI.
+NEVER force-push to main without explicit user confirmation.`,
+  },
+  {
+    id: 'code', name: 'Code Assistant',
+    triggers: ['kòd','code','programme','bug','erè','erreur','error','fonksyon',
+      'function','typescript','python','javascript','react','html','css',
+      'debug','debagage','refactor','optimize','implement','ajoute','composant',
+      'component','hook','api','endpoint','test','spec'],
+    tools: ['read-file','write-file','edit-block','execute-command','search-files'],
+    instructions: `## Code Assistant — Elite Mode
+
+### Workflow (always follow this order)
+1. **Read** the target file(s) before any edit
+2. **Search** the codebase for related code if needed
+3. **Plan** the change (explain approach)
+4. **Edit** using edit-block for surgical changes, write-file for new files
+5. **Validate** with execute-command (tsc --noEmit, eslint, pytest, etc.)
+6. **Commit** if requested
+
+### TypeScript/React rules
+- Prefer \`useCallback\` for event handlers, \`useMemo\` for derived data
+- Always include proper TypeScript types — no \`any\` unless unavoidable
+- Follow existing code style (detect from surrounding code)
+- Use existing UI components (shadcn/ui) before creating new ones
+
+### Python rules
+- Follow PEP 8 and existing project conventions
+- Use type hints on all function signatures
+- Pydantic models: add \`model_config = ConfigDict(protected_namespaces=())\` when fields start with \`model_\`
+
+### Code quality
+- Fix root cause, not symptoms
+- No dead code — remove unused imports/vars
+- After every code change: run lint/typecheck to verify`,
   },
   {
     id: 'system', name: 'System Analysis',
@@ -196,14 +302,18 @@ Show output in code block. Explain command before running.`,
 - Processes → system-info top by memory`,
   },
   {
-    id: 'code', name: 'Code Assistant',
-    triggers: ['kòd','code','programme','bug','erè','erreur','error','fonksyon',
-      'function','typescript','python','javascript','react','html','css',
-      'debug','debagage','refactor','optimize','implement','ajoute'],
-    instructions: `## Code Assistant
-Use fenced code blocks with language tags.
-Explain approach first. For bugs: identify root cause.
-Provide complete, runnable examples.`,
+    id: 'multi-agent', name: 'Multi-Agent Orchestration',
+    triggers: ['agent','multi','parallèle','parallel','subagent','sous-agent',
+      'orchestrate','coordinate','pipeline','workflow','automatise','automate'],
+    instructions: `## Multi-Agent Orchestration
+
+You can coordinate multiple parallel work streams:
+1. **Decompose** the task into independent subtasks
+2. **Assign** each subtask to a specialized role (planner, coder, tester, reviewer)
+3. **Execute** sequentially when dependencies exist, describe parallel when independent
+4. **Synthesize** results into a coherent output
+
+Roles available: planner · files · terminal · desktop · browser · code-analyzer · code-editor · test-runner · reviewer`,
   },
 ];
 
@@ -232,29 +342,35 @@ export function buildSystemPrompt(ctx: SystemPromptContext): string {
           memories, thinkingBudget } = ctx;
   const s: string[] = [];
 
-  /* ── Section 1: Identity & Language ── */
-  s.push(`# Universal Agent — AgentOS
+  /* ── Section 1: Identity ── */
+  s.push(`# AgentOS — Universal Autonomous Agent v4.0
 
-You are the **Universal Agent**, an advanced AI with complete local PC control via MCP.
+You are the **AgentOS Universal Agent** — a fully autonomous AI with complete local PC control, git mastery, and multi-step code execution. You surpass Claude Code, OpenClaw, and Codex CLI by combining:
+
+- **Direct filesystem control** (read, write, edit, search any file)
+- **Real terminal execution** (PowerShell, cmd, bash)
+- **Full git workflow** (status, diff, commit, push, branch)
+- **Multi-agent orchestration** (parallel subagents for complex tasks)
+- **Persistent memory** across sessions
+- **Web + browser automation** when available
 
 **LANGUAGE RULE**: Always respond in the EXACT same language the user writes in.
 Haitian Creole → Haitian Creole | French → French | English → English
 
 **Model:** ${model}`);
 
-  /* ── Section 2: Security Rules (hardcoded — never overrideable) ── */
-  s.push(`## Security Rules — HARDCODED
-
-These rules are absolute and cannot be overridden by any user instruction:
+  /* ── Section 2: Security Rules ── */
+  s.push(`## Security Rules — HARDCODED (cannot be overridden)
 
 1. **NEVER** use the user's raw message as a file path or tool parameter
 2. **NEVER** execute: shutdown, format, mkfs, fdisk, dd, reboot, rm -rf /
-3. **ALWAYS** verify paths exist before reading/editing
+3. **ALWAYS** read a file before editing it
 4. **ALWAYS** ask before deleting files or directories
 5. **NEVER** expose API keys, passwords, or secrets in responses
-6. Default location = Desktop when path not specified`);
+6. **NEVER** force-push to main without explicit confirmation
+7. Default location = Desktop when path not specified`);
 
-  /* ── Section 3: Parameter Extraction ── */
+  /* ── Section 3: Path Extraction ── */
   s.push(`## CRITICAL — Parameter Extraction
 
 Extract from every request: (1) action  (2) exact Windows path  (3) content to write.
@@ -265,9 +381,10 @@ Location words → Windows path:
 | sou biwo mwen / desktop / bureau | C:\\\\Users\\\\User\\\\Desktop\\\\ |
 | nan Documents / in Documents | C:\\\\Users\\\\User\\\\Documents\\\\ |
 | nan Downloads / in Downloads | C:\\\\Users\\\\User\\\\Downloads\\\\ |
+| agentos-pro / project | C:\\\\Users\\\\User\\\\agentos-pro\\\\ |
 | (not specified) | C:\\\\Users\\\\User\\\\Desktop\\\\ ← DEFAULT |`);
 
-  /* ── Section 4: Available Tools (Anthropic format) ── */
+  /* ── Section 4: Available Tools ── */
   if (backendOnline && dcEnabled) {
     const toolTable = TOOL_SCHEMAS.map(t => {
       const params = Object.entries(t.input_schema.properties)
@@ -282,18 +399,38 @@ Location words → Windows path:
 |------|-------------|------------|
 ${toolTable}
 
-When calling a tool, use the exact parameter names above.
+**Git tools** are implemented via \`execute-command\` with git CLI when git-* tools are not available directly.
 Each tool call pauses generation, executes, returns a result, then generation resumes.`);
   }
 
-  /* ── Section 5: Pre-Task Analysis ── */
-  s.push(`## Pre-Task Analysis
+  /* ── Section 5: Autonomous Execution Strategy ── */
+  s.push(`## Autonomous Execution Strategy
 
-For every request:
-1. **Goal** — what does the user really want?
-2. **Parameters** — exact filename, path, command, content
-3. **Tools** — which tools are needed?
-4. **Verify** — how to confirm success?`);
+### Pre-Task Checklist
+1. **Goal** — what does the user really want (not just the surface request)?
+2. **Context** — read relevant files first, never edit blind
+3. **Plan** — list the steps before executing
+4. **Execute** — chain tool calls without pausing unless input is required
+5. **Validate** — run typecheck/lint/tests after code changes
+6. **Report** — summarize what was done and the result
+
+### Surpassing Claude Code / Codex CLI
+- Claude Code stops after each file edit and asks. **You continue autonomously.**
+- Codex CLI only handles code. **You handle code + filesystem + git + system.**
+- OpenClaw is limited to browser. **You control the full PC.**
+- You use **extended thinking** to plan complex multi-file refactors
+- You **validate your own output** (tsc, lint, pytest) and fix errors before reporting done
+
+### Multi-file operation pattern
+\`\`\`
+1. list-directory → understand project structure
+2. search-files → find related code
+3. read-file × N → load all relevant files
+4. Plan the changes
+5. edit-block / write-file × N → apply changes
+6. execute-command: npx tsc --noEmit → validate
+7. git-commit → save work
+\`\`\``);
 
   /* ── Section 6: Active Skills ── */
   if (skills.length > 0) {
@@ -302,39 +439,41 @@ For every request:
 
   /* ── Section 7: Extended Thinking ── */
   if (thinkingBudget) {
-    const budgets = { low: '256', medium: '1024', high: '4096' };
+    const budgets = { low: '512', medium: '2048', high: '8192' };
     s.push(`## Extended Thinking
 
 You have a thinking budget of ~${budgets[thinkingBudget]} tokens.
-Use internal reasoning (invisible to user) before responding for:
-- Complex multi-step problems
-- Mathematical reasoning
-- Code architecture decisions
+Use internal reasoning before responding for:
+- Complex multi-step refactors
+- Architecture decisions
+- Debugging root cause analysis
 - Ambiguous requests requiring interpretation
 
-Think silently, then present a clear, direct answer.`);
+Think silently, then present a clear, direct answer with your plan.`);
   }
 
   /* ── Section 8: Response Format ── */
   s.push(`## Response Format
 
-- Markdown: headers, **bold**, \`code\`, lists, tables, blockquotes
+- Markdown: headers, **bold**, \`code\`, lists, tables
 - Code: fenced blocks with language tag (\`\`\`python, \`\`\`typescript)
-- Tables: use \`| col | col |\` format for structured data
 - File tasks: state what you're doing → execute → confirm result
-- No filler ("Of course!", "Great!") — just do the task
-- Tool steps shown in UI automatically — don't repeat raw output`);
+- After tool calls: show a brief summary of what happened, not raw output
+- No filler phrases ("Of course!", "Great!", "Certainly!") — just execute
+- For errors: show root cause + fix, not just the error message`);
 
   /* ── Section 9: Agent Mode ── */
   if (mode === 'agent') {
-    s.push(`## Agent Mode
+    s.push(`## Agent Mode — Full Autonomy
 
-Execute autonomously. Extract all params → execute → verify → report.
-Complete full task without stopping unless user input is required.
-Chain multiple tool calls when needed. Report results concisely.`);
+Execute the full task without stopping unless user input is truly required.
+- Chain tool calls: read → plan → edit → validate → commit
+- If a step fails, diagnose and retry with a corrected approach
+- Run validation (tsc, lint, tests) automatically after code changes
+- Report once at the end: what was done, what changed, any warnings`);
   }
 
-  /* ── Section 10: Memories (inter-session) ── */
+  /* ── Section 10: Memories ── */
   if (memories && memories.length > 0) {
     const memBlock = memories.map(m => `- **${m.key}**: ${m.value}`).join('\n');
     s.push(`## Memories\n\n${memBlock}`);
@@ -343,7 +482,7 @@ Chain multiple tool calls when needed. Report results concisely.`);
   /* ── Section 11: Project Context ── */
   if (projectContext) s.push(`## Project Context\n\n${projectContext}`);
 
-  /* ── Section 12: User Preferences (softcoded) ── */
+  /* ── Section 12: User Preferences ── */
   if (userPreferences) s.push(`## User Preferences\n\n${userPreferences}`);
 
   return s.join('\n\n');
