@@ -15,6 +15,8 @@ export default defineConfig(({ mode }) => {
       hmr: {
         overlay: false,
       },
+      // Suppress spurious "preloaded but not used" warnings in dev
+      preTransformRequests: false,
     },
     plugins: [react(), enableComponentTagger && componentTagger()].filter(Boolean),
     resolve: {
@@ -23,6 +25,9 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
+      // Disable automatic <link rel="modulepreload"> for lazy chunks
+      // Prevents browser warnings for pages that haven't been visited yet
+      modulePreload: false,
       rollupOptions: {
         external: ["@mlc-ai/web-llm"],
       },

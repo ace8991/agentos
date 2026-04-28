@@ -1,4 +1,4 @@
-"""AgentOS — Chat endpoint v3.0 — All providers supported"""
+"""AgentOS — Chat endpoint v4.0 — Full agentic tool-calling loop"""
 from __future__ import annotations
 import json, logging
 from typing import AsyncIterator, Optional
@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from app.services.runtime_config import get_runtime_value, has_runtime_value
+from app.services.agentic_loop import anthropic_loop, openai_loop
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -244,86 +245,129 @@ async def _ollama(req: ChatReq) -> AsyncIterator[str]:
         logger.exception('Ollama error')
         yield sse_err(str(e))
 
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _build_messages(req: ChatReq) -> list[dict]:
+    """Convert ChatReq messages to plain dicts, stripping system messages."""
+    return [{"role": m.role, "content": m.content} for m in req.messages if m.role != "system"]
+
+def _get_system(req: ChatReq) -> str:
+    """Extract system prompt: prefer explicit req.system, fallback to system message."""
+    if req.system:
+        return req.system
+    for m in req.messages:
+        if m.role == "system":
+            return m.content
+    return ""
+
 # ── Main route ────────────────────────────────────────────────────────────────
 
 @router.post('/chat')
 async def chat(req: ChatReq):
     p = _provider(req.model)
+    msgs = _build_messages(req)
+    system = _get_system(req)
 
     async def gen():
+        # ── Anthropic — full agentic loop with native tool use ─────────────────
         if p == 'anthropic':
-            async for c in _anthropic(req):
+            async for c in anthropic_loop(
+                messages=msgs,
+                model=req.model,
+                system=system,
+                max_tokens=req.max_tokens,
+                reasoning_effort=req.reasoning_effort,
+            ):
                 yield c
 
+        # ── OpenAI — agentic loop with function calling ────────────────────────
         elif p == 'openai':
-            openai_extra: dict = {}
             oai_model = _norm_openai(req.model)
-            # o1/o3/o4 reasoning models support reasoning_effort
-            if req.reasoning_effort and any(oai_model.startswith(p) for p in ('o1', 'o3', 'o4')):
-                openai_extra['reasoning_effort'] = req.reasoning_effort
-            async for c in _openai_compat(
-                req, 'https://api.openai.com/v1', 'OPENAI_API_KEY', 'OpenAI',
-                model_override=oai_model, extra_params=openai_extra or None,
+            extra: dict = {}
+            if req.reasoning_effort and any(oai_model.startswith(x) for x in ('o1', 'o3', 'o4')):
+                extra['reasoning_effort'] = req.reasoning_effort
+            async for c in openai_loop(
+                messages=msgs, model=oai_model, system=system,
+                max_tokens=req.max_tokens,
+                base_url='https://api.openai.com/v1',
+                key_name='OPENAI_API_KEY', provider_label='OpenAI',
+                extra_params=extra or None,
             ):
                 yield c
 
+        # ── DeepSeek — agentic loop ────────────────────────────────────────────
         elif p == 'deepseek':
-            # DeepSeek-R1 exposes reasoning_content in stream — handled by parser
-            ds_extra: dict = {}
+            extra = {}
             if req.reasoning_effort and 'reasoner' in req.model:
-                ds_extra['temperature'] = 0.6  # recommended for R1
-            async for c in _openai_compat(
-                req, 'https://api.deepseek.com', 'DEEPSEEK_API_KEY', 'DeepSeek',
-                extra_params=ds_extra or None,
+                extra['temperature'] = 0.6
+            async for c in openai_loop(
+                messages=msgs, model=req.model, system=system,
+                max_tokens=req.max_tokens,
+                base_url='https://api.deepseek.com',
+                key_name='DEEPSEEK_API_KEY', provider_label='DeepSeek',
+                extra_params=extra or None,
             ):
                 yield c
 
+        # ── Google Gemini — agentic loop ───────────────────────────────────────
         elif p == 'google':
-            async for c in _openai_compat(
-                req,
-                'https://generativelanguage.googleapis.com/v1beta/openai',
-                'GOOGLE_API_KEY', 'Google',
+            async for c in openai_loop(
+                messages=msgs, model=req.model, system=system,
+                max_tokens=req.max_tokens,
+                base_url='https://generativelanguage.googleapis.com/v1beta/openai',
+                key_name='GOOGLE_API_KEY', provider_label='Google',
             ):
                 yield c
 
+        # ── Mistral — agentic loop ─────────────────────────────────────────────
         elif p == 'mistral':
-            async for c in _openai_compat(
-                req, 'https://api.mistral.ai/v1', 'MISTRAL_API_KEY', 'Mistral',
+            async for c in openai_loop(
+                messages=msgs, model=req.model, system=system,
+                max_tokens=req.max_tokens,
+                base_url='https://api.mistral.ai/v1',
+                key_name='MISTRAL_API_KEY', provider_label='Mistral',
                 extra_params={'temperature': 0.7},
             ):
                 yield c
 
+        # ── Groq — agentic loop ────────────────────────────────────────────────
         elif p == 'groq':
-            async for c in _openai_compat(
-                req, 'https://api.groq.com/openai/v1', 'GROQ_API_KEY', 'Groq',
+            async for c in openai_loop(
+                messages=msgs, model=req.model, system=system,
+                max_tokens=req.max_tokens,
+                base_url='https://api.groq.com/openai/v1',
+                key_name='GROQ_API_KEY', provider_label='Groq',
                 extra_params={'temperature': 0.7},
             ):
                 yield c
 
+        # ── Qwen — agentic loop with anti-repetition params ───────────────────
         elif p == 'qwen':
             qwen_extra: dict = {
                 'temperature': req.temperature if req.temperature is not None else 0.7,
-                'repetition_penalty': 1.05,  # prevents repetition loops
+                'repetition_penalty': 1.05,
                 'top_p': 0.9,
             }
-            # Qwen3 supports extended thinking via enable_thinking
             if req.reasoning_effort and 'qwen3' in req.model.lower():
                 budget = _reasoning_budget(req.reasoning_effort)
                 if budget:
                     qwen_extra['enable_thinking'] = True
                     qwen_extra['thinking_budget'] = budget
-            async for c in _openai_compat(
-                req,
-                'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
-                'QWEN_API_KEY', 'Qwen',
+            async for c in openai_loop(
+                messages=msgs, model=req.model, system=system,
+                max_tokens=req.max_tokens,
+                base_url='https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+                key_name='QWEN_API_KEY', provider_label='Qwen',
                 extra_params=qwen_extra,
             ):
                 yield c
 
+        # ── Ollama — local, simple stream (no tool calling) ───────────────────
         elif p == 'ollama':
             async for c in _ollama(req):
                 yield c
 
+        # ── LM Studio — local OpenAI-compatible, simple stream ────────────────
         elif p == 'lmstudio':
             base = (get_runtime_value('LMSTUDIO_BASE_URL') or 'http://localhost:1234').rstrip('/')
             model = req.model.replace('lmstudio/', '', 1)

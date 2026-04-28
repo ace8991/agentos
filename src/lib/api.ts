@@ -104,6 +104,19 @@ async function readError(response: Response, fallback: string) {
   }
 }
 
+export interface ToolCallEvent {
+  tool: string;
+  args: Record<string, unknown>;
+  id: string;
+}
+
+export interface ToolResultEvent {
+  tool: string;
+  result: string;
+  id: string;
+  success: boolean;
+}
+
 export async function chatDirect(
   messages: ChatMessage[],
   model: string,
@@ -116,6 +129,8 @@ export async function chatDirect(
     stopSequences?: string[];
     onToolUse?: (toolName: string, args: Record<string, unknown>) => void;
     onThinking?: (text: string) => void;
+    onToolCall?: (event: ToolCallEvent) => void;
+    onToolResult?: (event: ToolResultEvent) => void;
     images?: Array<{ media_type: string; data: string }>;
   },
 ): Promise<void> {
@@ -194,19 +209,24 @@ export async function chatDirect(
             hasContent = true;
             onToken(event.text);
           } else if (event.type === 'thinking' && event.text) {
-            // Reasoning tokens from Qwen3 / DeepSeek-R1 / Gemini
             options?.onThinking?.(event.text);
+          } else if (event.type === 'tool_call') {
+            // Agentic loop: model is calling a tool
+            hasContent = true;
+            options?.onToolCall?.({ tool: event.tool, args: event.args ?? {}, id: event.id ?? '' });
+            options?.onToolUse?.(event.tool, event.args ?? {});
+          } else if (event.type === 'tool_result') {
+            // Agentic loop: tool execution result
+            options?.onToolResult?.({ tool: event.tool, result: event.result ?? '', id: event.id ?? '', success: event.success ?? true });
           } else if (event.type === 'content_block_delta' && event.delta?.text) {
             hasContent = true;
             onToken(event.delta.text);
           } else if (event.type === 'content_block_delta' && event.delta?.type === 'thinking_delta' && event.delta?.thinking) {
-            // Claude Extended Thinking tokens
             options?.onThinking?.(event.delta.thinking);
           } else if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
-            // Tool use block detected
             options?.onToolUse?.(event.content_block.name, event.content_block.input || {});
           } else if (event.type === 'content_block_delta' && event.delta?.type === 'input_json_delta') {
-            // Tool use input streaming — accumulate silently
+            // accumulate silently
           } else if (event.type === 'done') {
             onDone();
             return;
@@ -380,7 +400,7 @@ export interface HealthResponse {
 }
 
 export async function checkHealth(): Promise<HealthResponse> {
-  const response = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(3000) });
+  const response = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(5000) });
   if (!response.ok) {
     throw new Error(`Health check failed: ${response.status}`);
   }

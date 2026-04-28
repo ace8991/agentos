@@ -10,7 +10,7 @@ import ModelSelector, { isAgentModelSupported } from './ModelSelector';
 import ProviderConfigModal from './ProviderConfigModal';
 import ComposerInsertMenu from './chat/ComposerInsertMenu';
 import ArtifactWorkspaceModal from './chat/ArtifactWorkspaceModal';
-import { chatDirect, createBuilderWorkspace, type ChatMessage as ChatMessageType } from '@/lib/api';
+import { chatDirect, createBuilderWorkspace, type ChatMessage as ChatMessageType, type ToolCallEvent, type ToolResultEvent } from '@/lib/api';
 import { collectArtifactsFromEntries, type WorkspaceView } from '@/lib/artifacts';
 import { executeDesktopCommanderIntent } from '@/lib/desktop-commander-intents';
 import {
@@ -570,6 +570,27 @@ const ChatPanel = () => {
     };
     addLogEntry(assistantEntry);
 
+    // Track tool call entry IDs so we can update them with results
+    const toolEntryMap = new Map<string, string>();
+
+    const toolTypeForName = (toolName: string) => {
+      if (toolName === 'bash_tool') return 'shell' as const;
+      if (toolName === 'web_search') return 'web' as const;
+      if (toolName === 'str_replace_editor') return 'file' as const;
+      if (toolName === 'list_directory') return 'file' as const;
+      if (toolName === 'system_info') return 'perceive' as const;
+      return 'act' as const;
+    };
+
+    const toolLabelForName = (toolName: string, args: Record<string, unknown>) => {
+      if (toolName === 'bash_tool') return `$ ${String(args.command ?? '').slice(0, 60)}`;
+      if (toolName === 'str_replace_editor') return `${args.command ?? 'view'} · ${String(args.path ?? '').split('\\').pop()}`;
+      if (toolName === 'list_directory') return `ls ${String(args.path ?? '')}`;
+      if (toolName === 'web_search') return `🔍 ${String(args.query ?? '')}`;
+      if (toolName === 'system_info') return 'system_info';
+      return toolName;
+    };
+
     await chatDirect(
       messages,
       model,
@@ -595,6 +616,34 @@ const ChatPanel = () => {
           ),
         }));
         useStore.getState().saveConversationSnapshot({ label: text, thread: 'chat' });
+      },
+      {
+        onToolCall: (event: ToolCallEvent) => {
+          const entryId = crypto.randomUUID();
+          toolEntryMap.set(event.id, entryId);
+          const label = toolLabelForName(event.tool, event.args);
+          useStore.getState().addLogEntry({
+            id: entryId,
+            step: 0,
+            timestamp: new Date().toISOString(),
+            type: toolTypeForName(event.tool),
+            action: label,
+            reasoning: `Calling ${event.tool}`,
+            toolLabel: label,
+          });
+        },
+        onToolResult: (event: ToolResultEvent) => {
+          const entryId = toolEntryMap.get(event.id);
+          if (!entryId) return;
+          const preview = event.result.slice(0, 300) + (event.result.length > 300 ? '…' : '');
+          useStore.setState((state) => ({
+            entries: state.entries.map((e) =>
+              e.id === entryId
+                ? { ...e, type: event.success ? toolTypeForName(event.tool) : 'error', tool_result: { output: preview }, reasoning: preview }
+                : e,
+            ),
+          }));
+        },
       },
     );
   };
