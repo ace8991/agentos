@@ -24,16 +24,17 @@ export interface ChatMessage {
 
 const MODEL_FIX: Record<string, string> = {
   'gpt-5': 'gpt-4o',
-  'gpt-5.4': 'gpt-4o',
   gpt5: 'gpt-4o',
   'deepseek-r1': 'deepseek-reasoner',
 };
 
 const VALID = new Set([
+  // Anthropic
+  'claude-opus-4-5',
   'claude-sonnet-4-6',
   'claude-sonnet-4-5',
-  'claude-opus-4-5',
   'claude-haiku-3-5',
+  // OpenAI
   'gpt-5.4',
   'gpt-5.3-codex',
   'gpt-5.2-codex',
@@ -44,19 +45,31 @@ const VALID = new Set([
   'o3',
   'o3-mini',
   'o4-mini',
+  // DeepSeek
   'deepseek-chat',
   'deepseek-reasoner',
+  // Google
   'gemini-2.5-pro',
   'gemini-2.5-flash',
+  // Mistral
   'mistral-large-latest',
   'mistral-medium-latest',
   'codestral-latest',
+  // Groq
   'llama-3.3-70b-versatile',
   'mixtral-8x7b-32768',
+  // Qwen
   'qwen-max',
   'qwen-plus',
   'qwen-turbo',
   'qwen3-235b-a22b-instruct-2507',
+  // Ollama (local)
+  'ollama/llama3',
+  'ollama/mistral',
+  'ollama/codellama',
+  'ollama/deepseek-r1',
+  // LM Studio (local)
+  'lmstudio/local-model',
 ]);
 
 export function normalizeModel(model: string): string {

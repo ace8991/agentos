@@ -43,14 +43,35 @@ def get_model(model_id: str) -> ModelInfo | None:
 
 
 _AGENT_MODEL_IDS = {
+    # Anthropic
     "claude-opus-4-5",
     "claude-sonnet-4-6",
+    "claude-haiku-3-5",
+    # OpenAI
     "gpt-5.4",
     "gpt-5.3-codex",
     "gpt-5.2-codex",
     "gpt-5.1",
     "gpt-4o",
     "gpt-4o-mini",
+    "o1",
+    "o3-mini",
+    # Google
+    "gemini-2.5-pro",
+    "gemini-2.5-flash",
+    # DeepSeek
+    "deepseek-chat",
+    "deepseek-reasoner",
+    # Mistral
+    "mistral-large-latest",
+    "mistral-medium-latest",
+    # Groq
+    "llama-3.3-70b-versatile",
+    "mixtral-8x7b-32768",
+    # Qwen
+    "qwen-max",
+    "qwen-plus",
+    "qwen3-235b-a22b-instruct-2507",
 }
 
 

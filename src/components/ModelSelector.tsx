@@ -135,14 +135,35 @@ export const MODEL_PROVIDERS: ModelProvider[] = [
 ];
 
 const AGENT_SUPPORTED_MODELS = new Set([
+  // Anthropic — all support tool use
   'claude-opus-4-5',
   'claude-sonnet-4-6',
+  'claude-haiku-3-5',
+  // OpenAI — GPT-5, GPT-4o, reasoning models
   'gpt-5.4',
   'gpt-5.3-codex',
   'gpt-5.2-codex',
   'gpt-5.1',
   'gpt-4o',
   'gpt-4o-mini',
+  'o1',
+  'o3-mini',
+  // Google — Gemini supports function calling
+  'gemini-2.5-pro',
+  'gemini-2.5-flash',
+  // DeepSeek — supports tool use
+  'deepseek-chat',
+  'deepseek-reasoner',
+  // Mistral — supports tool use
+  'mistral-large-latest',
+  'mistral-medium-latest',
+  // Groq — fast inference, supports tool use
+  'llama-3.3-70b-versatile',
+  'mixtral-8x7b-32768',
+  // Qwen — supports tool use
+  'qwen-max',
+  'qwen-plus',
+  'qwen3-235b-a22b-instruct-2507',
 ]);
 
 export function isAgentModelSupported(modelId: string) {

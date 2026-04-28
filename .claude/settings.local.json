@@ -4,7 +4,15 @@
       "Bash(npx tsc *)",
       "Bash(npx eslint *)",
       "Bash(npx vite *)",
-      "Bash(python -c \"import app.main\")"
+      "Bash(python -c \"import app.main\")",
+      "Bash(python -c \"from app.services.model_catalog import list_models, list_agent_models; m=list_models\\(\\); a=list_agent_models\\(\\); print\\(f'Total: {len\\(m\\)} models, Agent: {len\\(a\\)} models'\\); [print\\(f'  - {x.id} [{x.provider}]'\\) for x in m]\")",
+      "Bash(venv/Scripts/python.exe run.py)",
+      "Bash(curl -s http://127.0.0.1:8000/health)",
+      "Bash(python -m json.tool)",
+      "Bash(python -c \"from app.routes.chat import _provider, _norm_openai; tests = [\\('qwen-plus','qwen'\\),\\('qwen-max','qwen'\\),\\('claude-sonnet-4-6','anthropic'\\),\\('gpt-4o','openai'\\),\\('gpt-5.4','openai'\\),\\('deepseek-chat','deepseek'\\),\\('gemini-2.5-pro','google'\\),\\('mistral-large-latest','mistral'\\),\\('llama-3.3-70b-versatile','groq'\\),\\('mixtral-8x7b-32768','groq'\\),\\('ollama/llama3','ollama'\\),\\('lmstudio/local-model','lmstudio'\\),\\('qwen3-235b-a22b-instruct-2507','qwen'\\)]; [print\\(f'  {m:40s} -> {_provider\\(m\\):12s} {\\\\\"OK\\\\\" if _provider\\(m\\)==e else \\\\\"FAIL expected \\\\\"+e}'\\) for m,e in tests]\")",
+      "Bash(taskkill /F /IM python.exe /T)",
+      "PowerShell(Stop-Process -Name python -Force -ErrorAction SilentlyContinue)",
+      "Bash(python -c \"from app.routes.chat import _provider; print\\('OK:', _provider\\('qwen-plus'\\)\\)\")"
     ]
   }
 }

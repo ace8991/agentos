@@ -1,4 +1,4 @@
-"""AgentOS — Chat endpoint v2.1 — Streaming SSE"""
+"""AgentOS — Chat endpoint v3.0 — All providers supported"""
 from __future__ import annotations
 import json, logging
 from typing import AsyncIterator, Optional
@@ -11,34 +11,41 @@ from app.services.runtime_config import get_runtime_value, has_runtime_value
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+# ── Provider detection ────────────────────────────────────────────────────────
+
 def _provider(m: str) -> str:
     m = m.lower()
-    if m.startswith('claude'): return 'anthropic'
-    if any(m.startswith(p) for p in ('gpt','o1','o3','o4')): return 'openai'
-    if m.startswith('deepseek'): return 'deepseek'
+    if m.startswith('claude'):                                return 'anthropic'
+    if any(m.startswith(p) for p in ('gpt', 'o1', 'o3', 'o4')): return 'openai'
+    if m.startswith('deepseek'):                              return 'deepseek'
+    if m.startswith('gemini'):                                return 'google'
+    if m.startswith('mistral') or m.startswith('codestral'): return 'mistral'
+    if m in ('llama-3.3-70b-versatile', 'mixtral-8x7b-32768'): return 'groq'
+    if m.startswith('qwen'):                                  return 'qwen'
+    if m.startswith('ollama/'):                               return 'ollama'
+    if m.startswith('lmstudio/'):                             return 'lmstudio'
     return 'anthropic'
 
-def _norm(model: str) -> str:
-    FIX = {'gpt-5':'gpt-4o','gpt-5.4':'gpt-4o','gpt-5.1':'gpt-4o','gpt5':'gpt-4o','gpt-4.5':'gpt-4o'}
-    l = model.lower()
-    if l in FIX: return FIX[l]
-    VALID = {'claude-sonnet-4-6','claude-sonnet-4-5','claude-opus-4-5','claude-haiku-4-5',
-             'claude-3-5-sonnet-20241022','claude-3-5-haiku-20241022',
-             'gpt-4o','gpt-4o-mini','gpt-4-turbo','gpt-4','gpt-3.5-turbo',
-             'o1','o1-mini','o3','o3-mini','o4-mini','deepseek-chat','deepseek-reasoner'}
-    if l in VALID: return model
-    if 'gpt-4o' in l: return 'gpt-4o'
-    if 'gpt-5' in l or 'gpt5' in l: return 'gpt-4o'
-    if 'sonnet' in l: return 'claude-sonnet-4-6'
-    if 'opus' in l: return 'claude-opus-4-5'
-    if 'haiku' in l: return 'claude-haiku-4-5'
-    if 'claude' in l: return 'claude-sonnet-4-6'
-    if 'o4' in l: return 'o4-mini'
-    if 'o3' in l: return 'o3-mini'
-    return 'claude-sonnet-4-6'
+# ── Model normalization ───────────────────────────────────────────────────────
+
+_OPENAI_FIX: dict[str, str] = {
+    'gpt-5':         'chatgpt-4o-latest',
+    'gpt5':          'chatgpt-4o-latest',
+    'gpt-5.4':       'chatgpt-4o-latest',
+    'gpt-5.3-codex': 'gpt-4o',
+    'gpt-5.2-codex': 'gpt-4o',
+    'gpt-5.1':       'gpt-4o',
+    'gpt-4.5':       'gpt-4o',
+}
+
+def _norm_openai(model: str) -> str:
+    return _OPENAI_FIX.get(model.lower(), model)
+
+# ── Request schema ────────────────────────────────────────────────────────────
 
 class Msg(BaseModel):
-    role: str; content: str
+    role: str
+    content: str
 
 class ChatReq(BaseModel):
     messages: list[Msg]
@@ -50,126 +57,308 @@ class ChatReq(BaseModel):
     web_search: bool = False
     temperature: Optional[float] = None
 
-def sse(d: dict) -> str: return f"data: {json.dumps(d)}\n\n"
-def sse_t(t: str) -> str: return sse({'type':'text','text':t})
-def sse_done() -> str: return sse({'type':'done'})
-def sse_err(e: str) -> str: return sse({'type':'error','error':e})
+# ── SSE helpers ───────────────────────────────────────────────────────────────
+
+def sse(d: dict) -> str:    return f"data: {json.dumps(d)}\n\n"
+def sse_t(t: str) -> str:   return sse({'type': 'text', 'text': t})
+def sse_done() -> str:      return sse({'type': 'done'})
+def sse_err(e: str) -> str: return sse({'type': 'error', 'error': e})
+
+# ── Anthropic ─────────────────────────────────────────────────────────────────
 
 async def _anthropic(req: ChatReq) -> AsyncIterator[str]:
     key = (get_runtime_value('ANTHROPIC_API_KEY') or '').strip()
     if not key:
-        yield sse_err('ANTHROPIC_API_KEY is not configured on the backend. Save it in Settings or .env.')
+        yield sse_err('ANTHROPIC_API_KEY is not configured. Save it in Settings.')
         return
-    model = _norm(req.model)
-    system = req.system or next((m.content for m in req.messages if m.role=='system'),'')
-    msgs = [{'role':m.role,'content':m.content} for m in req.messages if m.role!='system']
-    if not msgs: yield sse_err('No messages'); return
-    payload = {'model':model,'max_tokens':req.max_tokens,'messages':msgs,'stream':True}
-    if system: payload['system'] = system
-    if req.reasoning_effort in ('low','medium','high'):
-        payload['thinking'] = {'type':'enabled','budget_tokens':{'low':3000,'medium':10000,'high':25000}[req.reasoning_effort]}
+    model = req.model
+    system = req.system or next((m.content for m in req.messages if m.role == 'system'), '')
+    msgs = [{'role': m.role, 'content': m.content} for m in req.messages if m.role != 'system']
+    if not msgs:
+        yield sse_err('No messages')
+        return
+    payload: dict = {'model': model, 'max_tokens': req.max_tokens, 'messages': msgs, 'stream': True}
+    if system:
+        payload['system'] = system
+    if req.reasoning_effort in ('low', 'medium', 'high'):
+        budgets = {'low': 3000, 'medium': 10000, 'high': 25000}
+        payload['thinking'] = {'type': 'enabled', 'budget_tokens': budgets[req.reasoning_effort]}
     try:
         async with httpx.AsyncClient(timeout=120) as c:
-            async with c.stream('POST','https://api.anthropic.com/v1/messages',
-                headers={'x-api-key':key,'anthropic-version':'2023-06-01','content-type':'application/json'},
-                json=payload) as r:
+            async with c.stream(
+                'POST', 'https://api.anthropic.com/v1/messages',
+                headers={'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json'},
+                json=payload,
+            ) as r:
                 if r.status_code != 200:
                     body = await r.aread()
                     try:
-                        err = json.loads(body).get('error',{}).get('message',body.decode()[:200])
-                        if 'credit' in err.lower(): yield sse_err('Anthropic credits exhausted — switch to gpt-4o')
-                        else: yield sse_err(f'Anthropic {r.status_code}: {err}')
-                    except: yield sse_err(f'Anthropic {r.status_code}')
+                        err = json.loads(body).get('error', {}).get('message', body.decode()[:200])
+                        if 'credit' in err.lower():
+                            yield sse_err('Anthropic credits exhausted — add credits or switch model')
+                        else:
+                            yield sse_err(f'Anthropic {r.status_code}: {err}')
+                    except Exception:
+                        yield sse_err(f'Anthropic {r.status_code}')
                     return
                 async for line in r.aiter_lines():
-                    if not line.startswith('data: '): continue
+                    if not line.startswith('data: '):
+                        continue
                     raw = line[6:].strip()
-                    if not raw: continue
+                    if not raw:
+                        continue
                     try:
                         ev = json.loads(raw)
-                        t = ev.get('type','')
-                        if t=='content_block_delta':
-                            text = ev.get('delta',{}).get('text','')
-                            if text: yield sse_t(text)
-                        elif t=='message_stop': yield sse_done(); return
-                        elif t=='error': yield sse_err(ev.get('error',{}).get('message','error')); return
-                    except: pass
+                        t = ev.get('type', '')
+                        if t == 'content_block_delta':
+                            text = ev.get('delta', {}).get('text', '')
+                            if text:
+                                yield sse_t(text)
+                        elif t == 'message_stop':
+                            yield sse_done()
+                            return
+                        elif t == 'error':
+                            yield sse_err(ev.get('error', {}).get('message', 'error'))
+                            return
+                    except Exception:
+                        pass
         yield sse_done()
-    except httpx.ConnectError: yield sse_err('Cannot connect to Anthropic API')
-    except httpx.TimeoutException: yield sse_err('Anthropic API timeout')
-    except Exception as e: logger.exception('Anthropic error'); yield sse_err(str(e))
+    except httpx.ConnectError:
+        yield sse_err('Cannot connect to Anthropic API')
+    except httpx.TimeoutException:
+        yield sse_err('Anthropic API timeout')
+    except Exception as e:
+        logger.exception('Anthropic error')
+        yield sse_err(str(e))
 
-async def _openai(req: ChatReq, base='https://api.openai.com/v1') -> AsyncIterator[str]:
-    ds = 'deepseek' in base
-    env_name = 'DEEPSEEK_API_KEY' if ds else 'OPENAI_API_KEY'
-    key = (get_runtime_value(env_name) or '').strip()
-    if not key:
-        yield sse_err(f'{env_name} is not configured on the backend. Save it in Settings or .env.')
+# ── Generic OpenAI-compatible (OpenAI, DeepSeek, Mistral, Groq, Qwen, Google, LMStudio) ──
+
+async def _openai_compat(
+    req: ChatReq,
+    base_url: str,
+    key_name: str,
+    provider_label: str,
+    model_override: str | None = None,
+    require_key: bool = True,
+) -> AsyncIterator[str]:
+    key = (get_runtime_value(key_name) or '').strip() if key_name else ''
+    if require_key and not key:
+        yield sse_err(f'{key_name} is not configured. Save it in Settings.')
         return
-    model = _norm(req.model)
-    system = req.system or next((m.content for m in req.messages if m.role=='system'),'')
-    msgs = []
-    if system: msgs.append({'role':'system','content':system})
-    msgs += [{'role':m.role,'content':m.content} for m in req.messages if m.role!='system']
-    payload = {'model':model,'messages':msgs,'stream':True,'max_tokens':req.max_tokens}
-    if req.temperature is not None: payload['temperature'] = req.temperature
+    model = model_override or req.model
+    system = req.system or next((m.content for m in req.messages if m.role == 'system'), '')
+    msgs: list[dict] = []
+    if system:
+        msgs.append({'role': 'system', 'content': system})
+    msgs += [{'role': m.role, 'content': m.content} for m in req.messages if m.role != 'system']
+    payload: dict = {'model': model, 'messages': msgs, 'stream': True, 'max_tokens': req.max_tokens}
+    if req.temperature is not None:
+        payload['temperature'] = req.temperature
+    headers = {'Content-Type': 'application/json'}
+    if key:
+        headers['Authorization'] = f'Bearer {key}'
     try:
         async with httpx.AsyncClient(timeout=120) as c:
-            async with c.stream('POST',f'{base}/chat/completions',
-                headers={'Authorization':f'Bearer {key}','Content-Type':'application/json'},
-                json=payload) as r:
+            async with c.stream('POST', f'{base_url}/chat/completions', headers=headers, json=payload) as r:
                 if r.status_code != 200:
                     body = await r.aread()
                     try:
-                        err = json.loads(body).get('error',{}).get('message',body.decode()[:200])
-                        if 'quota' in err.lower(): yield sse_err('OpenAI quota exceeded')
-                        else: yield sse_err(f'OpenAI {r.status_code}: {err}')
-                    except: yield sse_err(f'OpenAI {r.status_code}')
+                        err = json.loads(body).get('error', {}).get('message', body.decode()[:300])
+                        yield sse_err(f'{provider_label} {r.status_code}: {err}')
+                    except Exception:
+                        yield sse_err(f'{provider_label} {r.status_code}')
                     return
                 async for line in r.aiter_lines():
-                    if not line.startswith('data: '): continue
+                    if not line.startswith('data: '):
+                        continue
                     raw = line[6:].strip()
-                    if raw=='[DONE]': yield sse_done(); return
+                    if raw == '[DONE]':
+                        yield sse_done()
+                        return
+                    if not raw:
+                        continue
                     try:
-                        text = json.loads(raw)['choices'][0].get('delta',{}).get('content','')
-                        if text: yield sse_t(text)
-                    except: pass
+                        text = json.loads(raw)['choices'][0].get('delta', {}).get('content', '')
+                        if text:
+                            yield sse_t(text)
+                    except Exception:
+                        pass
         yield sse_done()
-    except httpx.ConnectError: yield sse_err(f"Cannot connect to {'DeepSeek' if ds else 'OpenAI'}")
-    except Exception as e: logger.exception('OpenAI error'); yield sse_err(str(e))
+    except httpx.ConnectError:
+        yield sse_err(f'Cannot connect to {provider_label}. Check your network or API endpoint.')
+    except httpx.TimeoutException:
+        yield sse_err(f'{provider_label} API timeout')
+    except Exception as e:
+        logger.exception('%s error', provider_label)
+        yield sse_err(str(e))
+
+# ── Ollama (local — different streaming format) ───────────────────────────────
+
+async def _ollama(req: ChatReq) -> AsyncIterator[str]:
+    base = (get_runtime_value('OLLAMA_BASE_URL') or 'http://localhost:11434').rstrip('/')
+    model = req.model.replace('ollama/', '', 1)
+    system = req.system or next((m.content for m in req.messages if m.role == 'system'), '')
+    msgs: list[dict] = []
+    if system:
+        msgs.append({'role': 'system', 'content': system})
+    msgs += [{'role': m.role, 'content': m.content} for m in req.messages if m.role != 'system']
+    payload = {'model': model, 'messages': msgs, 'stream': True}
+    try:
+        async with httpx.AsyncClient(timeout=120) as c:
+            async with c.stream(
+                'POST', f'{base}/api/chat',
+                headers={'Content-Type': 'application/json'}, json=payload,
+            ) as r:
+                if r.status_code != 200:
+                    body = await r.aread()
+                    yield sse_err(f'Ollama {r.status_code}: {body.decode()[:200]}')
+                    return
+                async for line in r.aiter_lines():
+                    if not line:
+                        continue
+                    try:
+                        parsed = json.loads(line)
+                        text = parsed.get('message', {}).get('content', '')
+                        if text:
+                            yield sse_t(text)
+                        if parsed.get('done'):
+                            yield sse_done()
+                            return
+                    except Exception:
+                        pass
+        yield sse_done()
+    except httpx.ConnectError:
+        yield sse_err('Cannot connect to Ollama — make sure Ollama is running on port 11434')
+    except Exception as e:
+        logger.exception('Ollama error')
+        yield sse_err(str(e))
+
+# ── Main route ────────────────────────────────────────────────────────────────
 
 @router.post('/chat')
 async def chat(req: ChatReq):
     p = _provider(req.model)
+
     async def gen():
-        if p=='anthropic':
-            async for c in _anthropic(req): yield c
-        elif p=='deepseek':
-            async for c in _openai(req,'https://api.deepseek.com'): yield c
+        if p == 'anthropic':
+            async for c in _anthropic(req):
+                yield c
+        elif p == 'openai':
+            async for c in _openai_compat(
+                req, 'https://api.openai.com/v1', 'OPENAI_API_KEY', 'OpenAI',
+                model_override=_norm_openai(req.model),
+            ):
+                yield c
+        elif p == 'deepseek':
+            async for c in _openai_compat(
+                req, 'https://api.deepseek.com', 'DEEPSEEK_API_KEY', 'DeepSeek',
+            ):
+                yield c
+        elif p == 'google':
+            async for c in _openai_compat(
+                req,
+                'https://generativelanguage.googleapis.com/v1beta/openai',
+                'GOOGLE_API_KEY', 'Google',
+            ):
+                yield c
+        elif p == 'mistral':
+            async for c in _openai_compat(
+                req, 'https://api.mistral.ai/v1', 'MISTRAL_API_KEY', 'Mistral',
+            ):
+                yield c
+        elif p == 'groq':
+            async for c in _openai_compat(
+                req, 'https://api.groq.com/openai/v1', 'GROQ_API_KEY', 'Groq',
+            ):
+                yield c
+        elif p == 'qwen':
+            async for c in _openai_compat(
+                req,
+                'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+                'QWEN_API_KEY', 'Qwen',
+            ):
+                yield c
+        elif p == 'ollama':
+            async for c in _ollama(req):
+                yield c
+        elif p == 'lmstudio':
+            base = (get_runtime_value('LMSTUDIO_BASE_URL') or 'http://localhost:1234').rstrip('/')
+            model = req.model.replace('lmstudio/', '', 1)
+            async for c in _openai_compat(
+                req, base, '', 'LM Studio',
+                model_override=model, require_key=False,
+            ):
+                yield c
         else:
-            async for c in _openai(req): yield c
-    return StreamingResponse(gen(), media_type='text/event-stream',
-        headers={'Cache-Control':'no-cache','X-Accel-Buffering':'no'})
+            yield sse_err(f'Unsupported provider for model: {req.model}')
+
+    return StreamingResponse(
+        gen(),
+        media_type='text/event-stream',
+        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'},
+    )
+
+# ── Available models endpoint ─────────────────────────────────────────────────
 
 @router.get('/models/available')
-async def models():
-    a = has_runtime_value('ANTHROPIC_API_KEY')
-    o = has_runtime_value('OPENAI_API_KEY')
-    d = has_runtime_value('DEEPSEEK_API_KEY')
+async def models_available():
+    a   = has_runtime_value('ANTHROPIC_API_KEY')
+    o   = has_runtime_value('OPENAI_API_KEY')
+    d   = has_runtime_value('DEEPSEEK_API_KEY')
+    g   = has_runtime_value('GOOGLE_API_KEY')
+    mis = has_runtime_value('MISTRAL_API_KEY')
+    grq = has_runtime_value('GROQ_API_KEY')
+    qw  = has_runtime_value('QWEN_API_KEY')
     mods = []
-    if a: mods += [
-        {'id':'claude-sonnet-4-6','name':'Claude Sonnet 4.6','provider':'anthropic','default':True},
-        {'id':'claude-opus-4-5','name':'Claude Opus 4.5','provider':'anthropic'},
-        {'id':'claude-haiku-4-5','name':'Claude Haiku 4.5','provider':'anthropic','fast':True},
-    ]
-    if o: mods += [
-        {'id':'gpt-4o','name':'GPT-4o','provider':'openai'},
-        {'id':'gpt-4o-mini','name':'GPT-4o Mini','provider':'openai','fast':True},
-        {'id':'o4-mini','name':'o4-mini','provider':'openai'},
-    ]
-    if d: mods += [
-        {'id':'deepseek-chat','name':'DeepSeek Chat','provider':'deepseek'},
-        {'id':'deepseek-reasoner','name':'DeepSeek R1','provider':'deepseek'},
-    ]
-    if not mods: mods = [{'id':'claude-sonnet-4-6','name':'Claude Sonnet 4.6','provider':'anthropic','default':True}]
-    return {'models':mods,'providers':{'anthropic':a,'openai':o,'deepseek':d}}
+    if a:
+        mods += [
+            {'id': 'claude-opus-4-5',   'name': 'Claude Opus 4.5',   'provider': 'anthropic'},
+            {'id': 'claude-sonnet-4-6', 'name': 'Claude Sonnet 4.6', 'provider': 'anthropic', 'default': True},
+            {'id': 'claude-haiku-3-5',  'name': 'Claude Haiku 3.5',  'provider': 'anthropic', 'fast': True},
+        ]
+    if o:
+        mods += [
+            {'id': 'gpt-5.4',     'name': 'GPT-5.4',    'provider': 'openai'},
+            {'id': 'gpt-5.1',     'name': 'GPT-5.1',    'provider': 'openai'},
+            {'id': 'gpt-4o',      'name': 'GPT-4o',      'provider': 'openai'},
+            {'id': 'gpt-4o-mini', 'name': 'GPT-4o Mini', 'provider': 'openai', 'fast': True},
+            {'id': 'o1',          'name': 'o1',           'provider': 'openai'},
+            {'id': 'o3-mini',     'name': 'o3-mini',      'provider': 'openai'},
+        ]
+    if d:
+        mods += [
+            {'id': 'deepseek-chat',     'name': 'DeepSeek V3', 'provider': 'deepseek'},
+            {'id': 'deepseek-reasoner', 'name': 'DeepSeek R1', 'provider': 'deepseek'},
+        ]
+    if g:
+        mods += [
+            {'id': 'gemini-2.5-pro',   'name': 'Gemini 2.5 Pro',   'provider': 'google'},
+            {'id': 'gemini-2.5-flash', 'name': 'Gemini 2.5 Flash', 'provider': 'google', 'fast': True},
+        ]
+    if mis:
+        mods += [
+            {'id': 'mistral-large-latest',  'name': 'Mistral Large',  'provider': 'mistral'},
+            {'id': 'mistral-medium-latest', 'name': 'Mistral Medium', 'provider': 'mistral'},
+            {'id': 'codestral-latest',      'name': 'Codestral',      'provider': 'mistral'},
+        ]
+    if grq:
+        mods += [
+            {'id': 'llama-3.3-70b-versatile', 'name': 'Llama 3.3 70B', 'provider': 'groq'},
+            {'id': 'mixtral-8x7b-32768',       'name': 'Mixtral 8x7B',  'provider': 'groq'},
+        ]
+    if qw:
+        mods += [
+            {'id': 'qwen-max',                      'name': 'Qwen Max',    'provider': 'qwen'},
+            {'id': 'qwen-plus',                     'name': 'Qwen Plus',   'provider': 'qwen'},
+            {'id': 'qwen-turbo',                    'name': 'Qwen Turbo',  'provider': 'qwen', 'fast': True},
+            {'id': 'qwen3-235b-a22b-instruct-2507', 'name': 'Qwen3 235B', 'provider': 'qwen'},
+        ]
+    if not mods:
+        mods = [{'id': 'claude-sonnet-4-6', 'name': 'Claude Sonnet 4.6', 'provider': 'anthropic', 'default': True}]
+    return {
+        'models': mods,
+        'providers': {
+            'anthropic': a, 'openai': o, 'deepseek': d,
+            'google': g, 'mistral': mis, 'groq': grq, 'qwen': qw,
+        },
+    }
