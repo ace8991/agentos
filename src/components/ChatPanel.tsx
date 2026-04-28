@@ -293,7 +293,7 @@ const ChatPanel = () => {
     const shouldUseBuilder = shouldUseBuilderWorkspace(text, composerPreferences);
     const shouldUseAgent =
       shouldRouteToAgent(text, mode, backendOnline) ||
-      (mode === 'smart' && backendOnline && requiresLocalTools(text));
+      (mode === 'agent' && backendOnline && requiresLocalTools(text));
 
     if (mode === 'agent' && !backendOnline) {
       toast.error('Agent mode needs the local backend to be online.');
@@ -318,13 +318,8 @@ const ChatPanel = () => {
     }
 
     if (shouldUseAgent) {
-      const executionModel = pickSmartAgentModel(model, backendHealth);
-      if (executionModel !== model) {
-        setModel(executionModel);
-        toast.message(`Switched to ${executionModel} for live tool execution.`);
-      }
-
-      if (mode === 'smart') {
+      // Use the selected model without switching
+      if (mode === 'chat') {
         setMode('agent');
         toast.message('Using Agent mode to run local tools for this request.');
       }
@@ -1060,7 +1055,7 @@ const ChatPanel = () => {
             onKeyDown={handleKeyDown}
             placeholder="Ask something or assign a task..."
             rows={1}
-            className="min-h-[20px] max-h-[120px] flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+            className="min-h-[28px] max-h-[120px] flex-1 resize-none bg-transparent text-base font-medium text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
             style={{ height: 'auto' }}
             onInput={(event) => {
               const target = event.target as HTMLTextAreaElement;

@@ -196,12 +196,6 @@ const ModelSelector = ({ onConfigureProvider }: ModelSelectorProps) => {
   };
 
   useEffect(() => {
-    if (mode === 'agent' && !isAgentModelSupported(model)) {
-      setModel('claude-sonnet-4-6');
-    }
-  }, [mode, model, setModel]);
-
-  useEffect(() => {
     if (!open) {
       setPanelStyle(null);
       return;

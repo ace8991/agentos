@@ -1,6 +1,5 @@
 import { useRef, useEffect } from 'react';
 import { Mic, MicOff, Phone, PhoneOff, Loader2 } from 'lucide-react';
-import TopNavBar from '@/components/TopNavBar';
 import AudioWaveform from '@/components/parlor/AudioWaveform';
 import CameraViewport from '@/components/parlor/CameraViewport';
 import { useParlorSession, type ParlorState } from '@/hooks/useParlorSession';
@@ -42,8 +41,6 @@ const ParlorPage = () => {
 
   return (
     <div className="flex flex-col h-screen bg-[hsl(0,0%,6%)] text-white overflow-hidden">
-      <TopNavBar />
-
       <div className="flex-1 flex flex-col lg:flex-row gap-4 p-4 overflow-hidden">
         {/* Left: Camera + Controls */}
         <div className="flex flex-col gap-4 lg:w-[45%] shrink-0">

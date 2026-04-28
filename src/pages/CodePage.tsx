@@ -10,7 +10,6 @@ import {
   Eye, SplitSquareHorizontal, Code2, Brain, Layers, FileText, Shield, ShieldCheck,
 } from 'lucide-react';
 import TaskSidebar from '@/components/TaskSidebar';
-import TopNavBar from '@/components/TopNavBar';
 import AgentActionStep, { type ActionStep, type ActionStepType } from '@/components/code/AgentActionStep';
 import ClaudeMdEditor from '@/components/code/ClaudeMdEditor';
 import SubAgentPanel from '@/components/code/SubAgentPanel';
@@ -797,7 +796,6 @@ const CodePage = () => {
 
   return (
     <div className="flex flex-col h-[100dvh] w-full overflow-hidden bg-[hsl(0,0%,10%)]">
-      <TopNavBar />
       <div className="flex flex-1 min-h-0">
       <TaskSidebar />
       <div className="flex-1 flex flex-col min-w-0">

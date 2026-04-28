@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDown, FolderOpen, Plus, ArrowRight } from 'lucide-react';
-import TopNavBar from '@/components/TopNavBar';
 import CoworkSidebar, { type CoworkView } from '@/components/cowork/CoworkSidebar';
 import CoworkChatView from '@/components/cowork/CoworkChatView';
 import DispatchPanel from '@/components/cowork/DispatchPanel';
@@ -79,7 +78,6 @@ const CoworkPage = () => {
 
   return (
     <div className="flex flex-col h-[100dvh] w-full overflow-hidden bg-[hsl(0,0%,10%)]">
-      <TopNavBar />
       <div className="flex flex-1 min-h-0">
         <CoworkSidebar
           activeView={activeView}

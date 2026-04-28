@@ -257,6 +257,7 @@ async def stream_chat(req: ChatRequest) -> AsyncGenerator[str, None]:
         "deepseek": ("DEEPSEEK_API_KEY", "https://api.deepseek.com/chat/completions"),
         "mistral": ("MISTRAL_API_KEY", "https://api.mistral.ai/v1/chat/completions"),
         "groq": ("GROQ_API_KEY", "https://api.groq.com/openai/v1/chat/completions"),
+        "qwen": ("QWEN_API_KEY", "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions"),
     }
     env_name, endpoint = provider_env_map.get(provider, (None, None))
     if not env_name or not endpoint:

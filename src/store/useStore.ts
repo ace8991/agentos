@@ -312,7 +312,7 @@ const buildAgentCompletionMessage = (
 };
 
 export const useStore = create<AppState>((set, get) => ({
-  mode: 'smart',
+  mode: 'chat',
   task: '',
   status: 'idle',
   currentStep: 0,

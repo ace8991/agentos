@@ -236,7 +236,7 @@ const Welcome = () => {
       if (!taskInput.trim()) return;
       const attachmentContext = await buildAttachmentContext(attachments);
       setPendingTaskContext(attachmentContext);
-      setMode(shouldStartInBuilderFlow(taskInput) ? 'chat' : 'agent');
+      setMode('chat');
       setTask(taskInput.trim());
       setComposerMenuOpen(false);
       navigate('/dashboard');
