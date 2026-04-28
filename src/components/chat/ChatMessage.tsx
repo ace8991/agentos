@@ -354,17 +354,23 @@ function ToolStep({ entry }: { entry: LogEntry }) {
 
   const detail = useMemo(() => {
     const r = entry.tool_result as any;
+    // Agentic loop stores raw output string in r.output
+    if (typeof r?.output === 'string' && r.output.trim())
+      return r.output.trim().slice(0, 2000);
+    // Fallback: reasoning field also holds the output
+    if (!r && entry.reasoning?.trim())
+      return entry.reasoning.trim().slice(0, 2000);
     if (!r) return '';
     if (typeof r.stdout === 'string' && r.stdout.trim())
-      return `$ ${r.command||''}\n\n${r.stdout.trim()}${r.stderr?'\nSTDERR:\n'+r.stderr:''}`.slice(0,1200);
+      return `$ ${r.command||''}\n\n${r.stdout.trim()}${r.stderr?'\nSTDERR:\n'+r.stderr:''}`.slice(0, 2000);
     if (typeof r.content === 'string' && r.content.trim())
-      return r.content.trim().slice(0,1000);
+      return r.content.trim().slice(0, 1500);
     if (Array.isArray(r.items))
-      return r.items.slice(0,15).map((i:any)=>
+      return r.items.slice(0, 20).map((i:any)=>
         `${i.type==='directory'?'📁':'📄'} ${i.name}${i.size_bytes?` (${Math.round(i.size_bytes/1024)}KB)`:''}`
       ).join('\n');
     if (Array.isArray(r.results))
-      return r.results.slice(0,8).map((i:any)=>i.path||i.name||String(i)).join('\n');
+      return r.results.slice(0, 10).map((i:any)=>i.path||i.name||String(i)).join('\n');
     return '';
   }, [entry]);
 
@@ -383,45 +389,57 @@ function ToolStep({ entry }: { entry: LogEntry }) {
   const isErr = (entry.tool_result as any)?.exit_code > 0 || entry.type === 'error';
 
   return (
-    <div className="flex items-start gap-2.5 py-0.5 group">
-      <div className={`mt-[3px] flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-sm ${isErr?'bg-red-500/10':'bg-white/[0.04]'}`}>
-        {isRunning ? (
-          <Loader2 size={11} className={`${cfg.color} animate-spin`} />
-        ) : (
-          <Icon size={11} className={isErr?'text-red-400/70':cfg.color} />
+    <div className="group">
+      <button
+        onClick={() => detail && setOpen(o => !o)}
+        className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors ${
+          detail ? 'cursor-pointer hover:bg-white/[0.03]' : 'cursor-default'
+        }`}
+      >
+        {/* Status icon */}
+        <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md ${
+          isErr ? 'bg-red-500/12' : isRunning ? 'bg-white/[0.06]' : 'bg-white/[0.04]'
+        }`}>
+          {isRunning
+            ? <Loader2 size={11} className={`${cfg.color} animate-spin`} />
+            : <Icon size={11} className={isErr ? 'text-red-400/70' : cfg.color} />
+          }
+        </div>
+
+        {/* Label */}
+        <span className={`flex-1 min-w-0 truncate text-[13px] font-mono leading-5 ${
+          isErr ? 'text-red-400/70' : 'text-foreground/50'
+        }`}>
+          {label}
+        </span>
+
+        {/* Duration */}
+        {duration && !isRunning && (
+          <span className="shrink-0 flex items-center gap-0.5 text-[10px] text-foreground/20 font-mono">
+            <Clock size={8} />{duration}
+          </span>
         )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <button onClick={()=>detail&&setOpen(o=>!o)}
-          className={`flex w-full items-center gap-1.5 text-left ${detail?'cursor-pointer':'cursor-default'}`}>
-          <span className="text-[13px] text-foreground/45 leading-5 truncate">{label}</span>
-          {duration && (
-            <span className="flex items-center gap-0.5 text-[10px] text-foreground/20 font-mono shrink-0">
-              <Clock size={8} />
-              {duration}
-            </span>
-          )}
-          {detail && (open
-            ? <ChevronDown size={12} className="shrink-0 text-foreground/30"/>
-            : <ChevronRight size={12} className="shrink-0 text-foreground/20 group-hover:text-foreground/35 transition-colors"/>
-          )}
-        </button>
-        {/* Structured params */}
-        {params && !open && (
-          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
-            {Object.entries(params).map(([k, v]) => (
-              <span key={k} className="text-[10.5px] text-foreground/20 font-mono truncate max-w-[240px]">
-                {k}=<span className="text-foreground/30">{v}</span>
-              </span>
-            ))}
+
+        {/* Expand chevron */}
+        {detail && (
+          open
+            ? <ChevronDown size={12} className="shrink-0 text-foreground/30" />
+            : <ChevronRight size={12} className="shrink-0 text-foreground/20 group-hover:text-foreground/40 transition-colors" />
+        )}
+      </button>
+
+      {/* Expanded output — Claude.ai style */}
+      {open && detail && (
+        <div className="mx-2 mb-1.5 overflow-hidden rounded-lg border border-white/[0.07] bg-black/20">
+          <div className="flex items-center justify-between border-b border-white/[0.05] px-3 py-1.5">
+            <span className="text-[10px] font-mono text-foreground/25 uppercase tracking-wider">output</span>
+            <CopyBtn text={detail} />
           </div>
-        )}
-        {open && detail && (
-          <div className="mt-1.5 rounded-lg border border-white/[0.07] bg-black/20">
-            <pre className="p-3 text-[11.5px] font-mono leading-5 text-foreground/52 whitespace-pre-wrap max-h-52 overflow-y-auto">{detail}</pre>
-          </div>
-        )}
-      </div>
+          <pre className="max-h-56 overflow-y-auto p-3 text-[11.5px] font-mono leading-[1.6] text-foreground/55 whitespace-pre-wrap scrollbar-thin">
+            {detail}
+          </pre>
+        </div>
+      )}
     </div>
   );
 }
@@ -478,8 +496,19 @@ function ThinkingStep({ entry }: { entry: LogEntry }) {
   );
 }
 
+/* ── Streaming cursor ── */
+function StreamingCursor() {
+  return (
+    <span className="inline-block w-[2px] h-[1em] ml-[1px] align-middle bg-foreground/50 animate-pulse" />
+  );
+}
+
 /* ── Main ChatMessage ── */
-export const ChatMessage = ({ entry, onAskReply }: { entry: LogEntry; onAskReply?: (id:string,a:string)=>void }) => {
+export const ChatMessage = ({ entry, onAskReply, isStreaming }: {
+  entry: LogEntry;
+  onAskReply?: (id: string, a: string) => void;
+  isStreaming?: boolean;
+}) => {
   const [askInput, setAskInput] = useState('');
   const isResult = entry.type === 'result';
   const { text: txt, artifacts: arts } = isResult
@@ -548,21 +577,35 @@ export const ChatMessage = ({ entry, onAskReply }: { entry: LogEntry; onAskReply
     </div>
   );
 
-  // AI response
+  // AI response — Claude.ai style
   const responseText = isResult ? txt : entry.action;
   if (!responseText?.trim() && !artifacts.length) return null;
+  const isEmpty = !responseText?.trim();
   return (
-    <div className="px-4 pb-3 pt-2 log-entry-enter">
-      <div className="flex items-start gap-3">
-        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--surface-elevated))]">
-          <Sparkles size={14} className="text-foreground/50" />
+    <div className="px-4 pb-4 pt-2 log-entry-enter">
+      {/* Header — model icon + label (subtle, like Claude.ai) */}
+      <div className="flex items-center gap-1.5 mb-2.5">
+        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[hsl(var(--surface-elevated))]">
+          <Sparkles size={11} className="text-foreground/45" />
         </div>
-        <div className="flex-1 min-w-0 pt-0.5">
-          {responseText && <Md text={responseText} />}
-          {artifacts.length > 0 && (
-            <div className="mt-4 space-y-2">{artifacts.map(a=><ArtifactCard key={a.id} artifact={a}/>)}</div>
-          )}
-        </div>
+        <span className="text-[11px] font-medium text-foreground/30 tracking-wide">AgentOS</span>
+      </div>
+
+      {/* Content */}
+      <div className="pl-0.5">
+        {!isEmpty ? (
+          <>
+            <Md text={responseText} />
+            {isStreaming && <StreamingCursor />}
+          </>
+        ) : isStreaming ? (
+          <StreamingCursor />
+        ) : null}
+        {artifacts.length > 0 && (
+          <div className="mt-4 space-y-2">
+            {artifacts.map(a => <ArtifactCard key={a.id} artifact={a} />)}
+          </div>
+        )}
       </div>
     </div>
   );

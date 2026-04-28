@@ -166,6 +166,7 @@ const ChatPanel = () => {
   const [artifactWorkspaceView, setArtifactWorkspaceView] = useState<WorkspaceView>('preview');
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
+  const [currentTool, setCurrentTool] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [connectors, setConnectors] = useState<ConnectorState[]>([]);
   const [projects, setProjects] = useState<AppProject[]>([]);
@@ -622,24 +623,31 @@ const ChatPanel = () => {
           const entryId = crypto.randomUUID();
           toolEntryMap.set(event.id, entryId);
           const label = toolLabelForName(event.tool, event.args);
+          setCurrentTool(event.tool);
           useStore.getState().addLogEntry({
             id: entryId,
             step: 0,
             timestamp: new Date().toISOString(),
             type: toolTypeForName(event.tool),
             action: label,
-            reasoning: `Calling ${event.tool}`,
+            reasoning: '',
             toolLabel: label,
+            tool_result: undefined,
           });
         },
         onToolResult: (event: ToolResultEvent) => {
           const entryId = toolEntryMap.get(event.id);
+          setCurrentTool(null);
           if (!entryId) return;
-          const preview = event.result.slice(0, 300) + (event.result.length > 300 ? '…' : '');
           useStore.setState((state) => ({
             entries: state.entries.map((e) =>
               e.id === entryId
-                ? { ...e, type: event.success ? toolTypeForName(event.tool) : 'error', tool_result: { output: preview }, reasoning: preview }
+                ? {
+                    ...e,
+                    type: event.success ? toolTypeForName(event.tool) : ('error' as const),
+                    tool_result: { output: event.result },
+                    reasoning: event.result,
+                  }
                 : e,
             ),
           }));
@@ -681,14 +689,23 @@ const ChatPanel = () => {
   };
 
   const lastEntry = entries[0];
-  const thinkingLabel = lastEntry?.toolLabel
+  const toolDisplayName: Record<string, string> = {
+    bash_tool: 'Terminal',
+    str_replace_editor: 'Editor',
+    list_directory: 'Filesystem',
+    web_search: 'Web search',
+    system_info: 'System',
+  };
+  const thinkingLabel = currentTool
+    ? `${toolDisplayName[currentTool] ?? currentTool}…`
+    : lastEntry?.toolLabel
     ? `${lastEntry.toolLabel}...`
     : isRunning
     ? 'Agent is working...'
     : isPaused
     ? 'Waiting for your input...'
     : chatLoading
-    ? 'Thinking...'
+    ? 'Analysing…'
     : 'Processing...';
 
   return (
@@ -935,7 +952,14 @@ const ChatPanel = () => {
             );
           }
 
-          return <ChatMessage key={entry.id} entry={entry} onAskReply={resolveAsk} />;
+          return (
+            <ChatMessage
+              key={entry.id}
+              entry={entry}
+              onAskReply={resolveAsk}
+              isStreaming={chatLoading && entry.type === 'result' && entry.id === chronologicalEntries[chronologicalEntries.length - 1]?.id}
+            />
+          );
         })}
 
         <TakeoverBanner />
