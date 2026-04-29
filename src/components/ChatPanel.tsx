@@ -1,9 +1,10 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Bot, CheckCircle, Code2, Database, FolderOpen, Ghost, Layers3, MessageSquareText, Mic, MonitorPlay, Paperclip, Plus, Send, Square, X } from 'lucide-react';
-import { extractArtifactsFromResponse } from './artifact/ArtifactDetector';
-import { ArtifactTab } from './artifact/ArtifactTab';
+import { ArtifactBadge } from './artifact/ArtifactBadge';
 import { ArtifactPanel } from './artifact/ArtifactPanel';
 import { useArtifactStore } from '@/stores/artifactStore';
+import { extractArtifactFromToolCall } from '@/lib/artifactDetector';
+import { Artifact } from '@/types/artifact.types';
 import { toast } from '@/components/ui/sonner';
 import { useStore, type LogEntry } from '@/store/useStore';
 import ChatMessage from './chat/ChatMessage';
@@ -714,8 +715,15 @@ const ChatPanel = () => {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 h-screen md:h-screen">
-      {/* Chat content — left side */}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      {/* Chat content — left side (45% quand le panel est ouvert) */}
+      <div
+        className="flex min-h-0 min-w-0 flex-col"
+        style={{
+          flex: useArtifactStore.getState().isPanelOpen ? '0 0 45%' : '1 1 100%',
+          maxWidth: useArtifactStore.getState().isPanelOpen ? '45%' : '100%',
+          transition: 'flex 0.3s ease, max-width 0.3s ease',
+        }}
+      >
       <div className="flex items-center justify-between border-b border-border px-3 py-3 md:px-5">
         <div className="min-w-0 flex items-center gap-2 md:gap-3">
           <div className="w-10 shrink-0 md:hidden" />
@@ -958,20 +966,29 @@ const ChatPanel = () => {
             );
           }
 
-          // Détecter les artifacts dans les réponses de l'assistant
-          const entryArtifacts = (entry.type === 'result' && typeof entry.action === 'string')
-            ? extractArtifactsFromResponse(entry.action, entry.id)
-            : [];
+          // Détecter les artifacts via les tool calls (v2)
+          const entryArtifacts: Artifact[] = [];
+          if (entry.type === 'result' && typeof entry.action === 'string') {
+            // Vérifie si l'entrée a des tool_result avec des tool calls
+            const toolResult = entry.tool_result;
+            if (toolResult?.toolCall && toolResult?.toolResult) {
+              const artifact = extractArtifactFromToolCall(
+                toolResult.toolCall as any,
+                toolResult.toolResult as any,
+                entry.id,
+              );
+              if (artifact) {
+                entryArtifacts.push(artifact);
+              }
+            }
+          }
 
           // Ajouter les artifacts détectés au store
           if (entryArtifacts.length > 0) {
-            // Utiliser setTimeout pour éviter de setter state pendant le render
             setTimeout(() => {
               const store = useArtifactStore.getState();
               entryArtifacts.forEach((artifact) => {
-                if (!store.artifacts.has(artifact.id)) {
-                  store.addArtifact(artifact);
-                }
+                store.addOrUpdateArtifact(artifact);
               });
               // Auto-ouvrir le panel pour le dernier artifact
               const lastArtifact = entryArtifacts[entryArtifacts.length - 1];
@@ -988,11 +1005,11 @@ const ChatPanel = () => {
                 onAskReply={resolveAsk}
                 isStreaming={chatLoading && entry.type === 'result' && entry.id === chronologicalEntries[chronologicalEntries.length - 1]?.id}
               />
-              {/* Afficher les artifacts tabs sous le message assistant */}
+              {/* Afficher les artifact badges sous le message assistant */}
               {entryArtifacts.length > 0 && (
-                <div className="px-4 pb-2">
+                <div className="px-4 pb-2 space-y-1.5">
                   {entryArtifacts.map((artifact) => (
-                    <ArtifactTab key={artifact.id} artifact={artifact} />
+                    <ArtifactBadge key={artifact.id} artifact={artifact} />
                   ))}
                 </div>
               )}
@@ -1273,8 +1290,17 @@ const ChatPanel = () => {
         />
       </Suspense>
 
-      {/* Artifact Preview Panel — s'affiche à droite quand un artifact est ouvert */}
-      <ArtifactPanel />
+      {/* Artifact Preview Panel — s'affiche à droite (55%) quand un artifact est ouvert */}
+      <div
+        style={{
+          flex: useArtifactStore.getState().isPanelOpen ? '0 0 55%' : '0 0 0%',
+          maxWidth: useArtifactStore.getState().isPanelOpen ? '55%' : '0%',
+          overflow: 'hidden',
+          transition: 'flex 0.3s ease, max-width 0.3s ease',
+        }}
+      >
+        <ArtifactPanel />
+      </div>
       </div>
     </div>
   );

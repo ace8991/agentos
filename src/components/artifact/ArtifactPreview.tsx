@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { Artifact } from '@/types/artifact.types';
-import { prepareHtmlForPreview } from './ArtifactDetector';
+import { prepareForIframe } from '@/lib/artifactDetector';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, AlertTriangle } from 'lucide-react';
 
@@ -25,7 +25,7 @@ export const ArtifactPreview: React.FC<ArtifactPreviewProps> = ({
     setHasError(false);
 
     try {
-      const htmlContent = prepareHtmlForPreview(artifact);
+      const htmlContent = prepareForIframe(artifact);
       iframeRef.current.srcdoc = htmlContent;
     } catch (err) {
       setHasError(true);
@@ -52,14 +52,26 @@ export const ArtifactPreview: React.FC<ArtifactPreviewProps> = ({
   }, []);
 
   return (
-    <div className="artifact-preview">
+    <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
       <AnimatePresence>
         {isLoading && (
           <motion.div
-            className="artifact-preview__loader"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              background: 'rgba(0,0,0,0.3)',
+              zIndex: 10,
+              color: 'rgba(255,255,255,0.5)',
+              fontSize: '13px',
+            }}
           >
             <Loader2 size={20} className="animate-spin" />
             <span>Rendu en cours...</span>
@@ -67,25 +79,45 @@ export const ArtifactPreview: React.FC<ArtifactPreviewProps> = ({
         )}
         {hasError && (
           <motion.div
-            className="artifact-preview__error"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              background: 'rgba(0,0,0,0.3)',
+              zIndex: 10,
+              color: '#f87171',
+              fontSize: '13px',
+            }}
           >
             <AlertTriangle size={20} />
             <span>Erreur de rendu</span>
-            <code>{errorMessage}</code>
+            <code style={{ fontSize: '11px', opacity: 0.7, maxWidth: '80%', textAlign: 'center' }}>
+              {errorMessage}
+            </code>
           </motion.div>
         )}
       </AnimatePresence>
 
       <iframe
         ref={iframeRef}
-        className="artifact-preview__iframe"
         sandbox="allow-scripts allow-forms allow-modals allow-popups"
         onLoad={() => setIsLoading(false)}
         onError={() => { setHasError(true); setIsLoading(false); }}
         title={artifact.title}
-        style={{ opacity: isLoading ? 0 : 1 }}
+        style={{
+          width: '100%',
+          height: '100%',
+          border: 'none',
+          background: '#fff',
+          opacity: isLoading ? 0 : 1,
+          transition: 'opacity 0.2s',
+        }}
       />
     </div>
   );
