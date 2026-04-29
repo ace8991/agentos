@@ -42,6 +42,10 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(agent.router, prefix="/agent")
+
+# Include the new Multi-LLM agent API
+from api.routes import agent as new_agent_router
+app.include_router(new_agent_router.router)
 app.include_router(browser.router)
 app.include_router(models.router, prefix="/models")
 app.include_router(chat.router)

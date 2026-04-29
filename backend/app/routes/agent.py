@@ -1,8 +1,15 @@
+"""
+Agent mode routes — Multi-LLM ready.
+
+This router now uses the new Multi-LLM agent system from src/agent/ for the
+/start, /stream, /stop, /status endpoints while maintaining backward compatibility.
+The new /api/agent/models endpoint is also available via the new api/routes/agent.py.
+"""
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from app.models.schemas import StartRequest, StopRequest
-from app.services.model_catalog import is_agent_model_supported
 from app.services import execution, runner
+from src.agent.core.registry import get_model, MODEL_REGISTRY
 
 router = APIRouter()
 
@@ -14,8 +21,13 @@ async def start_agent(req: StartRequest):
         raise HTTPException(400, "max_steps must be between 1 and 100")
     if req.capture_interval_ms < 100:
         raise HTTPException(400, "capture_interval_ms must be >= 100")
-    if not is_agent_model_supported(req.model):
-        raise HTTPException(400, f"Agent mode does not support model '{req.model}'")
+
+    # Use the new model registry — no more hardcoded allowed list!
+    if get_model(req.model) is None:
+        raise HTTPException(
+            400,
+            f"Unknown model: '{req.model}'. Available models: {list(MODEL_REGISTRY.keys())}",
+        )
 
     run_id = runner.create_run(
         task=req.task,
@@ -98,3 +110,13 @@ async def run_status(run_id: str):
         "run_id": run_id,
         "active": runner.is_run_active(run_id),
     }
+
+
+@router.get("/models")
+async def list_agent_models():
+    """List all models supported by the agent mode.
+
+    Uses the new model registry — no more hardcoded list!
+    """
+    from src.agent.providers.factory import list_available_models
+    return {"models": list_available_models()}

@@ -1,5 +1,16 @@
-from app.models.schemas import ModelInfo
+"""
+Model catalog — now delegates to the unified model registry in src/agent/core/registry.py.
 
+This file maintains backward compatibility while using the new Multi-LLM registry.
+The old hardcoded _AGENT_MODEL_IDS set is replaced by the dynamic MODEL_REGISTRY.
+"""
+
+from __future__ import annotations
+
+from app.models.schemas import ModelInfo
+from src.agent.core.registry import MODEL_REGISTRY, get_model as registry_get_model, list_models as registry_list_models
+
+# ── Legacy model list (kept for backward compatibility) ───────────────────────
 
 _MODELS: list[ModelInfo] = [
     ModelInfo(id="claude-opus-4-5", name="Claude Opus 4.5", provider="anthropic", cost_per_step="server-key", vision=True),
@@ -42,42 +53,42 @@ def get_model(model_id: str) -> ModelInfo | None:
     return next((model for model in _MODELS if model.id == model_id), None)
 
 
-_AGENT_MODEL_IDS = {
-    # Anthropic
-    "claude-opus-4-5",
-    "claude-sonnet-4-6",
-    "claude-haiku-3-5",
-    # OpenAI
-    "gpt-5.4",
-    "gpt-5.3-codex",
-    "gpt-5.2-codex",
-    "gpt-5.1",
-    "gpt-4o",
-    "gpt-4o-mini",
-    "o1",
-    "o3-mini",
-    # Google
-    "gemini-2.5-pro",
-    "gemini-2.5-flash",
-    # DeepSeek
-    "deepseek-chat",
-    "deepseek-reasoner",
-    # Mistral
-    "mistral-large-latest",
-    "mistral-medium-latest",
-    # Groq
-    "llama-3.3-70b-versatile",
-    "mixtral-8x7b-32768",
-    # Qwen
-    "qwen-max",
-    "qwen-plus",
-    "qwen3-235b-a22b-instruct-2507",
-}
-
+# ── Agent model support — now using the new dynamic registry ──────────────────
 
 def is_agent_model_supported(model_id: str) -> bool:
-    return model_id in _AGENT_MODEL_IDS
+    """Check if a model is supported by the agent mode.
+
+    Uses the new dynamic MODEL_REGISTRY from src/agent/core/registry.py.
+    This means any model in the registry is automatically supported — no more
+    hardcoded list! Adding a new model = adding one entry in the registry.
+    """
+    return registry_get_model(model_id) is not None
 
 
 def list_agent_models() -> list[ModelInfo]:
-    return [model for model in _MODELS if model.id in _AGENT_MODEL_IDS]
+    """List all models supported by the agent mode.
+
+    Now returns ALL models from the registry (filtered by those in _MODELS
+    for backward compatibility, plus any new models from the registry).
+    """
+    registry_models = registry_list_models()
+    registry_ids = {m.id for m in registry_models}
+
+    # Return all legacy models that are also in the registry
+    legacy_supported = [m for m in _MODELS if m.id in registry_ids]
+
+    # Also include new registry models not in legacy list
+    legacy_ids = {m.id for m in _MODELS}
+    new_models = [
+        ModelInfo(
+            id=m.id,
+            name=m.label,
+            provider=m.provider,
+            cost_per_step="server-key" if m.provider != "ollama" else "local",
+            vision=m.supports_vision,
+        )
+        for m in registry_models
+        if m.id not in legacy_ids
+    ]
+
+    return legacy_supported + sorted(new_models, key=lambda x: x.name)

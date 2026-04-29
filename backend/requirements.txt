@@ -1,13 +1,24 @@
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
+
+# LLM Providers
 anthropic>=0.40.0
-httpx>=0.27.0
+openai>=1.50.0
+
+# Computer control
 pyautogui==0.9.54
 mss==9.0.2
 Pillow==10.4.0
+uiautomation>=2.0.18
+
+# HTTP / API
+httpx>=0.27.0
+
+# Serialization
 pydantic==2.8.0
 python-dotenv==1.0.1
-openai>=1.40.0
+
+# Existing tools
 tavily-python>=0.5.0
 playwright>=1.45.0
 python-jose[cryptography]==3.3.0
