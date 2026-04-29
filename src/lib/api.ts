@@ -1099,6 +1099,60 @@ export async function updateMobileHubChannel(
   return response.json();
 }
 
+// ── Telegram Bot API ──────────────────────────────────────────────────────────
+
+export interface TelegramStatus {
+  running: boolean;
+  token_configured: boolean;
+  chat_ids: number[];
+}
+
+export async function getTelegramStatus(): Promise<TelegramStatus> {
+  const res = await fetch(`${BASE}/telegram/status`);
+  if (!res.ok) throw new Error(`Failed to get Telegram status: ${res.status}`);
+  return res.json();
+}
+
+export async function startTelegramBot(): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`${BASE}/telegram/start`, { method: 'POST' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
+    throw new Error(err.detail || `Failed to start Telegram bot: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function stopTelegramBot(): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`${BASE}/telegram/stop`, { method: 'POST' });
+  if (!res.ok) throw new Error(`Failed to stop Telegram bot: ${res.status}`);
+  return res.json();
+}
+
+export async function restartTelegramBot(): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`${BASE}/telegram/restart`, { method: 'POST' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
+    throw new Error(err.detail || `Failed to restart Telegram bot: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function updateTelegramConfig(config: {
+  token?: string;
+  chat_ids?: string;
+}): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`${BASE}/telegram/config`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
+    throw new Error(err.detail || `Failed to update Telegram config: ${res.status}`);
+  }
+  return res.json();
+}
+
 export async function updateMobileHubDevice(
   deviceId: string,
   payload: Partial<Pick<MobileHubDevice, 'status' | 'overlay_enabled' | 'voice_wake_enabled' | 'battery_percent'>>,

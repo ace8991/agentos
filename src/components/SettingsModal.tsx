@@ -173,6 +173,14 @@ const SettingsModal = () => {
   const [webhookUrl, setWebhookUrl] = useState('');
   const [webhookEvents, setWebhookEvents] = useState<string[]>([]);
 
+  // Telegram bot
+  const [telegramToken, setTelegramToken] = useState('');
+  const [showTelegramToken, setShowTelegramToken] = useState(false);
+  const [telegramChatIds, setTelegramChatIds] = useState('');
+  const [telegramRunning, setTelegramRunning] = useState(false);
+  const [telegramStarting, setTelegramStarting] = useState(false);
+  const [telegramStopping, setTelegramStopping] = useState(false);
+
   const [saved, setSaved] = useState(false);
   const userInitial = authUser?.display_name?.trim().charAt(0).toUpperCase() || 'G';
 
@@ -270,10 +278,84 @@ const SettingsModal = () => {
       setWebhookEvents(JSON.parse(localStorage.getItem('WEBHOOK_EVENTS') || '[]'));
     } catch { setWebhookEvents([]); }
 
+    // Telegram
+    setTelegramToken(localStorage.getItem('TELEGRAM_BOT_TOKEN') || '');
+    setTelegramChatIds(localStorage.getItem('TELEGRAM_CHAT_IDS') || '');
+
+    // Fetch Telegram bot status from backend
+    if (backendOnline) {
+      import('@/lib/api').then(({ getTelegramStatus }) => {
+        getTelegramStatus().then((status) => {
+          setTelegramRunning(status.running);
+          if (status.chat_ids.length > 0 && !localStorage.getItem('TELEGRAM_CHAT_IDS')) {
+            setTelegramChatIds(status.chat_ids.join(', '));
+          }
+        }).catch(() => {});
+      });
+    }
+
     setSaved(false);
   }, [open, setReasoningEffort]);
 
   const backendOnline = useStore((s) => s.backendOnline);
+
+  // ── Telegram handlers ──────────────────────────────────────────────────
+
+  const handleTelegramStart = async () => {
+    if (!backendOnline) {
+      toast.error('Backend is offline');
+      return;
+    }
+    setTelegramStarting(true);
+    try {
+      const { startTelegramBot } = await import('@/lib/api');
+      await startTelegramBot();
+      setTelegramRunning(true);
+      toast.success('Telegram bot started');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to start Telegram bot');
+    } finally {
+      setTelegramStarting(false);
+    }
+  };
+
+  const handleTelegramStop = async () => {
+    if (!backendOnline) {
+      toast.error('Backend is offline');
+      return;
+    }
+    setTelegramStopping(true);
+    try {
+      const { stopTelegramBot } = await import('@/lib/api');
+      await stopTelegramBot();
+      setTelegramRunning(false);
+      toast.success('Telegram bot stopped');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to stop Telegram bot');
+    } finally {
+      setTelegramStopping(false);
+    }
+  };
+
+  const handleTelegramSaveConfig = async () => {
+    localStorage.setItem('TELEGRAM_BOT_TOKEN', telegramToken);
+    localStorage.setItem('TELEGRAM_CHAT_IDS', telegramChatIds);
+
+    if (backendOnline) {
+      try {
+        const { updateTelegramConfig } = await import('@/lib/api');
+        await updateTelegramConfig({
+          token: telegramToken,
+          chat_ids: telegramChatIds,
+        });
+        toast.success('Telegram config saved');
+      } catch (e: any) {
+        toast.error(e.message || 'Failed to save Telegram config');
+      }
+    } else {
+      toast.success('Telegram config saved locally');
+    }
+  };
 
   const handleLogout = async () => {
     await logoutSession();
@@ -335,6 +417,8 @@ const SettingsModal = () => {
     saveConnectors(connectors);
     localStorage.setItem('WEBHOOK_URL', webhookUrl);
     localStorage.setItem('WEBHOOK_EVENTS', JSON.stringify(webhookEvents));
+    localStorage.setItem('TELEGRAM_BOT_TOKEN', telegramToken);
+    localStorage.setItem('TELEGRAM_CHAT_IDS', telegramChatIds);
 
     if (backendOnline) {
       try {
@@ -1243,6 +1327,108 @@ const SettingsModal = () => {
                     <span className="text-sm text-foreground font-mono">{event}</span>
                   </label>
                 ))}
+              </div>
+            </div>
+
+            {/* ── Telegram Bot ─────────────────────────────────────────────── */}
+            <div className="border-t border-border pt-3 mt-4">
+              <h4 className="text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+                <Bot size={14} />
+                Telegram Bot
+              </h4>
+              <p className="text-xs text-muted-foreground mb-3">
+                Connect a Telegram bot to send tasks remotely. Create a bot via{' '}
+                <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" className="text-primary hover:underline">@BotFather</a>
+                {' '}on Telegram and paste the token below.
+              </p>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-muted-foreground">Bot Token</label>
+                  <div className="flex gap-2 mt-1">
+                    <input
+                      type={showTelegramToken ? 'text' : 'password'}
+                      value={telegramToken}
+                      onChange={(e) => setTelegramToken(e.target.value)}
+                      placeholder="1234567890:ABCdefGHIjklmNOPqrstUVwxyz"
+                      className="flex-1 bg-muted border border-border rounded-md px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono"
+                    />
+                    <button
+                      onClick={() => setShowTelegramToken(!showTelegramToken)}
+                      className="text-muted-foreground hover:text-foreground px-2"
+                    >
+                      {showTelegramToken ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs text-muted-foreground">Authorized Chat IDs</label>
+                  <p className="text-[10px] text-muted-foreground/70 mb-1">
+                    Comma-separated. Send /start to the bot from Telegram to see your chat ID.
+                  </p>
+                  <input
+                    value={telegramChatIds}
+                    onChange={(e) => setTelegramChatIds(e.target.value)}
+                    placeholder="123456789, 987654321"
+                    className="w-full bg-muted border border-border rounded-md px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono"
+                  />
+                </div>
+
+                {/* Status indicator */}
+                <div className="flex items-center gap-2 text-xs">
+                  <span className={`w-2 h-2 rounded-full ${telegramRunning ? 'bg-green-500' : 'bg-gray-500'}`} />
+                  <span className="text-muted-foreground">
+                    {telegramRunning ? 'Bot is running' : 'Bot is stopped'}
+                    {telegramToken && !telegramRunning ? ' (configured but not started)' : ''}
+                    {!telegramToken ? ' (not configured)' : ''}
+                  </span>
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex gap-2">
+                  {!telegramRunning ? (
+                    <button
+                      onClick={handleTelegramStart}
+                      disabled={!telegramToken || telegramStarting}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {telegramStarting ? 'Starting...' : 'Start Bot'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleTelegramStop}
+                      disabled={telegramStopping}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 transition-colors"
+                    >
+                      {telegramStopping ? 'Stopping...' : 'Stop Bot'}
+                    </button>
+                  )}
+                  <button
+                    onClick={handleTelegramSaveConfig}
+                    disabled={!telegramToken}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-border text-foreground hover:bg-surface-elevated/50 disabled:opacity-50 transition-colors"
+                  >
+                    Save Config
+                  </button>
+                </div>
+
+                {telegramChatIds && telegramChatIds.trim() && (
+                  <div className="bg-muted/30 border border-border rounded-lg p-2.5">
+                    <p className="text-[10px] text-muted-foreground mb-1">Authorized chats:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {telegramChatIds.split(',').map((id, i) => {
+                        const trimmed = id.trim();
+                        if (!trimmed) return null;
+                        return (
+                          <span key={i} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-mono">
+                            {trimmed}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

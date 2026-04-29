@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react';
-import { Mic, MicOff, Phone, PhoneOff, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Mic, MicOff, Phone, PhoneOff, Loader2, ArrowLeft } from 'lucide-react';
 import AudioWaveform from '@/components/parlor/AudioWaveform';
 import CameraViewport from '@/components/parlor/CameraViewport';
 import { useParlorSession, type ParlorState } from '@/hooks/useParlorSession';
@@ -19,6 +20,7 @@ const STATE_COLORS: Record<ParlorState, string> = {
 };
 
 const ParlorPage = () => {
+  const navigate = useNavigate();
   const {
     state,
     transcript,
@@ -41,6 +43,17 @@ const ParlorPage = () => {
 
   return (
     <div className="flex flex-col h-screen bg-[hsl(0,0%,6%)] text-white overflow-hidden">
+      {/* Back button */}
+      <div className="absolute top-4 left-4 z-10">
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+          title="Retour"
+        >
+          <ArrowLeft size={18} />
+          <span>Retour</span>
+        </button>
+      </div>
       <div className="flex-1 flex flex-col lg:flex-row gap-4 p-4 overflow-hidden">
         {/* Left: Camera + Controls */}
         <div className="flex flex-col gap-4 lg:w-[45%] shrink-0">

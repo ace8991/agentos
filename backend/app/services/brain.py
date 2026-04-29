@@ -122,16 +122,18 @@ WORKING MEMORY:
 {tool_section}{browser_ready_section}{browser_first_section}{escalation}
 Current screen above. What is your next action?"""
 
-    model_map = {
-        "claude-sonnet-4-6": "claude-sonnet-4-6",
-        "claude-opus-4-5": "claude-opus-4-5",
-    }
     system = _build_system_prompt(task)
 
+    # ── Resolve model capabilities from the unified registry ──────────────
+    from src.agent.core.registry import get_model as registry_get_model
+    model_info = registry_get_model(model)
+    supports_vision = bool(model_info and model_info.supports_vision)
+
+    # ── Claude (native Anthropic SDK) ────────────────────────────────────
     if model.startswith("claude"):
         client = _anthropic()
         response = client.messages.create(
-            model=model_map.get(model, "claude-sonnet-4-6"),
+            model=model,
             max_tokens=1024,
             system=system,
             messages=[
@@ -152,36 +154,81 @@ Current screen above. What is your next action?"""
             ],
         )
         text = response.content[0].text
-    elif model.startswith("gpt"):
-        from openai import OpenAI
 
-        key = get_runtime_value("OPENAI_API_KEY")
-        if not key:
-            raise ValueError("OPENAI_API_KEY not set")
-        client = OpenAI(api_key=key)
-        payload = {
-            "model": model,
-            "messages": [
-                {"role": "system", "content": system},
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{screenshot_b64}"}},
-                        {"type": "text", "text": user_content},
-                    ],
-                },
-            ],
-        }
-        if _uses_openai_max_completion_tokens(model):
-            payload["max_completion_tokens"] = 1024
-        else:
-            payload["max_tokens"] = 1024
-        if reasoning_effort:
-            payload["reasoning_effort"] = reasoning_effort
-        response = client.chat.completions.create(**payload)
-        text = response.choices[0].message.content
+    # ── OpenAI-compatible providers (GPT, DeepSeek, Mistral, Groq, Qwen, Ollama, Gemini) ──
     else:
-        raise ValueError(f"Unsupported model: {model}")
+        # Resolve API configuration from the registry/provider
+        provider_configs = {
+            "openai":      ("OPENAI_API_KEY", "https://api.openai.com/v1/chat/completions"),
+            "deepseek":    ("DEEPSEEK_API_KEY", "https://api.deepseek.com/chat/completions"),
+            "mistral":     ("MISTRAL_API_KEY", "https://api.mistral.ai/v1/chat/completions"),
+            "groq":        ("GROQ_API_KEY", "https://api.groq.com/openai/v1/chat/completions"),
+            "qwen":        ("QWEN_API_KEY", "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"),
+            "google":      ("GOOGLE_API_KEY", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"),
+        }
+
+        # Determine provider from model_info or model prefix
+        provider = model_info.provider if model_info else None
+        if not provider:
+            if model.startswith("ollama/"):
+                provider = "ollama"
+            else:
+                raise ValueError(f"Unsupported model (not in registry): {model}")
+
+        if provider == "ollama":
+            # Ollama uses local endpoint, no API key
+            ollama_base = get_runtime_value("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
+            endpoint = f"{ollama_base}/v1/chat/completions"
+            api_key = None
+            oauth_token = None
+        else:
+            config = provider_configs.get(provider)
+            if not config:
+                raise ValueError(f"Unsupported provider '{provider}' for model '{model}'")
+            env_name, endpoint = config
+            api_key = get_runtime_value(env_name)
+            if not api_key:
+                raise ValueError(f"{env_name} is not configured on the backend. Set it in Settings or .env.")
+
+        # Build messages — with image ONLY if model supports vision
+        messages = [{"role": "system", "content": system}]
+        user_parts = []
+        if supports_vision and screenshot_b64:
+            user_parts.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:image/jpeg;base64,{screenshot_b64}"},
+            })
+        user_parts.append({"type": "text", "text": user_content})
+
+        if supports_vision:
+            messages.append({"role": "user", "content": user_parts})
+        else:
+            messages.append({"role": "user", "content": user_content})
+
+        payload: dict = {
+            "model": model,
+            "messages": messages,
+            "max_tokens": 1024,
+            "stream": False,
+        }
+        if reasoning_effort and provider == "openai":
+            payload["reasoning_effort"] = reasoning_effort
+
+        headers = {"Content-Type": "application/json"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+
+        import httpx
+        response = httpx.post(endpoint, headers=headers, json=payload, timeout=60.0)
+        if response.status_code >= 400:
+            detail = response.text[:500]
+            raise ValueError(f"Provider error {response.status_code} for '{model}': {detail}")
+
+        result = response.json()
+        choice = result.get("choices", [{}])[0]
+        text = (choice.get("message") or {}).get("content") or ""
+        if not text:
+            raise ValueError(f"Empty response from provider for '{model}'")
 
     reasoning = re.sub(r"<action>.*?</action>", "", text, flags=re.DOTALL).strip()
     return reasoning, parse_action(text)

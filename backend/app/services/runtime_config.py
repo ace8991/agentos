@@ -27,6 +27,11 @@ ALLOWED_RUNTIME_KEYS = {
     "BROWSER_EFFICIENCY_MODE",
     "BROWSER_USE_ELEMENT_CACHE",
     "BROWSER_TARGETED_SCREENSHOTS",
+    # Telegram bot
+    "TELEGRAM_BOT_TOKEN",
+    "TELEGRAM_CHAT_IDS",
+    "TELEGRAM_MODEL",
+    "TELEGRAM_MAX_STEPS",
 }
 
 _runtime_overrides: dict[str, str] = {}

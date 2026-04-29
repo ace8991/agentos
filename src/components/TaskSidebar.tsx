@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Plus, Search, Settings, BookOpen, Bot, FolderPlus,
   Download, ChevronRight, Plug, Globe, PanelLeftClose, PanelLeftOpen,
-  Menu, X, LogOut, Smartphone, Code2, Users
+  Menu, X, LogOut, Smartphone, Code2, Users, Radio
 } from 'lucide-react';
 import { useStore, type HistoryRun } from '@/store/useStore';
 import { useAuthStore } from '@/store/authStore';
@@ -139,6 +139,7 @@ const TaskSidebar = () => {
           <Search size={16} />
           <span>Search</span>
         </button>
+        {/* Library — hidden for now
         <button
           onClick={() => setLibraryOpen(!libraryOpen)}
           className={`w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm transition-colors active:scale-[0.98] ${libraryOpen ? 'bg-surface-elevated text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated'}`}
@@ -146,6 +147,8 @@ const TaskSidebar = () => {
           <BookOpen size={16} />
           <span>Library</span>
         </button>
+        */}
+        {/* Mobile Hub — hidden for now
         <button
           onClick={() => {
             openSettingsFor('mobile-hub');
@@ -156,6 +159,7 @@ const TaskSidebar = () => {
           <Smartphone size={16} />
           <span>Mobile Hub</span>
         </button>
+        */}
         <button
           onClick={() => { navigate('/code'); setMobileOpen(false); }}
           className="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.98]"
@@ -169,6 +173,13 @@ const TaskSidebar = () => {
         >
           <Users size={16} />
           <span>Cowork</span>
+        </button>
+        <button
+          onClick={() => { navigate('/parlor'); setMobileOpen(false); }}
+          className="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors active:scale-[0.98]"
+        >
+          <Radio size={16} />
+          <span>Parlor</span>
         </button>
       </div>
 
