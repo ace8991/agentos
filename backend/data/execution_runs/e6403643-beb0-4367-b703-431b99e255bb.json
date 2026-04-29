@@ -1,0 +1,195 @@
+{
+  "run_id": "e6403643-beb0-4367-b703-431b99e255bb",
+  "task": "test",
+  "model": "deepseek-chat",
+  "status": "planning",
+  "max_steps": 5,
+  "capture_interval_ms": 1000,
+  "reasoning_effort": null,
+  "active": true,
+  "current_step": 0,
+  "plan": {
+    "id": "plan-84f97626d2",
+    "task": "test",
+    "model": "deepseek-chat",
+    "intent": {
+      "kind": "code",
+      "summary": "Analyze and modify code with checkpoints, validation, and review.",
+      "requires_live_browser": false,
+      "requires_filesystem": true,
+      "requires_terminal": true,
+      "requires_desktop": false,
+      "requires_builder": false,
+      "requires_code": true,
+      "requires_web_search": false,
+      "preferred_capabilities": [
+        "code",
+        "filesystem",
+        "terminal",
+        "git"
+      ]
+    },
+    "summary": "Analyze and modify code with checkpoints, validation, and review.",
+    "subagents": [
+      {
+        "id": "planner",
+        "role": "planner",
+        "title": "Analyze request",
+        "description": "Interpret the request, select the right capabilities, and prepare the execution strategy.",
+        "status": "pending",
+        "depends_on": [],
+        "allowed_families": [
+          "filesystem",
+          "terminal",
+          "desktop",
+          "browser",
+          "web_search",
+          "builder",
+          "code",
+          "git",
+          "system"
+        ],
+        "result_summary": null,
+        "error": null
+      },
+      {
+        "id": "code-analyzer",
+        "role": "code-analyzer",
+        "title": "Analyze codebase",
+        "description": "Understand project structure, key files, and task impact.",
+        "status": "pending",
+        "depends_on": [
+          "planner"
+        ],
+        "allowed_families": [
+          "code",
+          "filesystem",
+          "git"
+        ],
+        "result_summary": null,
+        "error": null
+      },
+      {
+        "id": "code-editor",
+        "role": "code-editor",
+        "title": "Apply code changes",
+        "description": "Implement the requested changes while preserving project conventions.",
+        "status": "pending",
+        "depends_on": [
+          "code-analyzer"
+        ],
+        "allowed_families": [
+          "code",
+          "filesystem",
+          "git"
+        ],
+        "result_summary": null,
+        "error": null
+      },
+      {
+        "id": "test-runner",
+        "role": "test-runner",
+        "title": "Run validation",
+        "description": "Execute targeted checks and tests after code changes.",
+        "status": "pending",
+        "depends_on": [
+          "code-editor"
+        ],
+        "allowed_families": [
+          "terminal",
+          "code",
+          "filesystem"
+        ],
+        "result_summary": null,
+        "error": null
+      },
+      {
+        "id": "reviewer",
+        "role": "reviewer",
+        "title": "Review the result",
+        "description": "Validate correctness, risks, and remaining follow-up work.",
+        "status": "pending",
+        "depends_on": [
+          "test-runner"
+        ],
+        "allowed_families": [
+          "code",
+          "filesystem",
+          "git"
+        ],
+        "result_summary": null,
+        "error": null
+      }
+    ],
+    "steps": [
+      {
+        "id": "plan-b207368f-1",
+        "step_number": 1,
+        "title": "Analyze request",
+        "description": "Break down the request, identify risks, and select the required capabilities.",
+        "status": "pending",
+        "subagent_role": "planner",
+        "tool_invocation": null,
+        "checkpoint": null,
+        "result_summary": null,
+        "error": null,
+        "started_at": null,
+        "completed_at": null
+      },
+      {
+        "id": "plan-88496cf8-2",
+        "step_number": 2,
+        "title": "Prepare tools and context",
+        "description": "Load the right providers, memory, and workspace context before execution.",
+        "status": "pending",
+        "subagent_role": "planner",
+        "tool_invocation": null,
+        "checkpoint": null,
+        "result_summary": null,
+        "error": null,
+        "started_at": null,
+        "completed_at": null
+      },
+      {
+        "id": "plan-fafa0502-3",
+        "step_number": 3,
+        "title": "Execute primary workflow",
+        "description": "Analyze and modify code with checkpoints, validation, and review.",
+        "status": "pending",
+        "subagent_role": "code-analyzer",
+        "tool_invocation": null,
+        "checkpoint": null,
+        "result_summary": null,
+        "error": null,
+        "started_at": null,
+        "completed_at": null
+      },
+      {
+        "id": "plan-85ce25e4-4",
+        "step_number": 4,
+        "title": "Validate and summarize",
+        "description": "Verify the result and produce a professional final summary.",
+        "status": "pending",
+        "subagent_role": "reviewer",
+        "tool_invocation": null,
+        "checkpoint": null,
+        "result_summary": null,
+        "error": null,
+        "started_at": null,
+        "completed_at": null
+      }
+    ],
+    "preferred_providers": [
+      "code",
+      "filesystem",
+      "terminal",
+      "git"
+    ],
+    "created_at": "2026-04-29T17:45:37.220700+00:00"
+  },
+  "steps": [],
+  "summary": null,
+  "workspace_id": null,
+  "created_at": "2026-04-29T17:45:37.220700+00:00",
+  "updated_at": "2026-04-29T17:45:37.220700+00:00"
+}

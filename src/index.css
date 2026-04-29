@@ -1,5 +1,7 @@
 /* Inter font loaded via index.html */
 
+@import './styles/artifact.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

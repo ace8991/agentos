@@ -1,5 +1,9 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Bot, CheckCircle, Code2, Database, FolderOpen, Ghost, Layers3, MessageSquareText, Mic, MonitorPlay, Paperclip, Plus, Send, Square, X } from 'lucide-react';
+import { extractArtifactsFromResponse } from './artifact/ArtifactDetector';
+import { ArtifactTab } from './artifact/ArtifactTab';
+import { ArtifactPanel } from './artifact/ArtifactPanel';
+import { useArtifactStore } from '@/stores/artifactStore';
 import { toast } from '@/components/ui/sonner';
 import { useStore, type LogEntry } from '@/store/useStore';
 import ChatMessage from './chat/ChatMessage';
@@ -709,7 +713,9 @@ const ChatPanel = () => {
     : 'Processing...';
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col h-screen md:h-screen">
+    <div className="flex min-h-0 min-w-0 flex-1 h-screen md:h-screen">
+      {/* Chat content — left side */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex items-center justify-between border-b border-border px-3 py-3 md:px-5">
         <div className="min-w-0 flex items-center gap-2 md:gap-3">
           <div className="w-10 shrink-0 md:hidden" />
@@ -952,13 +958,45 @@ const ChatPanel = () => {
             );
           }
 
+          // Détecter les artifacts dans les réponses de l'assistant
+          const entryArtifacts = (entry.type === 'result' && typeof entry.action === 'string')
+            ? extractArtifactsFromResponse(entry.action, entry.id)
+            : [];
+
+          // Ajouter les artifacts détectés au store
+          if (entryArtifacts.length > 0) {
+            // Utiliser setTimeout pour éviter de setter state pendant le render
+            setTimeout(() => {
+              const store = useArtifactStore.getState();
+              entryArtifacts.forEach((artifact) => {
+                if (!store.artifacts.has(artifact.id)) {
+                  store.addArtifact(artifact);
+                }
+              });
+              // Auto-ouvrir le panel pour le dernier artifact
+              const lastArtifact = entryArtifacts[entryArtifacts.length - 1];
+              if (lastArtifact && !store.isPanelOpen) {
+                store.openPanel(lastArtifact.id);
+              }
+            }, 0);
+          }
+
           return (
-            <ChatMessage
-              key={entry.id}
-              entry={entry}
-              onAskReply={resolveAsk}
-              isStreaming={chatLoading && entry.type === 'result' && entry.id === chronologicalEntries[chronologicalEntries.length - 1]?.id}
-            />
+            <div key={entry.id}>
+              <ChatMessage
+                entry={entry}
+                onAskReply={resolveAsk}
+                isStreaming={chatLoading && entry.type === 'result' && entry.id === chronologicalEntries[chronologicalEntries.length - 1]?.id}
+              />
+              {/* Afficher les artifacts tabs sous le message assistant */}
+              {entryArtifacts.length > 0 && (
+                <div className="px-4 pb-2">
+                  {entryArtifacts.map((artifact) => (
+                    <ArtifactTab key={artifact.id} artifact={artifact} />
+                  ))}
+                </div>
+              )}
+            </div>
           );
         })}
 
@@ -1234,6 +1272,10 @@ const ChatPanel = () => {
           }}
         />
       </Suspense>
+
+      {/* Artifact Preview Panel — s'affiche à droite quand un artifact est ouvert */}
+      <ArtifactPanel />
+      </div>
     </div>
   );
 };

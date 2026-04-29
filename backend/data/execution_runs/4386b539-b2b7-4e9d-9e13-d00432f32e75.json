@@ -1,0 +1,138 @@
+{
+  "run_id": "4386b539-b2b7-4e9d-9e13-d00432f32e75",
+  "task": "dis moi l'heure",
+  "model": "deepseek-chat",
+  "status": "planning",
+  "max_steps": 20,
+  "capture_interval_ms": 1000,
+  "reasoning_effort": null,
+  "active": true,
+  "current_step": 0,
+  "plan": {
+    "id": "plan-bb6a2f9eff",
+    "task": "dis moi l'heure",
+    "model": "deepseek-chat",
+    "intent": {
+      "kind": "chat",
+      "summary": "Respond conversationally and use tools only if the workflow requires them.",
+      "requires_live_browser": false,
+      "requires_filesystem": false,
+      "requires_terminal": false,
+      "requires_desktop": false,
+      "requires_builder": false,
+      "requires_code": false,
+      "requires_web_search": false,
+      "preferred_capabilities": [
+        "web_search"
+      ]
+    },
+    "summary": "Respond conversationally and use tools only if the workflow requires them.",
+    "subagents": [
+      {
+        "id": "planner",
+        "role": "planner",
+        "title": "Analyze request",
+        "description": "Interpret the request, select the right capabilities, and prepare the execution strategy.",
+        "status": "pending",
+        "depends_on": [],
+        "allowed_families": [
+          "filesystem",
+          "terminal",
+          "desktop",
+          "browser",
+          "web_search",
+          "builder",
+          "code",
+          "git",
+          "system"
+        ],
+        "result_summary": null,
+        "error": null
+      },
+      {
+        "id": "review",
+        "role": "reviewer",
+        "title": "Summarize outcome",
+        "description": "Validate the result and produce a clear final response.",
+        "status": "pending",
+        "depends_on": [
+          "planner"
+        ],
+        "allowed_families": [
+          "code",
+          "filesystem",
+          "git"
+        ],
+        "result_summary": null,
+        "error": null
+      }
+    ],
+    "steps": [
+      {
+        "id": "plan-fa70089d-1",
+        "step_number": 1,
+        "title": "Analyze request",
+        "description": "Break down the request, identify risks, and select the required capabilities.",
+        "status": "pending",
+        "subagent_role": "planner",
+        "tool_invocation": null,
+        "checkpoint": null,
+        "result_summary": null,
+        "error": null,
+        "started_at": null,
+        "completed_at": null
+      },
+      {
+        "id": "plan-53f8d398-2",
+        "step_number": 2,
+        "title": "Prepare tools and context",
+        "description": "Load the right providers, memory, and workspace context before execution.",
+        "status": "pending",
+        "subagent_role": "planner",
+        "tool_invocation": null,
+        "checkpoint": null,
+        "result_summary": null,
+        "error": null,
+        "started_at": null,
+        "completed_at": null
+      },
+      {
+        "id": "plan-546a03a8-3",
+        "step_number": 3,
+        "title": "Execute primary workflow",
+        "description": "Respond conversationally and use tools only if the workflow requires them.",
+        "status": "pending",
+        "subagent_role": "browser",
+        "tool_invocation": null,
+        "checkpoint": null,
+        "result_summary": null,
+        "error": null,
+        "started_at": null,
+        "completed_at": null
+      },
+      {
+        "id": "plan-975d6f12-4",
+        "step_number": 4,
+        "title": "Validate and summarize",
+        "description": "Verify the result and produce a professional final summary.",
+        "status": "pending",
+        "subagent_role": "reviewer",
+        "tool_invocation": null,
+        "checkpoint": null,
+        "result_summary": null,
+        "error": null,
+        "started_at": null,
+        "completed_at": null
+      }
+    ],
+    "preferred_providers": [
+      "web_search"
+    ],
+    "created_at": "2026-04-29T17:38:11.162266+00:00"
+  },
+  "steps": [],
+  "summary": null,
+  "workspace_id": null,
+  "created_at": "2026-04-29T17:38:11.162266+00:00",
+  "updated_at": "2026-04-29T17:38:11.162266+00:00"
+}
