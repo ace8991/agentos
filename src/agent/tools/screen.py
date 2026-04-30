@@ -1,48 +1,56 @@
-"""Screen capture tools using mss.
-
-Completely independent of any LLM.
-"""
-
+"""Screenshot tool using mss (fast, cross-platform)."""
 from __future__ import annotations
 
-import base64
-import logging
-from io import BytesIO
+import io
+from typing import Any
 
-import mss
-from PIL import Image
-
-from src.agent.tools.base import registry
-
-logger = logging.getLogger("agentos.agent.tools.screen")
+from ..core.types import ToolResult
+from .base import Tool
 
 
-def take_screenshot() -> str:
-    """Capture the primary monitor and return base64-encoded JPEG.
+class ScreenshotTool(Tool):
+    name = "screenshot"
+    description = (
+        "Capture a screenshot of the entire primary monitor. "
+        "Returns the image as PNG bytes embedded in the result."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "monitor": {
+                "type": "integer",
+                "description": "Monitor index (0 = all, 1 = primary). Default: 1",
+            },
+        },
+        "required": [],
+    }
+    is_semantic = True
+    is_computer_use_native = False  # Claude has its own screenshot built into computer
 
-    Returns:
-        Base64-encoded JPEG string.
-    """
-    try:
+    def execute(self, args: dict[str, Any]) -> ToolResult:
+        try:
+            import mss
+            from PIL import Image
+        except ImportError as e:
+            return ToolResult(
+                tool_call_id="",
+                content=f"mss/Pillow not installed: {e}",
+                is_error=True,
+            )
+
+        monitor = args.get("monitor", 1)
         with mss.mss() as sct:
-            monitor = sct.monitors[1]  # Primary monitor
-            screenshot = sct.grab(monitor)
-            img = Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
-    except Exception as exc:
-        logger.error("Screenshot failed: %s", exc)
-        return f"ERROR: Screenshot failed: {exc}"
+            try:
+                shot = sct.grab(sct.monitors[monitor])
+            except IndexError:
+                shot = sct.grab(sct.monitors[1])
+            img = Image.frombytes("RGB", shot.size, shot.bgra, "raw", "BGRX")
+            buf = io.BytesIO()
+            img.save(buf, format="PNG", optimize=True)
+            png_bytes = buf.getvalue()
 
-    # Resize if too large
-    max_width = 1280
-    if img.width > max_width:
-        ratio = max_width / img.width
-        new_height = int(img.height * ratio)
-        img = img.resize((max_width, new_height), Image.LANCZOS)
-
-    buffer = BytesIO()
-    img.save(buffer, format="JPEG", quality=75)
-    return base64.b64encode(buffer.getvalue()).decode("utf-8")
-
-
-# Register tool
-registry.register("screenshot", lambda: f"[SCREENSHOT:{take_screenshot()}]")
+        return ToolResult(
+            tool_call_id="",
+            content={"width": img.width, "height": img.height, "size_bytes": len(png_bytes)},
+            image=png_bytes,
+        )

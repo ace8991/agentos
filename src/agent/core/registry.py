@@ -1,73 +1,52 @@
-"""Model registry — declares ALL supported models with their capabilities.
-
-Each model entry declares what it can do. The orchestrator reads these
-capabilities and adapts the tool suite accordingly.
-
-Adding a new model = adding one entry here (and optionally a provider file).
 """
+Model registry — single source of truth for which models AgentOS Pro supports.
 
+Each ModelInfo declares the model's capabilities so the orchestrator can adapt:
+- supports_computer_use → use Anthropic's native pixel-precise computer tool
+- supports_function_calling → required (we won't support models without it)
+- supports_vision → can we send screenshots to it?
+
+To add a new model: add an entry below. That's it. No other code changes needed.
+"""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Literal
+from dataclasses import dataclass
 
 
-ProviderName = Literal[
-    "anthropic", "deepseek", "openai", "gemini", "ollama", "mistral", "qwen", "groq"
-]
-
-
-@dataclass
+@dataclass(frozen=True)
 class ModelInfo:
-    """Declarative model capability descriptor."""
-
-    id: str
-    """Unique model identifier (e.g. 'deepseek-v4-pro')."""
-
-    provider: ProviderName
-    """Which provider serves this model."""
-
-    label: str
-    """Human-readable label for the frontend dropdown."""
-
+    id: str                              # API model id
+    provider: str                        # Provider key (anthropic, deepseek, openai...)
+    label: str                           # Human-readable label for UI
     supports_function_calling: bool = True
-    """Can this model call tools/functions?"""
-
     supports_vision: bool = False
-    """Can this model accept image inputs?"""
-
-    supports_computer_use: bool = False
-    """Does this model support native computer_20250124 tool (Claude only)?"""
-
-    supports_thinking: bool = False
-    """Does this model support extended thinking/reasoning?"""
-
+    supports_computer_use: bool = False  # Native pixel-precise computer use
+    supports_thinking: bool = False      # Reasoning/thinking mode
     max_context: int = 128_000
-    """Maximum context window in tokens."""
-
-    max_output: int = 8_192
-    """Maximum output tokens."""
-
-    legacy: bool = False
-    """Is this model deprecated?"""
-
-    extra: dict = field(default_factory=dict)
-    """Provider-specific extra params (e.g. reasoning_effort levels)."""
+    default_max_tokens: int = 4096
 
 
-# ── Master registry ───────────────────────────────────────────────────────────
-
+# ─────────────────────────────────────────────────────────────────
+# REGISTRY — add new models here
+# ─────────────────────────────────────────────────────────────────
 MODEL_REGISTRY: dict[str, ModelInfo] = {
-    # ── Anthropic ──────────────────────────────────────────────────────────────
-    "claude-opus-4-5": ModelInfo(
-        id="claude-opus-4-5",
+    # Anthropic — native computer use
+    "claude-opus-4-7": ModelInfo(
+        id="claude-opus-4-7",
         provider="anthropic",
-        label="Claude Opus 4.5",
+        label="Claude Opus 4.7",
         supports_vision=True,
         supports_computer_use=True,
         supports_thinking=True,
         max_context=200_000,
-        max_output=8_192,
+    ),
+    "claude-opus-4-6": ModelInfo(
+        id="claude-opus-4-6",
+        provider="anthropic",
+        label="Claude Opus 4.6",
+        supports_vision=True,
+        supports_computer_use=True,
+        max_context=200_000,
     ),
     "claude-sonnet-4-6": ModelInfo(
         id="claude-sonnet-4-6",
@@ -75,303 +54,99 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         label="Claude Sonnet 4.6",
         supports_vision=True,
         supports_computer_use=True,
-        supports_thinking=True,
         max_context=200_000,
-        max_output=8_192,
     ),
-    "claude-haiku-3-5": ModelInfo(
-        id="claude-haiku-3-5",
+    "claude-haiku-4-5": ModelInfo(
+        id="claude-haiku-4-5-20251001",
         provider="anthropic",
-        label="Claude Haiku 3.5",
+        label="Claude Haiku 4.5",
         supports_vision=True,
-        supports_computer_use=False,
-        supports_thinking=False,
+        supports_computer_use=True,
         max_context=200_000,
-        max_output=8_192,
     ),
-    # ── DeepSeek (OpenAI-compatible) ─────────────────────────────────────────
-    "deepseek-chat": ModelInfo(
-        id="deepseek-chat",
+
+    # DeepSeek — function calling + vision, no native computer use
+    "deepseek-v4-pro": ModelInfo(
+        id="deepseek-v4-pro",
         provider="deepseek",
-        label="DeepSeek V3",
-        supports_vision=False,
-        supports_computer_use=False,
-        supports_thinking=False,
-        max_context=64_000,
-        max_output=8_192,
+        label="DeepSeek V4 Pro",
+        supports_vision=True,
+        supports_thinking=True,
+        max_context=1_000_000,
     ),
-    "deepseek-reasoner": ModelInfo(
-        id="deepseek-reasoner",
+    "deepseek-v4-flash": ModelInfo(
+        id="deepseek-v4-flash",
         provider="deepseek",
-        label="DeepSeek R1",
-        supports_vision=False,
-        supports_computer_use=False,
-        supports_thinking=True,
-        max_context=64_000,
-        max_output=8_192,
-    ),
-    # ── OpenAI ────────────────────────────────────────────────────────────────
-    "gpt-5.4": ModelInfo(
-        id="gpt-5.4",
-        provider="openai",
-        label="GPT-5.4",
+        label="DeepSeek V4 Flash",
         supports_vision=True,
-        supports_computer_use=False,
-        supports_thinking=True,
         max_context=128_000,
-        max_output=16_384,
     ),
-    "gpt-5.3-codex": ModelInfo(
-        id="gpt-5.3-codex",
+
+    # OpenAI
+    "gpt-5": ModelInfo(
+        id="gpt-5",
         provider="openai",
-        label="GPT-5.3-Codex",
+        label="GPT-5",
         supports_vision=True,
-        supports_computer_use=False,
         supports_thinking=True,
-        max_context=128_000,
-        max_output=16_384,
-    ),
-    "gpt-5.2-codex": ModelInfo(
-        id="gpt-5.2-codex",
-        provider="openai",
-        label="GPT-5.2-Codex",
-        supports_vision=True,
-        supports_computer_use=False,
-        supports_thinking=True,
-        max_context=128_000,
-        max_output=16_384,
-    ),
-    "gpt-5.1": ModelInfo(
-        id="gpt-5.1",
-        provider="openai",
-        label="GPT-5.1",
-        supports_vision=True,
-        supports_computer_use=False,
-        supports_thinking=True,
-        max_context=128_000,
-        max_output=16_384,
+        max_context=400_000,
     ),
     "gpt-4o": ModelInfo(
         id="gpt-4o",
         provider="openai",
         label="GPT-4o",
         supports_vision=True,
-        supports_computer_use=False,
-        supports_thinking=False,
         max_context=128_000,
-        max_output=8_192,
     ),
-    "gpt-4o-mini": ModelInfo(
-        id="gpt-4o-mini",
-        provider="openai",
-        label="GPT-4o Mini",
-        supports_vision=True,
-        supports_computer_use=False,
-        supports_thinking=False,
-        max_context=128_000,
-        max_output=16_384,
-    ),
-    "o1": ModelInfo(
-        id="o1",
-        provider="openai",
-        label="o1",
-        supports_vision=False,
-        supports_computer_use=False,
-        supports_thinking=True,
-        max_context=200_000,
-        max_output=100_000,
-    ),
-    "o3-mini": ModelInfo(
-        id="o3-mini",
-        provider="openai",
-        label="o3-mini",
-        supports_vision=False,
-        supports_computer_use=False,
-        supports_thinking=True,
-        max_context=200_000,
-        max_output=100_000,
-    ),
-    # ── Google Gemini ─────────────────────────────────────────────────────────
+
+    # Gemini
     "gemini-2.5-pro": ModelInfo(
         id="gemini-2.5-pro",
         provider="gemini",
         label="Gemini 2.5 Pro",
         supports_vision=True,
-        supports_computer_use=False,
-        supports_thinking=True,
         max_context=1_000_000,
-        max_output=8_192,
     ),
-    "gemini-2.5-flash": ModelInfo(
-        id="gemini-2.5-flash",
-        provider="gemini",
-        label="Gemini 2.5 Flash",
-        supports_vision=True,
-        supports_computer_use=False,
-        supports_thinking=True,
-        max_context=1_000_000,
-        max_output=8_192,
-    ),
-    # ── Mistral ───────────────────────────────────────────────────────────────
-    "mistral-large-latest": ModelInfo(
-        id="mistral-large-latest",
-        provider="mistral",
-        label="Mistral Large",
-        supports_vision=False,
-        supports_computer_use=False,
-        supports_thinking=False,
-        max_context=128_000,
-        max_output=8_192,
-    ),
-    "mistral-medium-latest": ModelInfo(
-        id="mistral-medium-latest",
-        provider="mistral",
-        label="Mistral Medium",
-        supports_vision=False,
-        supports_computer_use=False,
-        supports_thinking=False,
-        max_context=32_000,
-        max_output=8_192,
-    ),
-    "codestral-latest": ModelInfo(
-        id="codestral-latest",
-        provider="mistral",
-        label="Codestral",
-        supports_vision=False,
-        supports_computer_use=False,
-        supports_thinking=False,
-        max_context=256_000,
-        max_output=8_192,
-    ),
-    # ── Qwen ──────────────────────────────────────────────────────────────────
-    "qwen-max": ModelInfo(
-        id="qwen-max",
-        provider="qwen",
-        label="Qwen Max",
-        supports_vision=False,
-        supports_computer_use=False,
-        supports_thinking=False,
-        max_context=32_000,
-        max_output=8_192,
-    ),
-    "qwen-plus": ModelInfo(
-        id="qwen-plus",
-        provider="qwen",
-        label="Qwen Plus",
-        supports_vision=False,
-        supports_computer_use=False,
-        supports_thinking=False,
-        max_context=131_072,
-        max_output=8_192,
-    ),
-    "qwen-turbo": ModelInfo(
-        id="qwen-turbo",
-        provider="qwen",
-        label="Qwen Turbo",
-        supports_vision=False,
-        supports_computer_use=False,
-        supports_thinking=False,
-        max_context=1_000_000,
-        max_output=8_192,
-    ),
-    "qwen3-235b-a22b-instruct-2507": ModelInfo(
-        id="qwen3-235b-a22b-instruct-2507",
-        provider="qwen",
-        label="Qwen3 235B",
-        supports_vision=False,
-        supports_computer_use=False,
-        supports_thinking=True,
-        max_context=32_000,
-        max_output=8_192,
-    ),
-    # ── Groq ──────────────────────────────────────────────────────────────────
-    "llama-3.3-70b-versatile": ModelInfo(
-        id="llama-3.3-70b-versatile",
-        provider="groq",
-        label="Llama 3.3 70B",
-        supports_vision=False,
-        supports_computer_use=False,
-        supports_thinking=False,
-        max_context=128_000,
-        max_output=8_192,
-    ),
-    "mixtral-8x7b-32768": ModelInfo(
-        id="mixtral-8x7b-32768",
-        provider="groq",
-        label="Mixtral 8x7B",
-        supports_vision=False,
-        supports_computer_use=False,
-        supports_thinking=False,
-        max_context=32_000,
-        max_output=8_192,
-    ),
-    # ── Ollama (local) ────────────────────────────────────────────────────────
-    "ollama/llama3": ModelInfo(
-        id="ollama/llama3",
-        provider="ollama",
-        label="Llama 3 (Ollama)",
-        supports_vision=False,
-        supports_computer_use=False,
-        supports_thinking=False,
-        max_context=8_192,
-        max_output=4_096,
-    ),
-    "ollama/mistral": ModelInfo(
-        id="ollama/mistral",
-        provider="ollama",
-        label="Mistral 7B (Ollama)",
-        supports_vision=False,
-        supports_computer_use=False,
-        supports_thinking=False,
-        max_context=8_192,
-        max_output=4_096,
-    ),
-    "ollama/codellama": ModelInfo(
-        id="ollama/codellama",
-        provider="ollama",
-        label="Code Llama (Ollama)",
-        supports_vision=False,
-        supports_computer_use=False,
-        supports_thinking=False,
-        max_context=16_384,
-        max_output=4_096,
-    ),
-    "ollama/deepseek-r1": ModelInfo(
-        id="ollama/deepseek-r1",
-        provider="ollama",
-        label="DeepSeek R1 (Ollama)",
-        supports_vision=False,
-        supports_computer_use=False,
-        supports_thinking=True,
-        max_context=32_000,
-        max_output=8_192,
-    ),
+
+    # Local / Ollama — example entries
     "ollama/qwen3-vl": ModelInfo(
-        id="ollama/qwen3-vl",
+        id="qwen3-vl:latest",
         provider="ollama",
-        label="Qwen3 VL (Ollama)",
+        label="Qwen3 VL (local)",
         supports_vision=True,
-        supports_computer_use=False,
-        supports_thinking=False,
-        max_context=32_000,
-        max_output=8_192,
+        max_context=128_000,
+    ),
+    "ollama/llama3.3": ModelInfo(
+        id="llama3.3:latest",
+        provider="ollama",
+        label="Llama 3.3 (local)",
+        supports_vision=False,   # Text only — agent will work but no screenshots
+        max_context=128_000,
     ),
 }
 
 
-def get_model(model_id: str) -> ModelInfo | None:
-    """Look up a model by its ID. Returns None if not found."""
-    return MODEL_REGISTRY.get(model_id)
+def get_model(model_id: str) -> ModelInfo:
+    """Get model info or raise ValueError with helpful message."""
+    if model_id not in MODEL_REGISTRY:
+        available = ", ".join(MODEL_REGISTRY.keys())
+        raise ValueError(
+            f"Unknown model '{model_id}'. Available: {available}"
+        )
+    return MODEL_REGISTRY[model_id]
 
 
-def list_models() -> list[ModelInfo]:
-    """Return all registered models (non-legacy first)."""
-    return sorted(
-        [m for m in MODEL_REGISTRY.values() if not m.legacy],
-        key=lambda m: (m.provider, m.label),
-    )
-
-
-def list_models_for_provider(provider: str) -> list[ModelInfo]:
-    """Return all models belonging to a given provider."""
-    return [m for m in list_models() if m.provider == provider]
+def list_models_for_ui() -> list[dict]:
+    """Return models in a format ready for the frontend dropdown."""
+    return [
+        {
+            "id": key,
+            "provider": info.provider,
+            "label": info.label,
+            "computer_use": info.supports_computer_use,
+            "vision": info.supports_vision,
+            "thinking": info.supports_thinking,
+            "max_context": info.max_context,
+        }
+        for key, info in MODEL_REGISTRY.items()
+    ]

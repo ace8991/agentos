@@ -1,34 +1,52 @@
-"""Shell execution tool.
-
-Lightweight wrapper that uses the existing Desktop Commander executor.
-"""
-
+"""Shell command execution."""
 from __future__ import annotations
 
-import logging
+import subprocess
+from typing import Any
 
-from src.agent.tools.base import registry
-
-logger = logging.getLogger("agentos.agent.tools.shell")
-
-
-def run_command(command: str, timeout_ms: int = 30000) -> str:
-    """Run a shell command and return the output."""
-    try:
-        from app.services.desktop_commander import dc_execute_command
-        result = dc_execute_command(command, timeout_ms=min(timeout_ms, 120000))
-        if result.get("success"):
-            output = result.get("stdout", "") or ""
-            if result.get("stderr"):
-                output += f"\n[stderr] {result['stderr']}"
-            return output.strip() or "Command completed (no output)."
-        else:
-            error = result.get("stderr", "") or result.get("description", "Unknown error")
-            return f"ERROR: {error}"
-    except Exception as e:
-        logger.exception("Shell execution error")
-        return f"ERROR: {e}"
+from ..core.types import ToolResult
+from .base import Tool
 
 
-# Register
-registry.register("shell", run_command)
+class ShellTool(Tool):
+    name = "shell"
+    description = (
+        "Execute a shell command and return stdout/stderr. "
+        "On Windows uses PowerShell. Use this for system tasks that don't need a GUI."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "command": {"type": "string"},
+            "cwd": {"type": "string", "description": "Working directory (optional)"},
+            "timeout": {"type": "integer", "description": "Seconds (default 30)"},
+        },
+        "required": ["command"],
+    }
+
+    def execute(self, args: dict[str, Any]) -> ToolResult:
+        import platform
+        is_win = platform.system() == "Windows"
+        try:
+            result = subprocess.run(
+                args["command"],
+                shell=True,
+                capture_output=True,
+                text=True,
+                cwd=args.get("cwd"),
+                timeout=args.get("timeout", 30),
+                executable="powershell.exe" if is_win else None,
+            )
+            return ToolResult(
+                tool_call_id="",
+                content={
+                    "stdout": result.stdout[-4000:],
+                    "stderr": result.stderr[-2000:],
+                    "returncode": result.returncode,
+                },
+                is_error=result.returncode != 0,
+            )
+        except subprocess.TimeoutExpired:
+            return ToolResult(tool_call_id="", content="Command timed out", is_error=True)
+        except Exception as e:
+            return ToolResult(tool_call_id="", content=f"Shell error: {e}", is_error=True)

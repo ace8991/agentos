@@ -1,40 +1,63 @@
-"""Keyboard control tools using pyautogui.
-
-Completely independent of any LLM.
-"""
-
+"""Keyboard control tools using pyautogui."""
 from __future__ import annotations
 
-import logging
+from typing import Any
 
-import pyautogui
-
-from src.agent.tools.base import registry
-
-logger = logging.getLogger("agentos.agent.tools.keyboard")
+from ..core.types import ToolResult
+from .base import Tool
 
 
-def type_text(text: str) -> str:
-    """Type the given text using the keyboard."""
-    if not text:
-        return "ERROR: No text provided"
-    pyautogui.write(str(text), interval=0.03)
-    preview = text[:60] + ("..." if len(text) > 60 else "")
-    return f"Typed: {preview}"
+def _pyautogui():
+    import pyautogui
+    pyautogui.FAILSAFE = True
+    return pyautogui
 
 
-def press_keys(keys: str) -> str:
-    """Press a keyboard shortcut (e.g. 'ctrl+s', 'alt+f4')."""
-    if not keys:
-        return "ERROR: No keys provided"
-    key_list = [k.strip() for k in keys.split("+")]
-    if len(key_list) > 1:
-        pyautogui.hotkey(*key_list)
-    else:
-        pyautogui.press(key_list[0])
-    return f"Pressed: {keys}"
+class KeyboardTypeTool(Tool):
+    name = "keyboard_type"
+    description = (
+        "Type a string of text at the current cursor position. "
+        "Use this for entering text into focused fields."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "text": {"type": "string", "description": "Text to type"},
+            "interval": {"type": "number", "description": "Seconds between keystrokes (default 0.02)"},
+        },
+        "required": ["text"],
+    }
+
+    def execute(self, args: dict[str, Any]) -> ToolResult:
+        pg = _pyautogui()
+        text = args["text"]
+        interval = args.get("interval", 0.02)
+        pg.write(text, interval=interval)
+        return ToolResult(tool_call_id="", content=f"Typed {len(text)} chars")
 
 
-# Register tools
-registry.register("type_text", type_text)
-registry.register("press_keys", press_keys)
+class KeyboardPressTool(Tool):
+    name = "keyboard_press"
+    description = (
+        "Press a key combination, e.g. 'enter', 'ctrl+s', 'alt+tab', 'win+r'. "
+        "Use '+' to combine modifiers."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "keys": {
+                "type": "string",
+                "description": "Key combo like 'ctrl+s', 'enter', 'alt+f4', 'win+r'",
+            },
+        },
+        "required": ["keys"],
+    }
+
+    def execute(self, args: dict[str, Any]) -> ToolResult:
+        pg = _pyautogui()
+        combo = args["keys"].lower().split("+")
+        if len(combo) == 1:
+            pg.press(combo[0])
+        else:
+            pg.hotkey(*combo)
+        return ToolResult(tool_call_id="", content=f"Pressed {args['keys']}")

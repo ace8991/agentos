@@ -1,65 +1,114 @@
-"""Tool registry — maps tool names to executable functions.
-
-The tool layer is completely independent of the LLM provider.
-It just knows how to execute actions on the local machine.
 """
+Tool layer base classes.
 
+Every tool inherits from `Tool` and implements `execute()`. Tools are
+registered in a `ToolRegistry` that the orchestrator queries.
+
+Tools are LLM-agnostic — they don't know which model is calling them.
+They just take arguments, do their job, and return a ToolResult.
+"""
 from __future__ import annotations
 
-import logging
-from typing import Any, Callable
+from abc import ABC, abstractmethod
+from typing import Any
 
-from src.agent.core.types import ToolResult, ToolSchema
+from ..core.types import ToolResult, ToolSchema
 
-logger = logging.getLogger("agentos.agent.tools")
 
-# Type for a tool handler function
-ToolHandler = Callable[..., str]
+class Tool(ABC):
+    """A single tool the agent can invoke."""
+    name: str = ""
+    description: str = ""
+    parameters: dict[str, Any] = {}
+
+    # If True, this tool is for Anthropic's native computer use only
+    is_computer_use_native: bool = False
+    # If True, this tool is for the semantic toolkit (works with all models)
+    is_semantic: bool = True
+
+    @abstractmethod
+    def execute(self, args: dict[str, Any]) -> ToolResult:
+        """Execute the tool with the given arguments."""
+        ...
+
+    def schema(self) -> ToolSchema:
+        return ToolSchema(
+            name=self.name,
+            description=self.description,
+            parameters=self.parameters,
+        )
 
 
 class ToolRegistry:
-    """Registry that maps tool names to their implementations."""
+    """Holds all registered tools and exposes them to the orchestrator."""
 
-    def __init__(self) -> None:
-        self._handlers: dict[str, ToolHandler] = {}
+    def __init__(self):
+        self._tools: dict[str, Tool] = {}
 
-    def register(self, name: str, handler: ToolHandler) -> None:
-        """Register a tool handler."""
-        self._handlers[name] = handler
+    def register(self, tool: Tool) -> None:
+        if not tool.name:
+            raise ValueError(f"Tool {tool.__class__.__name__} has no name")
+        self._tools[tool.name] = tool
 
-    def execute(self, name: str, args: dict[str, Any]) -> ToolResult:
-        """Execute a tool by name with the given arguments.
+    def get(self, name: str) -> Tool:
+        if name not in self._tools:
+            raise KeyError(f"Tool '{name}' is not registered")
+        return self._tools[name]
 
-        Args:
-            name: The tool name.
-            args: Arguments dict.
+    def all(self) -> list[Tool]:
+        return list(self._tools.values())
 
-        Returns:
-            ToolResult with the execution result.
+    def get_semantic_schemas(self) -> list[ToolSchema]:
+        """Return tool schemas for non-Computer-Use models (DeepSeek, GPT, etc.)."""
+        return [t.schema() for t in self._tools.values() if t.is_semantic]
+
+    def get_computer_use_schemas(self) -> list[ToolSchema]:
+        """Return tool schemas for Computer-Use-capable models (Claude).
+
+        Includes the native `computer` tool plus auxiliary tools (file ops,
+        shell) that are useful even with computer use enabled.
         """
-        handler = self._handlers.get(name)
-        if not handler:
-            return ToolResult(
-                tool_call_id="",
-                content=f"ERROR: Unknown tool: {name}",
-                success=False,
-            )
-
-        try:
-            content = handler(**args)
-            return ToolResult(tool_call_id="", content=content, success=True)
-        except Exception as e:
-            logger.exception("Tool %s execution error", name)
-            return ToolResult(
-                tool_call_id="",
-                content=f"ERROR executing {name}: {e}",
-                success=False,
-            )
-
-    def list_tools(self) -> list[str]:
-        """List all registered tool names."""
-        return list(self._handlers.keys())
+        out: list[ToolSchema] = []
+        for t in self._tools.values():
+            if t.is_computer_use_native or t.name in {"file_create", "file_read", "shell"}:
+                out.append(t.schema())
+        return out
 
 
-# Global tool registry
-registry = ToolRegistry()
+def build_default_registry() -> ToolRegistry:
+    """Build the standard tool registry with all desktop-control tools."""
+    from .file_ops import FileCreateTool, FileReadTool
+    from .keyboard import KeyboardPressTool, KeyboardTypeTool
+    from .mouse import MouseClickTool, MouseDragTool, MouseMoveTool, MouseScrollTool
+    from .screen import ScreenshotTool
+    from .shell import ShellTool
+    from .ui_tree import (
+        ClickElementTool,
+        ReadUITreeTool,
+        TypeInFieldTool,
+    )
+    from .computer_native import ComputerUseTool
+
+    registry = ToolRegistry()
+
+    # Core sensor
+    registry.register(ScreenshotTool())
+
+    # Semantic toolkit (works with ANY model)
+    registry.register(ReadUITreeTool())
+    registry.register(ClickElementTool())
+    registry.register(TypeInFieldTool())
+    registry.register(MouseMoveTool())
+    registry.register(MouseClickTool())
+    registry.register(MouseDragTool())
+    registry.register(MouseScrollTool())
+    registry.register(KeyboardTypeTool())
+    registry.register(KeyboardPressTool())
+    registry.register(FileCreateTool())
+    registry.register(FileReadTool())
+    registry.register(ShellTool())
+
+    # Native Computer Use (Claude only — provider filters out for others)
+    registry.register(ComputerUseTool())
+
+    return registry

@@ -1,243 +1,211 @@
-"""Anthropic Claude provider with native Computer Use support.
-
-Uses the official anthropic Python SDK.
-Supports:
-- computer_20250124 tool (pixel-precise computer use)
-- text_editor_20250124
-- bash_20250124
-- Extended thinking
 """
+Anthropic provider — supports native Computer Use tool (computer_20251124).
 
+When the model supports computer use, we send the special `computer` tool
+that Claude is trained to use with pixel coordinates. Otherwise we fall back
+to standard function-calling tools.
+"""
 from __future__ import annotations
 
-import json
 import logging
-from collections.abc import AsyncGenerator
+import os
+from typing import Any
 
-import anthropic
+from anthropic import AsyncAnthropic
 
-from src.agent.config import agent_config
-from src.agent.core.types import AgentResponse, Message, StreamingChunk, ToolCall, ToolSchema
-from src.agent.providers.base import LLMProvider
+from ..core.types import (
+    AgentResponse,
+    ContentBlock,
+    Message,
+    Role,
+    ToolCall,
+    ToolSchema,
+)
+from .base import LLMProvider
 
 logger = logging.getLogger("agentos.agent.anthropic")
 
 
 class AnthropicProvider(LLMProvider):
-    """Provider for Anthropic Claude models."""
+    name = "anthropic"
 
-    def __init__(self, model: str = "claude-sonnet-4-6") -> None:
-        self.model = model
-        api_key = agent_config.get_api_key("anthropic")
-        if not api_key:
-            raise ValueError(
-                "ANTHROPIC_API_KEY is not configured. "
-                "Save it in Settings or set the ANTHROPIC_API_KEY environment variable."
-            )
-        self._client = anthropic.AsyncAnthropic(api_key=api_key)
+    # Models that support the native computer use tool
+    COMPUTER_USE_MODELS = {
+        "claude-opus-4-7",
+        "claude-opus-4-6",
+        "claude-opus-4-5",
+        "claude-sonnet-4-6",
+        "claude-haiku-4-5-20251001",
+    }
 
-    @property
-    def provider_name(self) -> str:
-        return "anthropic"
+    def __init__(
+        self,
+        model_id: str,
+        *,
+        api_key: str | None = None,
+        max_tokens: int = 4096,
+        display_width: int = 1920,
+        display_height: int = 1080,
+        enable_computer_use: bool = True,
+    ):
+        self.model_id = model_id
+        self.client = AsyncAnthropic(api_key=api_key or os.getenv("ANTHROPIC_API_KEY"))
+        self.max_tokens = max_tokens
+        self.display_width = display_width
+        self.display_height = display_height
+        self.enable_computer_use = enable_computer_use and model_id in self.COMPUTER_USE_MODELS
 
-    def _translate_to_provider_tools(self, tools: list[ToolSchema]) -> list[dict]:
-        """Translate internal ToolSchema to Anthropic format.
+    async def chat(
+        self,
+        messages: list[Message],
+        tools: list[ToolSchema],
+        image: bytes | None = None,
+    ) -> AgentResponse:
+        anthropic_messages = self._translate_messages(messages, image)
+        anthropic_tools = self._translate_tools(tools)
 
-        Anthropic format:
-        {
-            "name": str,
-            "description": str,
-            "input_schema": {...}
+        # Extract system prompt
+        system_prompt = ""
+        non_system_messages = []
+        for m in anthropic_messages:
+            if m["role"] == "system":
+                system_prompt = m["content"] if isinstance(m["content"], str) else ""
+            else:
+                non_system_messages.append(m)
+
+        kwargs: dict[str, Any] = {
+            "model": self.model_id,
+            "max_tokens": self.max_tokens,
+            "messages": non_system_messages,
+            "tools": anthropic_tools,
         }
-        """
-        return [
-            {
-                "name": t.name,
-                "description": t.description,
-                "input_schema": t.parameters,
-            }
-            for t in tools
-        ]
+        if system_prompt:
+            kwargs["system"] = system_prompt
 
-    def _translate_from_provider_response(self, response: anthropic.types.Message) -> AgentResponse:
-        """Translate Anthropic Message to universal AgentResponse."""
-        text_parts: list[str] = []
+        # Add computer use beta header when applicable
+        extra_headers = {}
+        if self.enable_computer_use:
+            extra_headers["anthropic-beta"] = "computer-use-2025-01-24"
+
+        if extra_headers:
+            kwargs["extra_headers"] = extra_headers
+
+        response = await self.client.messages.create(**kwargs)
+
+        return self._translate_response(response)
+
+    # ─────────────────────────────────────────────────────────────────
+    # TRANSLATION : universal → Anthropic
+    # ─────────────────────────────────────────────────────────────────
+
+    def _translate_messages(
+        self,
+        messages: list[Message],
+        image: bytes | None,
+    ) -> list[dict]:
+        result = []
+        for i, msg in enumerate(messages):
+            is_last_user = (
+                msg.role == Role.USER and i == len(messages) - 1
+            )
+            result.append(self._translate_message(msg, attach_image=image if is_last_user else None))
+        return result
+
+    def _translate_message(self, msg: Message, attach_image: bytes | None = None) -> dict:
+        role_map = {
+            Role.SYSTEM: "system",
+            Role.USER: "user",
+            Role.ASSISTANT: "assistant",
+            Role.TOOL: "user",  # Anthropic puts tool results in user turns
+        }
+        anthropic_role = role_map[msg.role]
+
+        # Tool result message
+        if msg.role == Role.TOOL:
+            return {
+                "role": "user",
+                "content": [{
+                    "type": "tool_result",
+                    "tool_use_id": msg.tool_call_id,
+                    "content": str(msg.content),
+                }],
+            }
+
+        # Plain text
+        if isinstance(msg.content, str):
+            content_blocks: list[dict] = [{"type": "text", "text": msg.content}]
+            if attach_image:
+                content_blocks.insert(0, {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": self._image_to_base64(attach_image),
+                    },
+                })
+            return {"role": anthropic_role, "content": content_blocks}
+
+        # Structured content (e.g., assistant turn with tool calls)
+        anthropic_blocks = []
+        for block in msg.content:
+            if block.type == "text" and block.text:
+                anthropic_blocks.append({"type": "text", "text": block.text})
+            elif block.type == "tool_result" and block.tool_call_id:
+                # This is actually our internal format for "assistant requested a tool"
+                anthropic_blocks.append({
+                    "type": "tool_use",
+                    "id": block.tool_call_id,
+                    "name": block.tool_result["name"],
+                    "input": block.tool_result["args"],
+                })
+        return {"role": anthropic_role, "content": anthropic_blocks}
+
+    def _translate_tools(self, tools: list[ToolSchema]) -> list[dict]:
+        result = []
+        for tool in tools:
+            # Special case: native computer use tool
+            if tool.name == "computer" and self.enable_computer_use:
+                result.append({
+                    "type": "computer_20251124",
+                    "name": "computer",
+                    "display_width_px": self.display_width,
+                    "display_height_px": self.display_height,
+                })
+                continue
+            # Standard tool
+            result.append({
+                "name": tool.name,
+                "description": tool.description,
+                "input_schema": tool.parameters,
+            })
+        return result
+
+    # ─────────────────────────────────────────────────────────────────
+    # TRANSLATION : Anthropic → universal
+    # ─────────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _translate_response(response) -> AgentResponse:
+        text_parts = []
         tool_calls: list[ToolCall] = []
-        thinking: str | None = None
 
         for block in response.content:
             if block.type == "text":
                 text_parts.append(block.text)
             elif block.type == "tool_use":
-                tool_calls.append(
-                    ToolCall(
-                        id=block.id,
-                        name=block.name,
-                        args=dict(block.input) if isinstance(block.input, dict) else {},
-                    )
-                )
-            elif block.type == "thinking":
-                thinking = (thinking or "") + block.thinking
-
-        stop_reason_map = {
-            "end_turn": "end_turn",
-            "tool_use": "tool_use",
-            "max_tokens": "max_tokens",
-            "stop_sequence": "end_turn",
-        }
+                tool_calls.append(ToolCall(
+                    id=block.id,
+                    name=block.name,
+                    arguments=dict(block.input) if block.input else {},
+                ))
 
         return AgentResponse(
-            text="".join(text_parts),
+            text="\n".join(text_parts),
             tool_calls=tool_calls,
-            stop_reason=stop_reason_map.get(response.stop_reason, "end_turn"),
-            thinking=thinking,
+            finish_reason=response.stop_reason or "stop",
+            usage={
+                "input_tokens": response.usage.input_tokens,
+                "output_tokens": response.usage.output_tokens,
+            },
+            raw=response.model_dump() if hasattr(response, "model_dump") else None,
         )
-
-    def _build_messages(self, messages: list[Message]) -> list[dict]:
-        """Convert universal Messages to Anthropic format."""
-        result: list[dict] = []
-        for msg in messages:
-            if msg.role == "system":
-                continue  # Anthropic uses system parameter, not in messages
-            if msg.role == "tool":
-                # Tool result format for Anthropic
-                result.append(
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "tool_result",
-                                "tool_use_id": msg.tool_call_id or "",
-                                "content": msg.content,
-                            }
-                        ],
-                    }
-                )
-            elif msg.role == "assistant":
-                content: list[dict] = [{"type": "text", "text": msg.content}] if msg.content else []
-                if msg.name:  # It's a tool call response
-                    try:
-                        content.append(
-                            {
-                                "type": "tool_use",
-                                "id": msg.tool_call_id or "",
-                                "name": msg.name,
-                                "input": json.loads(msg.content) if msg.content else {},
-                            }
-                        )
-                    except json.JSONDecodeError:
-                        content.append(
-                            {
-                                "type": "tool_use",
-                                "id": msg.tool_call_id or "",
-                                "name": msg.name,
-                                "input": {},
-                            }
-                        )
-                result.append({"role": "assistant", "content": content})
-            else:
-                result.append({"role": msg.role, "content": msg.content})
-        return result
-
-    async def chat(
-        self,
-        messages: list[Message],
-        tools: list[ToolSchema] | None = None,
-        system_prompt: str | None = None,
-        max_tokens: int = 4096,
-        temperature: float = 0.0,
-    ) -> AgentResponse:
-        anthropic_messages = self._build_messages(messages)
-        anthropic_tools = self._translate_to_provider_tools(tools) if tools else None
-
-        kwargs: dict = {
-            "model": self.model,
-            "max_tokens": max_tokens,
-            "messages": anthropic_messages,
-            "temperature": temperature,
-        }
-        if system_prompt:
-            kwargs["system"] = system_prompt
-        if anthropic_tools:
-            kwargs["tools"] = anthropic_tools
-
-        try:
-            response = await self._client.messages.create(**kwargs)
-            return self._translate_from_provider_response(response)
-        except anthropic.APIStatusError as e:
-            logger.error("Anthropic API error: %s", e)
-            return AgentResponse(
-                text="",
-                stop_reason="error",
-                error=f"Anthropic API error ({e.status_code}): {e.message}",
-            )
-        except anthropic.APIConnectionError:
-            logger.error("Cannot connect to Anthropic API")
-            return AgentResponse(
-                text="",
-                stop_reason="error",
-                error="Cannot connect to Anthropic API. Check your internet connection.",
-            )
-        except Exception as e:
-            logger.exception("Anthropic chat error")
-            return AgentResponse(
-                text="",
-                stop_reason="error",
-                error=f"Anthropic error: {e}",
-            )
-
-    async def chat_stream(
-        self,
-        messages: list[Message],
-        tools: list[ToolSchema] | None = None,
-        system_prompt: str | None = None,
-        max_tokens: int = 4096,
-        temperature: float = 0.0,
-    ) -> AsyncGenerator[StreamingChunk, None]:
-        anthropic_messages = self._build_messages(messages)
-        anthropic_tools = self._translate_to_provider_tools(tools) if tools else None
-
-        kwargs: dict = {
-            "model": self.model,
-            "max_tokens": max_tokens,
-            "messages": anthropic_messages,
-            "temperature": temperature,
-        }
-        if system_prompt:
-            kwargs["system"] = system_prompt
-        if anthropic_tools:
-            kwargs["tools"] = anthropic_tools
-
-        try:
-            current_tool_call: dict | None = None
-            async with self._client.messages.stream(**kwargs) as stream:
-                async for event in stream:
-                    if event.type == "content_block_start":
-                        block = event.content_block
-                        if block.type == "tool_use":
-                            current_tool_call = {"id": block.id, "name": block.name, "args": ""}
-                            yield StreamingChunk(
-                                type="tool_call_start",
-                                tool_call_id=block.id,
-                                tool_name=block.name,
-                            )
-                    elif event.type == "content_block_delta":
-                        delta = event.delta
-                        if delta.type == "text_delta":
-                            yield StreamingChunk(type="text", text=delta.text)
-                        elif delta.type == "thinking_delta":
-                            yield StreamingChunk(type="thinking", text=delta.thinking)
-                        elif delta.type == "input_json_delta":
-                            if current_tool_call:
-                                current_tool_call["args"] += delta.partial_json
-                            yield StreamingChunk(
-                                type="tool_call_delta",
-                                tool_call_id=current_tool_call.get("id") if current_tool_call else None,
-                                tool_args=delta.partial_json,
-                            )
-                    elif event.type == "message_delta":
-                        if event.delta.stop_reason == "end_turn":
-                            yield StreamingChunk(type="done")
-        except Exception as e:
-            logger.exception("Anthropic stream error")
-            yield StreamingChunk(type="error", error=str(e))

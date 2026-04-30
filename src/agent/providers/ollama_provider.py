@@ -1,17 +1,33 @@
-"""Ollama provider — for local models served via Ollama.
-
-Uses OpenAI-compatible /v1 endpoint.
 """
+Ollama provider — for local models running on the user's machine.
 
-from src.agent.config import agent_config
-from src.agent.providers.openai_compat import OpenAICompatProvider
+Ollama exposes an OpenAI-compatible endpoint at http://localhost:11434/v1
+so we reuse the same translation code.
+
+Use this for offline mode or privacy-sensitive workflows.
+"""
+from __future__ import annotations
+
+import os
+
+from .deepseek_provider import DeepSeekProvider
 
 
-def create_ollama_provider(model: str) -> OpenAICompatProvider:
-    """Create an Ollama provider instance."""
-    return OpenAICompatProvider(
-        model=model,
-        provider_name="ollama",
-        api_key=None,  # Ollama doesn't need an API key
-        base_url=f"{agent_config.ollama_base_url}/v1",
-    )
+class OllamaProvider(DeepSeekProvider):
+    """Local Ollama models (Llama, Qwen, Mistral, etc.)."""
+    name = "ollama"
+
+    def __init__(
+        self,
+        model_id: str,
+        *,
+        base_url: str | None = None,
+        max_tokens: int = 4096,
+    ):
+        super().__init__(
+            model_id=model_id,
+            api_key="ollama",  # Ollama ignores the key but openai SDK requires one
+            base_url=base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1"),
+            max_tokens=max_tokens,
+            thinking=False,
+        )
