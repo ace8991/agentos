@@ -11,6 +11,9 @@ import ModelSelector, { isAgentModelSupported } from './ModelSelector';
 import ProviderConfigModal from './ProviderConfigModal';
 import ComposerInsertMenu from './chat/ComposerInsertMenu';
 import ArtifactWorkspaceModal from './chat/ArtifactWorkspaceModal';
+import { ArtifactPanel } from './artifact/ArtifactPanel';
+import { useArtifactStore } from '@/stores/artifactStore';
+import { createArtifactStreamHandler } from '@/hooks/useArtifactStream';
 import { chatDirect, createBuilderWorkspace, type ChatMessage as ChatMessageType, type ToolCallEvent, type ToolResultEvent } from '@/lib/api';
 import { collectArtifactsFromEntries, type WorkspaceView } from '@/lib/artifacts';
 import { executeDesktopCommanderIntent } from '@/lib/desktop-commander-intents';
@@ -561,6 +564,7 @@ const ChatPanel = () => {
 
     const assistantId = crypto.randomUUID();
     assistantBufferRef.current = '';
+    const streamHandler = createArtifactStreamHandler(assistantId);
 
     const assistantEntry: LogEntry = {
       id: assistantId,
@@ -600,14 +604,20 @@ const ChatPanel = () => {
       composerPreferences.webResearch,
       (token) => {
         assistantBufferRef.current += token;
+        // Parse les artifacts du stream et récupère le texte nettoyé
+        const cleanText = streamHandler.onChunk(token);
         useStore.setState((state) => ({
           entries: state.entries.map((entry) =>
-            entry.id === assistantId ? { ...entry, action: assistantBufferRef.current } : entry,
+            entry.id === assistantId
+              ? { ...entry, action: cleanText || assistantBufferRef.current }
+              : entry,
           ),
         }));
       },
       () => {
         setChatLoading(false);
+        // Dernier parse pour capturer les artifacts restants
+        streamHandler.onDone();
         useStore.getState().saveConversationSnapshot({ label: text, thread: 'chat' });
       },
       (err) => {
@@ -634,6 +644,8 @@ const ChatPanel = () => {
             reasoning: '',
             toolLabel: label,
             tool_result: undefined,
+            actionType: event.tool,
+            toolArgs: event.args as Record<string, any>,
           });
         },
         onToolResult: (event: ToolResultEvent) => {
@@ -709,14 +721,16 @@ const ChatPanel = () => {
     ? 'Analysing…'
     : 'Processing...';
 
+  const isArtifactPanelOpen = useArtifactStore((s) => s.isOpen);
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 h-screen md:h-screen">
       {/* Chat content — left side (45% quand le panel est ouvert) */}
       <div
         className="flex min-h-0 min-w-0 flex-col"
         style={{
-          flex: '1 1 100%',
-          maxWidth: '100%',
+          flex: isArtifactPanelOpen ? '1 1 44%' : '1 1 100%',
+          maxWidth: isArtifactPanelOpen ? '44%' : '100%',
           transition: 'flex 0.3s ease, max-width 0.3s ease',
         }}
       >
@@ -1247,6 +1261,9 @@ const ChatPanel = () => {
       </Suspense>
 
       </div>
+
+      {/* Artifact panel — right side (56%) */}
+      <ArtifactPanel />
     </div>
   );
 };

@@ -1,43 +1,59 @@
 import { create } from 'zustand';
-import { ArtifactStore, Artifact } from '@/types/artifact.types';
+import { Artifact, ArtifactStore, PanelMode } from '@/types/artifact.types';
 
-export const useArtifactStore = create<ArtifactStore>((set) => ({
-  artifacts: {},
-  activeArtifactId: null,
-  panelState: 'hidden',
-  viewMode: 'preview',
+interface ArtifactActions {
+  addArtifact: (artifact: Artifact) => void;
+  updateArtifact: (id: string, code: string) => void;
+  setActive: (id: string) => void;
+  openPanel: (id: string) => void;
+  closePanel: () => void;
+  setMode: (mode: PanelMode) => void;
+  toggleFullscreen: () => void;
+  getActive: () => Artifact | null;
+}
 
-  addArtifact: (artifact: Artifact) =>
-    set((state) => ({
-      artifacts: { ...state.artifacts, [artifact.id]: artifact },
-      activeArtifactId: artifact.id,
-      panelState: state.panelState === 'hidden' ? 'split' : state.panelState,
-    })),
+export const useArtifactStore = create<ArtifactStore & ArtifactActions>(
+  (set, get) => ({
+    artifacts: {},
+    activeId: null,
+    isOpen: false,
+    isFullscreen: false,
+    mode: 'preview',
 
-  updateArtifact: (id: string, updates: Partial<Artifact>) =>
-    set((state) => {
-      const existing = state.artifacts[id];
-      if (!existing) return state;
-      return {
-        artifacts: {
-          ...state.artifacts,
-          [id]: { ...existing, ...updates },
-        },
-      };
-    }),
+    addArtifact: (artifact) =>
+      set((s) => ({
+        artifacts: { ...s.artifacts, [artifact.id]: artifact },
+        activeId: artifact.id,
+        isOpen: true,
+      })),
 
-  setActiveArtifact: (id: string | null) =>
-    set((state) => ({
-      activeArtifactId: id,
-      panelState: id && state.panelState === 'hidden' ? 'split' : state.panelState,
-    })),
+    updateArtifact: (id, code) =>
+      set((s) => {
+        const existing = s.artifacts[id];
+        if (!existing) return s;
+        return {
+          artifacts: {
+            ...s.artifacts,
+            [id]: { ...existing, code, version: existing.version + 1 },
+          },
+        };
+      }),
 
-  setPanelState: (panelState: 'hidden' | 'split' | 'fullscreen') =>
-    set({ panelState }),
+    setActive: (id) => set({ activeId: id }),
 
-  setViewMode: (viewMode: 'preview' | 'code') =>
-    set({ viewMode }),
+    openPanel: (id) => set({ isOpen: true, activeId: id }),
 
-  closePanel: () =>
-    set({ panelState: 'hidden', activeArtifactId: null }),
-}));
+    closePanel: () =>
+      set({ isOpen: false, isFullscreen: false, activeId: null }),
+
+    setMode: (mode) => set({ mode }),
+
+    toggleFullscreen: () =>
+      set((s) => ({ isFullscreen: !s.isFullscreen })),
+
+    getActive: () => {
+      const { artifacts, activeId } = get();
+      return activeId ? (artifacts[activeId] ?? null) : null;
+    },
+  })
+);

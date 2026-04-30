@@ -10,6 +10,7 @@ import { parseArtifacts } from '@/lib/artifacts';
 import ArtifactCard from './ArtifactCard';
 import { useArtifactFromMessage } from '@/hooks/useArtifactFromMessage';
 import { ArtifactBadge } from '../artifact/ArtifactBadge';
+import { useArtifactStore } from '@/stores/artifactStore';
 
 /* ── Tool config ── */
 const TOOL: Record<string, { label: string; Icon: typeof Eye; color: string }> = {
@@ -520,6 +521,12 @@ export const ChatMessage = ({ entry, onAskReply, isStreaming }: {
 
   const { artifact } = useArtifactFromMessage(entry, isStreaming);
 
+  // Nouveau système d'artifacts (Claude.ai style) : récupère les artifacts
+  // associés à ce message depuis le store
+  const streamArtifacts = useArtifactStore((s) =>
+    Object.values(s.artifacts).filter((a) => a.messageId === entry.id)
+  );
+
   // User bubble
   if (entry.type === 'info' && entry.step === 0) return (
     <div className="flex justify-end px-4 pb-2 pt-1 log-entry-enter">
@@ -539,6 +546,9 @@ export const ChatMessage = ({ entry, onAskReply, isStreaming }: {
     <div className="px-4 pb-0.5 log-entry-enter">
       <ToolStep entry={entry} />
       {artifact && <ArtifactBadge artifact={artifact} />}
+      {streamArtifacts.map((a) => (
+        <ArtifactBadge key={a.id} artifact={a} />
+      ))}
     </div>
   );
 
@@ -608,6 +618,13 @@ export const ChatMessage = ({ entry, onAskReply, isStreaming }: {
         ) : isStreaming ? (
           <StreamingCursor />
         ) : null}
+        {streamArtifacts.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {streamArtifacts.map((a) => (
+              <ArtifactBadge key={a.id} artifact={a} />
+            ))}
+          </div>
+        )}
         {artifacts.length > 0 && (
           <div className="mt-4 space-y-2">
             {artifacts.map(a => <ArtifactCard key={a.id} artifact={a} />)}

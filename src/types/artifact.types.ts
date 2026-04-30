@@ -1,36 +1,29 @@
-export type ArtifactLanguage =
+export type ArtifactType =
   | 'html'
-  | 'javascript'
-  | 'typescript'
-  | 'css'
-  | 'json'
-  | 'python'
-  | 'markdown'
-  | 'text'
   | 'react'
-  | 'shell';
+  | 'svg'
+  | 'markdown'
+  | 'javascript'
+  | 'css'
+  | 'unknown';
 
 export interface Artifact {
-  id: string; // The tool call ID or generated ID
-  type: 'code' | 'website' | 'data' | 'markdown';
+  id: string;
+  type: ArtifactType;
   title: string;
-  content: string;
-  language: ArtifactLanguage;
-  path?: string; // Optional path if it's an actual file
-  createdAt: string;
+  language: string;
+  code: string;
+  version: number;
+  messageId: string;
+  timestamp: number;
 }
+
+export type PanelMode = 'preview' | 'code' | 'split';
 
 export interface ArtifactStore {
   artifacts: Record<string, Artifact>;
-  activeArtifactId: string | null;
-  panelState: 'hidden' | 'split' | 'fullscreen';
-  viewMode: 'preview' | 'code';
-  
-  // Actions
-  addArtifact: (artifact: Artifact) => void;
-  updateArtifact: (id: string, updates: Partial<Artifact>) => void;
-  setActiveArtifact: (id: string | null) => void;
-  setPanelState: (state: 'hidden' | 'split' | 'fullscreen') => void;
-  setViewMode: (mode: 'preview' | 'code') => void;
-  closePanel: () => void;
+  activeId: string | null;
+  isOpen: boolean;
+  isFullscreen: boolean;
+  mode: PanelMode;
 }

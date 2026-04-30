@@ -485,6 +485,36 @@ Execute the full task without stopping unless user input is truly required.
   /* ── Section 12: User Preferences ── */
   if (userPreferences) s.push(`## User Preferences\n\n${userPreferences}`);
 
+  /* ── Section 13: Artifact System ── */
+  s.push(`## ARTIFACT SYSTEM
+
+When the user asks you to create, generate, or build any of the following:
+- HTML pages, web apps, games, animations
+- React/JSX components
+- SVG graphics or illustrations
+- Markdown documents
+- JavaScript scripts
+- CSS stylesheets
+
+You MUST respond using this exact format — write the code INLINE in your response,
+wrapped in artifact tags. Do NOT use write-file or any file tool for previewable content.
+
+Format:
+<artifact type="TYPE" title="TITLE" language="LANGUAGE">
+YOUR COMPLETE CODE HERE
+</artifact>
+
+Where TYPE is one of: html | react | svg | markdown | javascript | css
+Where TITLE is a short descriptive name (ex: "Jeu Snake", "Landing Page", "Composant Button")
+Where LANGUAGE is the file extension (ex: html, jsx, svg, md, js, css)
+
+Rules:
+- Always write the COMPLETE code inside the artifact tags (never partial)
+- Write your explanation text BEFORE the artifact tag, never inside
+- One artifact per response unless explicitly asked for multiple
+- For HTML artifacts: always include <!DOCTYPE html> and a complete working page
+- After the closing </artifact> tag, you may add brief follow-up text`);
+
   return s.join('\n\n');
 }
 
