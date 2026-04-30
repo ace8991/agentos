@@ -1,473 +1,293 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Editor from '@monaco-editor/react';
 import {
-  X,
-  Maximize2,
-  Minimize2,
-  RefreshCw,
-  Copy,
-  Check,
-  Download,
-  ExternalLink,
-  Eye,
-  Code2,
-  LayoutPanelLeft,
-  Monitor,
-  Smartphone,
-  Tablet,
-  AlertTriangle,
+  Eye, Code2, Columns2, Copy, RefreshCw,
+  Maximize2, Minimize2, X, Check, Download, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useArtifactStore } from '@/stores/artifactStore';
 import { prepareForIframe } from '@/lib/artifactParser';
-import type { PanelMode } from '@/types/artifact.types';
 
-// ── Lazy load Monaco ──
-const MonacoEditor = React.lazy(() => import('@monaco-editor/react'));
-
-// ── Device frame widths ──
-type DeviceFrame = 'desktop' | 'tablet' | 'mobile';
-const DEVICE_WIDTHS: Record<DeviceFrame, string> = {
-  desktop: '100%',
-  tablet: '768px',
-  mobile: '375px',
-};
-
-// ── Language → Monaco language map ──
 const LANG_MAP: Record<string, string> = {
-  html: 'html',
-  react: 'javascript',
-  svg: 'xml',
-  markdown: 'markdown',
-  javascript: 'javascript',
-  css: 'css',
-  typescript: 'typescript',
-  jsx: 'javascript',
-  tsx: 'typescript',
-  python: 'python',
-  json: 'json',
-  sql: 'sql',
-  bash: 'shell',
-  shell: 'shell',
-  yaml: 'yaml',
-  xml: 'xml',
+  html: 'html', react: 'javascript', jsx: 'javascript',
+  svg: 'xml', markdown: 'markdown', javascript: 'javascript',
+  js: 'javascript', css: 'css', ts: 'typescript',
 };
 
-function getMonacoLang(language: string): string {
-  return LANG_MAP[language.toLowerCase()] || 'plaintext';
-}
-
-// ── Type icon/color map (shared with badge) ──
-const TYPE_META: Record<string, { color: string; label: string }> = {
-  html:       { color: '#f97316', label: 'HTML' },
-  react:      { color: '#61dafb', label: 'React' },
-  svg:        { color: '#a855f7', label: 'SVG' },
-  markdown:   { color: '#94a3b8', label: 'Markdown' },
-  javascript: { color: '#facc15', label: 'JavaScript' },
-  css:        { color: '#38bdf8', label: 'CSS' },
-  unknown:    { color: '#64748b', label: 'Code' },
+const TYPE_ICONS: Record<string, string> = {
+  html: '🌐', react: '⚛️', svg: '🎨',
+  markdown: '📄', javascript: '⚡', css: '🎨', unknown: '💻',
 };
 
-// ── Component ──
 export const ArtifactPanel: React.FC = () => {
   const {
-    isOpen,
-    isFullscreen,
-    mode,
-    getActive,
-    closePanel,
-    setMode,
-    toggleFullscreen,
+    isOpen, isFullscreen, mode, artifacts, activeId,
+    getActive, closePanel, setMode, toggleFullscreen, setActive,
   } = useArtifactStore();
 
+  // ✅ L'artifact actif — UN SEUL affiché à la fois
   const artifact = getActive();
+
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [device, setDevice] = useState<DeviceFrame>('desktop');
-  const [iframeError, setIframeError] = useState<string | null>(null);
 
-  // Reset device when artifact changes
+  // Liste des artifacts pour la navigation par tabs
+  const artifactList = Object.values(artifacts);
+  const activeIndex = artifactList.findIndex(a => a.id === activeId);
+
+  // ✅ Recharge l'iframe UNIQUEMENT quand l'artifact actif change
   useEffect(() => {
-    setDevice('desktop');
-    setIframeError(null);
-  }, [artifact?.id]);
+    if (!iframeRef.current || !artifact) return;
+    if (mode === 'code') return;
+    setLoading(true);
+    iframeRef.current.srcdoc = prepareForIframe(artifact);
+  }, [artifact?.id, artifact?.version, refreshKey]);
 
-  // Refresh iframe
-  const refresh = useCallback(() => {
-    setRefreshKey((k) => k + 1);
-    setIframeError(null);
-  }, []);
+  // ✅ Recharge aussi quand on switch de mode vers 'preview' ou 'split'
+  useEffect(() => {
+    if (!iframeRef.current || !artifact) return;
+    if (mode === 'code') return;
+    setLoading(true);
+    iframeRef.current.srcdoc = prepareForIframe(artifact);
+  }, [mode]);
 
-  // Copy code
-  const handleCopy = useCallback(() => {
+  const handleCopy = async () => {
     if (!artifact) return;
-    navigator.clipboard.writeText(artifact.code);
+    await navigator.clipboard.writeText(artifact.code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  }, [artifact]);
+  };
 
-  // Download
-  const handleDownload = useCallback(() => {
+  const handleDownload = () => {
     if (!artifact) return;
-    const ext = artifact.language || 'txt';
     const blob = new Blob([artifact.code], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${artifact.title.replace(/\s+/g, '-').toLowerCase()}.${ext}`;
+    a.download = `${artifact.title.replace(/\s+/g, '-').toLowerCase()}.${artifact.language}`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [artifact]);
-
-  // Open in new tab
-  const handleOpenExternal = useCallback(() => {
-    if (!artifact) return;
-    const html = prepareForIframe(artifact);
-    const w = window.open('', '_blank');
-    if (w) {
-      w.document.write(html);
-      w.document.close();
-    }
-  }, [artifact]);
-
-  // Build iframe srcdoc
-  const srcdoc = artifact ? prepareForIframe(artifact) : '';
-
-  // Monaco language
-  const monacoLang = artifact ? getMonacoLang(artifact.language) : 'plaintext';
-
-  // Meta
-  const meta = artifact ? TYPE_META[artifact.type] ?? TYPE_META.unknown : null;
-
-  // ── Panel variants for framer-motion ──
-  const panelVariants = {
-    closed: { width: 0, opacity: 0, x: 20 },
-    open: { width: 'auto', opacity: 1, x: 0 },
   };
 
-  const fullscreenVariants = {
-    closed: { opacity: 0, scale: 0.98 },
-    open: { opacity: 1, scale: 1 },
+  const goToPrev = () => {
+    if (activeIndex > 0) setActive(artifactList[activeIndex - 1].id);
   };
 
-  // ── Render toolbar ──
-  const renderToolbar = () => (
-    <div className="flex items-center justify-between px-3 py-2 border-b border-white/[0.07] bg-white/[0.02] flex-shrink-0">
-      {/* Left: title + type */}
-      <div className="flex items-center gap-2 min-w-0 flex-1">
-        {meta && (
-          <div
-            className="w-2 h-2 rounded-full flex-shrink-0"
-            style={{ backgroundColor: meta.color }}
-          />
-        )}
-        <span className="text-[13px] font-medium text-foreground/80 truncate">
-          {artifact?.title ?? 'Artifact'}
-        </span>
-        {meta && (
-          <span
-            className="text-[10px] font-mono px-1.5 py-0.5 rounded flex-shrink-0"
-            style={{
-              color: meta.color,
-              backgroundColor: `${meta.color}18`,
-            }}
-          >
-            {meta.label}
-            {artifact && artifact.version > 1 ? ` v${artifact.version}` : ''}
-          </span>
-        )}
-      </div>
+  const goToNext = () => {
+    if (activeIndex < artifactList.length - 1) setActive(artifactList[activeIndex + 1].id);
+  };
 
-      {/* Right: actions */}
-      <div className="flex items-center gap-0.5 flex-shrink-0">
-        {/* Mode toggle */}
-        <div className="flex items-center gap-0.5 mr-1 p-0.5 rounded-lg bg-white/[0.04] border border-white/[0.06]">
-          {(['preview', 'split', 'code'] as PanelMode[]).map((m) => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              className={`p-1 rounded-md transition-all ${
-                mode === m
-                  ? 'bg-white/[0.1] text-foreground/80'
-                  : 'text-foreground/30 hover:text-foreground/60'
-              }`}
-              title={
-                m === 'preview'
-                  ? 'Aperçu'
-                  : m === 'split'
-                  ? 'Divisé'
-                  : 'Code'
-              }
-            >
-              {m === 'preview' ? (
-                <Eye size={13} />
-              ) : m === 'split' ? (
-                <LayoutPanelLeft size={13} />
-              ) : (
-                <Code2 size={13} />
-              )}
+  // ✅ Ne rien rendre si pas d'artifact actif
+  if (!isOpen || !artifact) return null;
+
+  const panelStyle: React.CSSProperties = isFullscreen
+    ? { position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', background: '#0d0d0d' }
+    : { display: 'flex', flexDirection: 'column', height: '100%', background: '#0d0d0d', borderLeft: '1px solid rgba(255,255,255,0.07)' };
+
+  const monacoLang = LANG_MAP[artifact.language] || LANG_MAP[artifact.type] || 'plaintext';
+
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key="artifact-panel"
+        style={panelStyle}
+        initial={{ x: 32, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        exit={{ x: 32, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+      >
+        {/* ── TABS (si plusieurs artifacts) ── */}
+        {artifactList.length > 1 && (
+          <div style={{
+            display: 'flex', alignItems: 'center',
+            height: 36, padding: '0 8px', gap: 4,
+            background: '#0a0a0a', borderBottom: '1px solid rgba(255,255,255,0.05)',
+            overflowX: 'auto',
+          }}>
+            <button onClick={goToPrev} disabled={activeIndex === 0} style={{
+              width: 24, height: 24, borderRadius: 4, border: 'none',
+              background: 'transparent', color: activeIndex === 0 ? '#333' : '#666',
+              cursor: activeIndex === 0 ? 'default' : 'pointer', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <ChevronLeft size={12} />
             </button>
-          ))}
+
+            {artifactList.map((a) => (
+              <button
+                key={a.id}
+                onClick={() => setActive(a.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '0 10px', height: 28, borderRadius: 6, border: 'none',
+                  cursor: 'pointer', fontSize: 11, fontFamily: 'inherit',
+                  background: a.id === activeId ? 'rgba(255,255,255,0.07)' : 'transparent',
+                  color: a.id === activeId ? '#e5e5e5' : '#555',
+                  flexShrink: 0, whiteSpace: 'nowrap',
+                  transition: 'background 0.12s, color 0.12s',
+                  borderBottom: a.id === activeId ? '2px solid #f97316' : '2px solid transparent',
+                }}
+              >
+                <span style={{ fontSize: 11 }}>{TYPE_ICONS[a.type] ?? '💻'}</span>
+                {a.title.length > 16 ? a.title.slice(0, 16) + '…' : a.title}
+              </button>
+            ))}
+
+            <button onClick={goToNext} disabled={activeIndex === artifactList.length - 1} style={{
+              width: 24, height: 24, borderRadius: 4, border: 'none',
+              background: 'transparent', color: activeIndex === artifactList.length - 1 ? '#333' : '#666',
+              cursor: activeIndex === artifactList.length - 1 ? 'default' : 'pointer', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <ChevronRight size={12} />
+            </button>
+          </div>
+        )}
+
+        {/* ── TOOLBAR ── */}
+        <div style={{
+          display: 'flex', alignItems: 'center', height: 48,
+          padding: '0 12px', gap: 8, flexShrink: 0,
+          background: '#111111', borderBottom: '1px solid rgba(255,255,255,0.07)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+            <span style={{ fontSize: 16, flexShrink: 0 }}>{TYPE_ICONS[artifact.type] ?? '💻'}</span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{
+                fontSize: 13, fontWeight: 500, color: '#e5e5e5',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              }}>
+                {artifact.title}
+              </div>
+              <div style={{ fontSize: 10, color: '#444', fontFamily: 'monospace' }}>
+                {artifact.language.toUpperCase()}{artifact.version > 1 ? ` · v${artifact.version}` : ''}
+              </div>
+            </div>
+          </div>
+
+          {/* Mode toggle */}
+          <div style={{
+            display: 'flex', background: '#1a1a1a', borderRadius: 8,
+            border: '1px solid rgba(255,255,255,0.07)', padding: 3, gap: 2,
+          }}>
+            {([
+              { m: 'preview' as const, icon: <Eye size={13} />, label: 'Aperçu' },
+              { m: 'split' as const,   icon: <Columns2 size={13} />, label: 'Split' },
+              { m: 'code' as const,    icon: <Code2 size={13} />, label: 'Code' },
+            ]).map(({ m, icon, label }) => (
+              <button key={m} onClick={() => setMode(m)} style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '4px 10px', borderRadius: 6, fontSize: 12,
+                cursor: 'pointer', border: 'none', fontFamily: 'inherit',
+                background: mode === m ? '#252525' : 'transparent',
+                color: mode === m ? '#e5e5e5' : '#555',
+                boxShadow: mode === m ? '0 1px 3px rgba(0,0,0,0.4)' : 'none',
+                transition: 'all 0.12s',
+              }}>
+                {icon}{label}
+              </button>
+            ))}
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: 3 }}>
+            {[
+              { icon: <RefreshCw size={13} />, title: 'Rafraîchir', fn: () => setRefreshKey(k => k + 1) },
+              { icon: <Download size={13} />, title: 'Télécharger', fn: handleDownload },
+              { icon: copied ? <Check size={13} style={{ color: '#4ade80' }} /> : <Copy size={13} />, title: 'Copier', fn: handleCopy },
+              { icon: isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />, title: 'Plein écran', fn: toggleFullscreen },
+            ].map((btn, i) => (
+              <button key={i} onClick={btn.fn} title={btn.title} style={{
+                width: 30, height: 30, borderRadius: 6, border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'transparent', color: '#555', fontFamily: 'inherit',
+                transition: 'all 0.12s',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#1e1e1e'; (e.currentTarget as HTMLButtonElement).style.color = '#ccc'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = '#555'; }}
+              >
+                {btn.icon}
+              </button>
+            ))}
+
+            <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.07)', margin: '0 3px', alignSelf: 'center' }} />
+
+            <button onClick={closePanel} title="Fermer" style={{
+              width: 30, height: 30, borderRadius: 6, border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'transparent', color: '#555', fontFamily: 'inherit',
+              transition: 'all 0.12s',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.12)'; (e.currentTarget as HTMLButtonElement).style.color = '#ef4444'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = '#555'; }}
+            >
+              <X size={13} />
+            </button>
+          </div>
         </div>
 
-        <div className="w-px h-4 bg-white/[0.08] mx-0.5" />
+        {/* ── CONTENT : UN SEUL artifact rendu ── */}
+        <div style={{ flex: 1, overflow: 'hidden', display: 'flex' }}>
 
-        {/* Device switcher (preview/split only) */}
-        {(mode === 'preview' || mode === 'split') && (
-          <>
-            <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-white/[0.04] border border-white/[0.06] mr-1">
-              {(['desktop', 'tablet', 'mobile'] as DeviceFrame[]).map((d) => (
-                <button
-                  key={d}
-                  onClick={() => setDevice(d)}
-                  className={`p-1 rounded-md transition-all ${
-                    device === d
-                      ? 'bg-white/[0.1] text-foreground/80'
-                      : 'text-foreground/30 hover:text-foreground/60'
-                  }`}
-                >
-                  {d === 'desktop' ? (
-                    <Monitor size={12} />
-                  ) : d === 'tablet' ? (
-                    <Tablet size={12} />
-                  ) : (
-                    <Smartphone size={12} />
-                  )}
-                </button>
-              ))}
+          {/* Preview iframe */}
+          {(mode === 'preview' || mode === 'split') && (
+            <div style={{ flex: 1, position: 'relative', background: '#fff', overflow: 'hidden' }}>
+              {loading && (
+                <div style={{
+                  position: 'absolute', inset: 0, display: 'flex',
+                  alignItems: 'center', justifyContent: 'center',
+                  background: '#0d0d0d', color: '#444', fontSize: 13, zIndex: 1, gap: 8,
+                }}>
+                  <span style={{ fontSize: 16 }}>⟳</span>Rendu en cours...
+                </div>
+              )}
+              <iframe
+                ref={iframeRef}
+                key={artifact.id}
+                sandbox="allow-scripts allow-forms allow-modals allow-popups"
+                style={{
+                  width: '100%', height: '100%', border: 'none',
+                  opacity: loading ? 0 : 1, transition: 'opacity 0.2s',
+                }}
+                onLoad={() => setLoading(false)}
+                title={artifact.title}
+              />
             </div>
-            <div className="w-px h-4 bg-white/[0.08] mx-0.5" />
-          </>
-        )}
-
-        {/* Action buttons */}
-        <button
-          onClick={refresh}
-          className="p-1.5 rounded-md text-foreground/30 hover:text-foreground/60 hover:bg-white/[0.06] transition-all"
-          title="Rafraîchir"
-        >
-          <RefreshCw size={13} />
-        </button>
-        <button
-          onClick={handleCopy}
-          className="p-1.5 rounded-md text-foreground/30 hover:text-foreground/60 hover:bg-white/[0.06] transition-all"
-          title="Copier le code"
-        >
-          {copied ? (
-            <Check size={13} className="text-emerald-400" />
-          ) : (
-            <Copy size={13} />
           )}
-        </button>
-        <button
-          onClick={handleDownload}
-          className="p-1.5 rounded-md text-foreground/30 hover:text-foreground/60 hover:bg-white/[0.06] transition-all"
-          title="Télécharger"
-        >
-          <Download size={13} />
-        </button>
-        <button
-          onClick={handleOpenExternal}
-          className="p-1.5 rounded-md text-foreground/30 hover:text-foreground/60 hover:bg-white/[0.06] transition-all"
-          title="Ouvrir dans un nouvel onglet"
-        >
-          <ExternalLink size={13} />
-        </button>
 
-        <div className="w-px h-4 bg-white/[0.08] mx-0.5" />
+          {mode === 'split' && (
+            <div style={{ width: 1, background: 'rgba(255,255,255,0.07)', flexShrink: 0 }} />
+          )}
 
-        <button
-          onClick={toggleFullscreen}
-          className="p-1.5 rounded-md text-foreground/30 hover:text-foreground/60 hover:bg-white/[0.06] transition-all"
-          title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'}
-        >
-          {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-        </button>
-        <button
-          onClick={closePanel}
-          className="p-1.5 rounded-md text-foreground/30 hover:text-foreground/80 hover:bg-white/[0.06] transition-all"
-          title="Fermer"
-        >
-          <X size={13} />
-        </button>
-      </div>
-    </div>
-  );
-
-  // ── Render iframe preview ──
-  const renderPreview = () => {
-    if (!artifact) return null;
-
-    return (
-      <div
-        className="flex-1 overflow-auto bg-[hsl(0,0%,8%)] flex items-start justify-center p-2"
-      >
-        {iframeError ? (
-          <div className="flex flex-col items-center justify-center gap-3 text-foreground/40 p-8">
-            <AlertTriangle size={24} />
-            <p className="text-sm">{iframeError}</p>
-            <button
-              onClick={refresh}
-              className="text-xs text-foreground/50 hover:text-foreground/80 underline underline-offset-2"
-            >
-              Réessayer
-            </button>
-          </div>
-        ) : (
-          <div
-            className="bg-white shadow-[0_8px_40px_rgba(0,0,0,0.4)] transition-all duration-300 flex-shrink-0 overflow-hidden"
-            style={{
-              width: DEVICE_WIDTHS[device],
-              maxWidth: '100%',
-              height: '100%',
-              minHeight: '300px',
-              borderRadius: device !== 'desktop' ? '12px' : '0',
-            }}
-          >
-            <iframe
-              key={refreshKey}
-              ref={iframeRef}
-              srcDoc={srcdoc}
-              sandbox="allow-scripts allow-forms allow-modals"
-              className="w-full h-full border-0"
-              title={artifact.title}
-              onError={() => setIframeError("Erreur de chargement de l'aperçu")}
-            />
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  // ── Render Monaco editor ──
-  const renderEditor = () => {
-    if (!artifact) return null;
-
-    return (
-      <div className="flex-1 overflow-hidden">
-        <React.Suspense
-          fallback={
-            <div className="flex items-center justify-center h-full text-foreground/30 text-sm">
-              Chargement de l'éditeur…
+          {/* Code editor */}
+          {(mode === 'code' || mode === 'split') && (
+            <div style={{ flex: 1, overflow: 'hidden' }}>
+              <Editor
+                key={artifact.id}
+                height="100%"
+                language={monacoLang}
+                value={artifact.code}
+                theme="vs-dark"
+                options={{
+                  fontSize: 13,
+                  fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                  fontLigatures: true,
+                  lineHeight: 1.7,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  wordWrap: 'on',
+                  padding: { top: 16, bottom: 16 },
+                  readOnly: true,
+                  bracketPairColorization: { enabled: true },
+                  tabSize: 2,
+                }}
+              />
             </div>
-          }
-        >
-          <MonacoEditor
-            key={`${artifact.id}-${artifact.version}`}
-            language={monacoLang}
-            value={artifact.code}
-            theme="vs-dark"
-            options={{
-              readOnly: true,
-              minimap: { enabled: false },
-              fontSize: 13,
-              lineNumbers: 'on',
-              scrollBeyondLastLine: false,
-              wordWrap: 'on',
-              padding: { top: 12 },
-              renderWhitespace: 'selection',
-              fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-            }}
-            height="100%"
-          />
-        </React.Suspense>
-      </div>
-    );
-  };
-
-  // ── Render content based on mode ──
-  const renderContent = () => {
-    if (!artifact) return null;
-
-    switch (mode) {
-      case 'preview':
-        return renderPreview();
-      case 'code':
-        return renderEditor();
-      case 'split':
-        return (
-          <div className="flex-1 flex flex-col md:flex-row">
-            <div className="flex-1 min-h-[200px] md:min-h-0 md:w-1/2 border-b md:border-b-0 md:border-r border-white/[0.07]">
-              {renderPreview()}
-            </div>
-            <div className="flex-1 min-h-[200px] md:min-h-0 md:w-1/2">
-              {renderEditor()}
-            </div>
-          </div>
-        );
-    }
-  };
-
-  // ── Empty state ──
-  if (!artifact) {
-    return (
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial="closed"
-            animate="open"
-            exit="closed"
-            variants={panelVariants}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="h-full border-l border-white/[0.07] bg-[hsl(0,0%,10%)] flex flex-col overflow-hidden"
-            style={{ width: 320, minWidth: 320 }}
-          >
-            <div className="flex items-center justify-between px-3 py-2 border-b border-white/[0.07]">
-              <span className="text-[13px] font-medium text-foreground/50">
-                Artifact
-              </span>
-              <button
-                onClick={closePanel}
-                className="p-1.5 rounded-md text-foreground/30 hover:text-foreground/80 hover:bg-white/[0.06] transition-all"
-              >
-                <X size={13} />
-              </button>
-            </div>
-            <div className="flex-1 flex items-center justify-center text-foreground/20 text-sm px-6 text-center">
-              <p>Sélectionnez un artifact pour voir l'aperçu</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    );
-  }
-
-  // ── Fullscreen mode ──
-  if (isFullscreen) {
-    return (
-      <AnimatePresence>
-        <motion.div
-          initial="closed"
-          animate="open"
-          exit="closed"
-          variants={fullscreenVariants}
-          transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-          className="fixed inset-0 z-50 bg-[hsl(0,0%,8%)] flex flex-col"
-        >
-          {renderToolbar()}
-          {renderContent()}
-        </motion.div>
-      </AnimatePresence>
-    );
-  }
-
-  // ── Side panel mode ──
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial="closed"
-          animate="open"
-          exit="closed"
-          variants={panelVariants}
-          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-          className="h-full border-l border-white/[0.07] bg-[hsl(0,0%,10%)] flex flex-col overflow-hidden"
-          style={{ minWidth: 420, width: '100%' }}
-        >
-          {renderToolbar()}
-          {renderContent()}
-        </motion.div>
-      )}
+          )}
+        </div>
+      </motion.div>
     </AnimatePresence>
   );
 };
