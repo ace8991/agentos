@@ -5,7 +5,7 @@ import { extractArtifactFromEntry } from '@/lib/artifactDetector';
 import { Artifact } from '@/types/artifact.types';
 
 export function useArtifactFromMessage(entry: LogEntry, isStreaming?: boolean) {
-  const { addArtifact, artifacts } = useArtifactStore();
+  const { upsertArtifact, artifacts } = useArtifactStore();
   const [detectedArtifactId, setDetectedArtifactId] = useState<string | null>(null);
   const lastProcessedRef = useRef<string>('');
 
@@ -21,10 +21,10 @@ export function useArtifactFromMessage(entry: LogEntry, isStreaming?: boolean) {
     // We can run extraction multiple times if streaming updates the toolArgs
     const artifact = extractArtifactFromEntry(entry);
     if (artifact) {
-      addArtifact(artifact);
+      upsertArtifact(artifact);
       setDetectedArtifactId(artifact.id);
     }
-  }, [entry, entry.tool_result, entry.actionType, addArtifact, isStreaming]);
+  }, [entry, entry.tool_result, entry.actionType, upsertArtifact, isStreaming]);
 
   return {
     artifactId: detectedArtifactId,

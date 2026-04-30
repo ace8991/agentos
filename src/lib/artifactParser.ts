@@ -1,5 +1,4 @@
 import { Artifact, ArtifactType } from '@/types/artifact.types';
-import { v4 as uuidv4 } from 'uuid';
 
 // Regex pour détecter un artifact COMPLET (fermé)
 const ARTIFACT_COMPLETE_REGEX =
@@ -26,6 +25,14 @@ export interface ParseResult {
 }
 
 /**
+ * Génère un ID déterministe basé sur le messageId, l'index et le titre.
+ * Même message + même index + même titre = toujours le même ID.
+ */
+function stableId(messageId: string, index: number, title: string): string {
+  return `artifact-${messageId}-${index}-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+}
+
+/**
  * Parse le texte complet de la réponse du modèle.
  * Appelé à chaque chunk pendant le stream ET une fois à la fin.
  */
@@ -44,7 +51,7 @@ export function parseArtifactResponse(
     const [fullMatch, type, title, language, code] = match;
 
     artifacts.push({
-      id: uuidv4(),
+      id: stableId(messageId, artifacts.length, title),
       type: type as ArtifactType,
       title,
       language,

@@ -523,8 +523,12 @@ export const ChatMessage = ({ entry, onAskReply, isStreaming }: {
 
   // Nouveau système d'artifacts (Claude.ai style) : récupère les artifacts
   // associés à ce message depuis le store
-  const streamArtifacts = useArtifactStore((s) =>
-    Object.values(s.artifacts).filter((a) => a.messageId === entry.id)
+  // On sélectionne d'abord l'objet brut (référence stable si pas de modif)
+  // puis on filtre avec useMemo pour éviter les re-rendus infinis
+  const allArtifacts = useArtifactStore((s) => s.artifacts);
+  const streamArtifacts = useMemo(
+    () => Object.values(allArtifacts).filter((a) => a.messageId === entry.id),
+    [allArtifacts, entry.id]
   );
 
   // User bubble
@@ -545,9 +549,9 @@ export const ChatMessage = ({ entry, onAskReply, isStreaming }: {
   if (isStep(entry)) return (
     <div className="px-4 pb-0.5 log-entry-enter">
       <ToolStep entry={entry} />
-      {artifact && <ArtifactBadge artifact={artifact} />}
+      {artifact && <ArtifactBadge artifactId={artifact.id} />}
       {streamArtifacts.map((a) => (
-        <ArtifactBadge key={a.id} artifact={a} />
+        <ArtifactBadge key={a.id} artifactId={a.id} />
       ))}
     </div>
   );
@@ -621,7 +625,7 @@ export const ChatMessage = ({ entry, onAskReply, isStreaming }: {
         {streamArtifacts.length > 0 && (
           <div className="mt-3 space-y-2">
             {streamArtifacts.map((a) => (
-              <ArtifactBadge key={a.id} artifact={a} />
+              <ArtifactBadge key={a.id} artifactId={a.id} />
             ))}
           </div>
         )}

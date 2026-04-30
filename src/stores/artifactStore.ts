@@ -2,8 +2,7 @@ import { create } from 'zustand';
 import { Artifact, ArtifactStore, PanelMode } from '@/types/artifact.types';
 
 interface ArtifactActions {
-  addArtifact: (artifact: Artifact) => void;
-  updateArtifact: (id: string, code: string) => void;
+  upsertArtifact: (artifact: Artifact) => void;
   setActive: (id: string) => void;
   openPanel: (id: string) => void;
   closePanel: () => void;
@@ -20,22 +19,35 @@ export const useArtifactStore = create<ArtifactStore & ArtifactActions>(
     isFullscreen: false,
     mode: 'preview',
 
-    addArtifact: (artifact) =>
-      set((s) => ({
-        artifacts: { ...s.artifacts, [artifact.id]: artifact },
-        activeId: artifact.id,
-        isOpen: true,
-      })),
-
-    updateArtifact: (id, code) =>
+    // ✅ Upsert : ajoute si nouveau, ignore si identique, update si modifié
+    upsertArtifact: (artifact) =>
       set((s) => {
-        const existing = s.artifacts[id];
-        if (!existing) return s;
+        const existing = s.artifacts[artifact.id];
+        if (existing) {
+          // Même ID → même artifact. Vérifie si le code a changé.
+          if (existing.code === artifact.code) {
+            // Exactement le même contenu → ne rien faire
+            return s;
+          }
+          // Code modifié → incrémente la version
+          return {
+            artifacts: {
+              ...s.artifacts,
+              [artifact.id]: {
+                ...existing,
+                code: artifact.code,
+                version: existing.version + 1,
+              },
+            },
+            activeId: artifact.id,
+            isOpen: true,
+          };
+        }
+        // Nouvel artifact
         return {
-          artifacts: {
-            ...s.artifacts,
-            [id]: { ...existing, code, version: existing.version + 1 },
-          },
+          artifacts: { ...s.artifacts, [artifact.id]: artifact },
+          activeId: artifact.id,
+          isOpen: true,
         };
       }),
 

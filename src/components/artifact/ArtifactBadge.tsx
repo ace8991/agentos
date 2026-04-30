@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Eye, Code2, Globe, FileText, FileCode } from 'lucide-react';
-import { Artifact } from '@/types/artifact.types';
 import { useArtifactStore } from '@/stores/artifactStore';
 
 const META: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
@@ -15,11 +14,15 @@ const META: Record<string, { icon: React.ReactNode; color: string; label: string
 };
 
 interface ArtifactBadgeProps {
-  artifact: Artifact;
+  artifactId: string;
 }
 
-export const ArtifactBadge: React.FC<ArtifactBadgeProps> = ({ artifact }) => {
-  const { openPanel } = useArtifactStore();
+export const ArtifactBadge: React.FC<ArtifactBadgeProps> = ({ artifactId }) => {
+  const { artifacts, openPanel } = useArtifactStore();
+  const artifact = artifacts[artifactId];
+
+  if (!artifact) return null;
+
   const meta = META[artifact.type] ?? META.unknown;
 
   return (

@@ -19,7 +19,7 @@ export function createArtifactStreamHandler(messageId: string) {
       for (const artifact of result.artifacts) {
         if (!addedIds.has(artifact.id)) {
           addedIds.add(artifact.id);
-          store.addArtifact(artifact);
+          store.upsertArtifact(artifact);
         }
       }
 
@@ -32,7 +32,7 @@ export function createArtifactStreamHandler(messageId: string) {
       for (const artifact of result.artifacts) {
         if (!addedIds.has(artifact.id)) {
           addedIds.add(artifact.id);
-          store.addArtifact(artifact);
+          store.upsertArtifact(artifact);
         }
       }
 
@@ -56,7 +56,7 @@ export function createArtifactStreamHandler(messageId: string) {
  *   stream.on('end', () => onDone())
  */
 export function useArtifactStream(messageId: string) {
-  const { addArtifact } = useArtifactStore();
+  const { upsertArtifact } = useArtifactStore();
   const fullTextRef = useRef('');
   const addedArtifactIds = useRef<Set<string>>(new Set());
   const cleanTextRef = useRef('');
@@ -70,13 +70,13 @@ export function useArtifactStream(messageId: string) {
       for (const artifact of result.artifacts) {
         if (!addedArtifactIds.current.has(artifact.id)) {
           addedArtifactIds.current.add(artifact.id);
-          addArtifact(artifact);
+          upsertArtifact(artifact);
         }
       }
 
       return result.cleanText;
     },
-    [messageId, addArtifact]
+    [messageId, upsertArtifact]
   );
 
   const onDone = useCallback((): string => {
@@ -85,12 +85,12 @@ export function useArtifactStream(messageId: string) {
     for (const artifact of result.artifacts) {
       if (!addedArtifactIds.current.has(artifact.id)) {
         addedArtifactIds.current.add(artifact.id);
-        addArtifact(artifact);
+        upsertArtifact(artifact);
       }
     }
 
     return result.cleanText;
-  }, [messageId, addArtifact]);
+  }, [messageId, upsertArtifact]);
 
   const reset = useCallback(() => {
     fullTextRef.current = '';
