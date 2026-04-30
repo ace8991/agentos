@@ -134,40 +134,8 @@ export const MODEL_PROVIDERS: ModelProvider[] = [
   },
 ];
 
-const AGENT_SUPPORTED_MODELS = new Set([
-  // Anthropic — all support tool use
-  'claude-opus-4-5',
-  'claude-sonnet-4-6',
-  'claude-haiku-3-5',
-  // OpenAI — GPT-5, GPT-4o, reasoning models
-  'gpt-5.4',
-  'gpt-5.3-codex',
-  'gpt-5.2-codex',
-  'gpt-5.1',
-  'gpt-4o',
-  'gpt-4o-mini',
-  'o1',
-  'o3-mini',
-  // Google — Gemini supports function calling
-  'gemini-2.5-pro',
-  'gemini-2.5-flash',
-  // DeepSeek — supports tool use
-  'deepseek-chat',
-  'deepseek-reasoner',
-  // Mistral — supports tool use
-  'mistral-large-latest',
-  'mistral-medium-latest',
-  // Groq — fast inference, supports tool use
-  'llama-3.3-70b-versatile',
-  'mixtral-8x7b-32768',
-  // Qwen — supports tool use
-  'qwen-max',
-  'qwen-plus',
-  'qwen3-235b-a22b-instruct-2507',
-]);
-
 export function isAgentModelSupported(modelId: string) {
-  return AGENT_SUPPORTED_MODELS.has(modelId);
+  return true; // All models are supported in the new multi-LLM architecture
 }
 
 const REASONING_MODELS = new Set([
@@ -223,6 +191,20 @@ const ModelSelector = ({ onConfigureProvider }: ModelSelectorProps) => {
   const [showLocalManager, setShowLocalManager] = useState(false);
   const anchorRef = useRef<HTMLDivElement>(null);
 
+  // Dynamic models for agent mode
+  const [agentModels, setAgentModels] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (mode === 'agent') {
+      fetch('http://localhost:8000/api/agent/models')
+        .then(r => r.json())
+        .then(d => {
+          if (d.models) setAgentModels(d.models);
+        })
+        .catch(console.error);
+    }
+  }, [mode]);
+
   const currentInfo = getModelInfo(model);
 
   const hasApiKey = (provider: ModelProvider) => {
@@ -268,14 +250,27 @@ const ModelSelector = ({ onConfigureProvider }: ModelSelectorProps) => {
     };
   }, [open]);
 
-  const visibleProviders = MODEL_PROVIDERS
-    .map((provider) => ({
-      ...provider,
-      models: mode === 'agent'
-        ? provider.models.filter((candidate) => isAgentModelSupported(candidate.id))
-        : provider.models,
-    }))
-    .filter((provider) => provider.models.length > 0);
+  const visibleProviders = mode === 'agent'
+    ? (() => {
+        if (agentModels.length === 0) return MODEL_PROVIDERS;
+        const providersMap = new Map<string, ModelProvider>();
+        MODEL_PROVIDERS.forEach(p => providersMap.set(p.id, { ...p, models: [] }));
+
+        agentModels.forEach(m => {
+          if (providersMap.has(m.provider)) {
+            const p = providersMap.get(m.provider)!;
+            if (!p.models.some(existing => existing.id === m.id)) {
+              p.models.push({
+                id: m.id,
+                name: m.label,
+                description: m.computer_use ? 'Native Computer Use' : (m.vision ? 'Vision + Semantic UI' : 'Text + Semantic UI')
+              });
+            }
+          }
+        });
+        return Array.from(providersMap.values()).filter((provider) => provider.models.length > 0);
+      })()
+    : MODEL_PROVIDERS.filter((provider) => provider.models.length > 0);
 
   return (
     <div ref={anchorRef} className="relative">
