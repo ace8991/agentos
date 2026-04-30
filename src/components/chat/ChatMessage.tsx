@@ -8,6 +8,8 @@ import {
 import { type LogEntry } from '@/store/useStore';
 import { parseArtifacts } from '@/lib/artifacts';
 import ArtifactCard from './ArtifactCard';
+import { useArtifactFromMessage } from '@/hooks/useArtifactFromMessage';
+import { ArtifactBadge } from '../artifact/ArtifactBadge';
 
 /* ── Tool config ── */
 const TOOL: Record<string, { label: string; Icon: typeof Eye; color: string }> = {
@@ -516,6 +518,8 @@ export const ChatMessage = ({ entry, onAskReply, isStreaming }: {
     : { text: entry.action, artifacts: [] };
   const artifacts = arts.filter(a => a.type !== 'terminal');
 
+  const { artifact } = useArtifactFromMessage(entry, isStreaming);
+
   // User bubble
   if (entry.type === 'info' && entry.step === 0) return (
     <div className="flex justify-end px-4 pb-2 pt-1 log-entry-enter">
@@ -532,7 +536,10 @@ export const ChatMessage = ({ entry, onAskReply, isStreaming }: {
 
   // Tool step
   if (isStep(entry)) return (
-    <div className="px-4 pb-0.5 log-entry-enter"><ToolStep entry={entry} /></div>
+    <div className="px-4 pb-0.5 log-entry-enter">
+      <ToolStep entry={entry} />
+      {artifact && <ArtifactBadge artifact={artifact} />}
+    </div>
   );
 
   // Error

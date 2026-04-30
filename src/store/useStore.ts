@@ -1,4 +1,4 @@
-﻿import { create } from 'zustand';
+import { create } from 'zustand';
 import {
   createExecutionEventStream,
   createExecutionRun,
@@ -41,6 +41,7 @@ export interface LogEntry {
   attachments?: FileAttachment[];
   askOptions?: string[];
   askResolved?: boolean;
+  toolArgs?: Record<string, any>;
 }
 
 export interface FileAttachment {
@@ -616,6 +617,7 @@ export const useStore = create<AppState>((set, get) => ({
       toolLabel: toolLabels[actionType] || (actionType ? actionType.replace(/_/g, ' ') : undefined),
       attachments: event.attachments as FileAttachment[],
       askOptions: event.ask_options,
+      toolArgs: event.parsed_action as Record<string, any> | undefined,
     };
 
     const newAnnotations: Annotation[] = [];

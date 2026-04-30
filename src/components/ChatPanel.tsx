@@ -1,10 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Bot, CheckCircle, Code2, Database, FolderOpen, Ghost, Layers3, MessageSquareText, Mic, MonitorPlay, Paperclip, Plus, Send, Square, X } from 'lucide-react';
-import { ArtifactBadge } from './artifact/ArtifactBadge';
-import { ArtifactPanel } from './artifact/ArtifactPanel';
-import { useArtifactStore } from '@/stores/artifactStore';
-import { extractArtifactFromToolCall } from '@/lib/artifactDetector';
-import { Artifact } from '@/types/artifact.types';
+
 import { toast } from '@/components/ui/sonner';
 import { useStore, type LogEntry } from '@/store/useStore';
 import ChatMessage from './chat/ChatMessage';
@@ -719,8 +715,8 @@ const ChatPanel = () => {
       <div
         className="flex min-h-0 min-w-0 flex-col"
         style={{
-          flex: useArtifactStore.getState().isPanelOpen ? '0 0 45%' : '1 1 100%',
-          maxWidth: useArtifactStore.getState().isPanelOpen ? '45%' : '100%',
+          flex: '1 1 100%',
+          maxWidth: '100%',
           transition: 'flex 0.3s ease, max-width 0.3s ease',
         }}
       >

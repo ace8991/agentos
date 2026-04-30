@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useState } from 'react';
 import TaskSidebar from '@/components/TaskSidebar';
 import ChatPanel from '@/components/ChatPanel';
 import WorkspaceDock from '@/components/chat/WorkspaceDock';
+import ArtifactPanel from '@/components/artifact/ArtifactPanel';
 import BackendOfflineOverlay from '@/components/BackendOfflineOverlay';
 import { useStore } from '@/store/useStore';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -55,6 +56,7 @@ const Dashboard = () => {
           onClose={closeWorkspacePanel}
           onChangeView={setWorkspacePanelView}
         />
+        <ArtifactPanel />
         <Suspense fallback={null}>
           <SettingsModal />
         </Suspense>

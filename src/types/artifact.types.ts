@@ -1,36 +1,36 @@
-export type ArtifactType =
-  | 'html'        // Page HTML complète
-  | 'react'       // Composant JSX/TSX
-  | 'svg'         // Graphique SVG
-  | 'markdown'    // Document Markdown rendu
-  | 'javascript'  // Script JS exécutable
-  | 'css'         // Feuille de style preview
-  | 'python'      // Script Python
-  | 'unknown';    // Code affiché seulement
-
-export type PanelMode = 'preview' | 'code' | 'split';
+export type ArtifactLanguage =
+  | 'html'
+  | 'javascript'
+  | 'typescript'
+  | 'css'
+  | 'json'
+  | 'python'
+  | 'markdown'
+  | 'text'
+  | 'react'
+  | 'shell';
 
 export interface Artifact {
-  id: string;                    // UUID unique
-  type: ArtifactType;           // Type détecté
-  title: string;                 // Titre extrait ou généré
-  code: string;                  // Code source complet
-  language: string;              // Langage pour syntax highlighting
-  timestamp: number;             // Date de création
-  version: number;               // Incrémenté à chaque update
-  messageId: string;             // ID du message IA parent
-  filePath?: string;             // Chemin du fichier (pour déduplication)
+  id: string; // The tool call ID or generated ID
+  type: 'code' | 'website' | 'data' | 'markdown';
+  title: string;
+  content: string;
+  language: ArtifactLanguage;
+  path?: string; // Optional path if it's an actual file
+  createdAt: string;
 }
 
-export interface ArtifactPanelState {
+export interface ArtifactStore {
   artifacts: Record<string, Artifact>;
   activeArtifactId: string | null;
-  panelMode: PanelMode;
-  isPanelOpen: boolean;
-  isPanelFullscreen: boolean;
-}
-
-export interface ArtifactPanelProps {
-  artifact: Artifact | null;
-  onClose: () => void;
+  panelState: 'hidden' | 'split' | 'fullscreen';
+  viewMode: 'preview' | 'code';
+  
+  // Actions
+  addArtifact: (artifact: Artifact) => void;
+  updateArtifact: (id: string, updates: Partial<Artifact>) => void;
+  setActiveArtifact: (id: string | null) => void;
+  setPanelState: (state: 'hidden' | 'split' | 'fullscreen') => void;
+  setViewMode: (mode: 'preview' | 'code') => void;
+  closePanel: () => void;
 }
