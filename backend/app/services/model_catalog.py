@@ -8,7 +8,7 @@ The old hardcoded _AGENT_MODEL_IDS set is replaced by the dynamic MODEL_REGISTRY
 from __future__ import annotations
 
 from app.models.schemas import ModelInfo
-from src.agent.core.registry import MODEL_REGISTRY, get_model as registry_get_model, list_models as registry_list_models
+from src.agent.core.registry import MODEL_REGISTRY, get_model as registry_get_model, list_models_for_ui as registry_list_models
 
 # ── Legacy model list (kept for backward compatibility) ───────────────────────
 
