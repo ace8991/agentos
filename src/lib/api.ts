@@ -149,6 +149,38 @@ export async function chatDirect(
   const system = buildChatSystemPrompt(userText, normalizedModel, mode, true);
   const payloadMessages = messages.filter((message) => message.role !== 'system');
 
+  // Helper: stream directly from the provider (browser -> Anthropic/OpenAI/etc.)
+  // Used when the local backend is unreachable (online/cloud mode).
+  const runDirectFromBrowser = async () => {
+    await chatDirectFromBrowser(
+      { messages: payloadMessages, model: normalizedModel, system, maxTokens: 4096 },
+      {
+        onToken,
+        onThinking: options?.onThinking,
+        onDone,
+        onError,
+      },
+    );
+  };
+
+  // Fast-path: if we already know the backend is offline (store flag set by
+  // RuntimeSync health polling) AND a direct provider key is available, skip
+  // the doomed backend round-trip entirely.
+  try {
+    const backendOffline =
+      typeof window !== 'undefined' &&
+      (window as any).__agentos_backend_online__ === false;
+    if (backendOffline) {
+      const provider = detectDirectProvider(normalizedModel);
+      if (provider !== 'unsupported' && getApiKey(provider)) {
+        await runDirectFromBrowser();
+        return;
+      }
+    }
+  } catch {
+    // ignore detection errors and fall through to backend attempt
+  }
+
   try {
     try {
       await syncRuntimeConfig();
@@ -249,11 +281,24 @@ export async function chatDirect(
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (message.toLowerCase().includes('fetch')) {
-      onError('Cannot connect to backend (port 8000). Make sure it is running.');
-    } else {
-      onError(message);
+    const looksLikeNetworkFailure =
+      message.toLowerCase().includes('fetch') ||
+      message.toLowerCase().includes('network') ||
+      message.toLowerCase().includes('failed to fetch');
+
+    if (looksLikeNetworkFailure) {
+      // Backend unreachable -> fall back to direct provider call from the browser
+      const provider = detectDirectProvider(normalizedModel);
+      if (provider !== 'unsupported' && getApiKey(provider)) {
+        await runDirectFromBrowser();
+        return;
+      }
+      onError(
+        `Backend offline and no direct API key found for "${normalizedModel}". Start the local backend on port 8000, or add your provider key in Settings.`,
+      );
+      return;
     }
+    onError(message);
   }
 }
 
