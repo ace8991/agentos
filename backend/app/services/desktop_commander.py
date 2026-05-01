@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 import json
+import os
 import platform
 import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import AsyncGenerator, Optional
 
 from app.config import IS_LOCAL
 from app.services import filesystem as fs
@@ -544,3 +546,247 @@ def dc_execute_command(
             "command": command,
             "description": str(exc),
         }
+
+
+def dc_git_command(repo_path: str, command: str) -> dict:
+    """Execute a git command inside a repository directory."""
+    blocked = _local_only()
+    if blocked:
+        return blocked
+
+    resolved, error = _validate_path(repo_path)
+    if error:
+        return error
+
+    git_dir = resolved / ".git"
+    if not git_dir.exists():
+        return {
+            "success": False,
+            "description": f"Not a git repository: {repo_path}",
+        }
+
+    try:
+        result = subprocess.run(
+            ["git"] + command.split(),
+            capture_output=True,
+            cwd=str(resolved),
+            timeout=30,
+        )
+        stdout = result.stdout.decode("utf-8", errors="replace")
+        stderr = result.stderr.decode("utf-8", errors="replace")
+        return {
+            "success": result.returncode == 0,
+            "exit_code": result.returncode,
+            "stdout": stdout,
+            "stderr": stderr,
+            "command": command,
+            "repo_path": str(resolved),
+            "description": f"git {command} — exit {result.returncode}",
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False,
+            "exit_code": -1,
+            "stdout": "",
+            "stderr": "Git command timed out after 30s",
+            "command": command,
+            "description": "Timed out",
+        }
+    except FileNotFoundError:
+        return {
+            "success": False,
+            "exit_code": -1,
+            "stdout": "",
+            "stderr": "Git executable not found. Ensure Git is installed and on PATH.",
+            "command": command,
+            "description": "Git not found",
+        }
+    except Exception as exc:
+        return {
+            "success": False,
+            "exit_code": -1,
+            "stdout": "",
+            "stderr": str(exc),
+            "command": command,
+            "description": str(exc),
+        }
+
+
+def dc_open_project(path: str) -> dict:
+    """Validate and open a project directory, returning its structure info."""
+    blocked = _local_only()
+    if blocked:
+        return blocked
+
+    resolved, error = _validate_path(path)
+    if error:
+        return error
+
+    if not resolved.exists():
+        return {"success": False, "description": f"Path does not exist: {path}"}
+    if not resolved.is_dir():
+        return {"success": False, "description": f"Path is not a directory: {path}"}
+
+    try:
+        entries = list(resolved.iterdir())
+        file_count = sum(1 for e in entries if e.is_file())
+        dir_count = sum(1 for e in entries if e.is_dir())
+        total_size = sum(e.stat().st_size for e in entries if e.is_file())
+
+        # Detect project type
+        project_type = "unknown"
+        if (resolved / "package.json").exists():
+            project_type = "node"
+        elif (resolved / "pyproject.toml").exists() or (resolved / "requirements.txt").exists():
+            project_type = "python"
+        elif (resolved / "Cargo.toml").exists():
+            project_type = "rust"
+        elif (resolved / "go.mod").exists():
+            project_type = "go"
+        elif (resolved / "pom.xml").exists() or (resolved / "build.gradle").exists():
+            project_type = "java"
+
+        # Check git status
+        git_branch = None
+        git_has_changes = False
+        git_dir = resolved / ".git"
+        if git_dir.exists():
+            try:
+                branch_result = subprocess.run(
+                    ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                    capture_output=True, cwd=str(resolved), timeout=10,
+                )
+                if branch_result.returncode == 0:
+                    git_branch = branch_result.stdout.decode("utf-8", errors="replace").strip()
+
+                status_result = subprocess.run(
+                    ["git", "status", "--porcelain"],
+                    capture_output=True, cwd=str(resolved), timeout=10,
+                )
+                git_has_changes = len(status_result.stdout.decode("utf-8", errors="replace").strip()) > 0
+            except Exception:
+                pass
+
+        return {
+            "success": True,
+            "path": str(resolved),
+            "name": resolved.name,
+            "project_type": project_type,
+            "file_count": file_count,
+            "dir_count": dir_count,
+            "total_size_bytes": total_size,
+            "git_branch": git_branch,
+            "git_has_changes": git_has_changes,
+            "is_git_repo": git_dir.exists(),
+            "description": f"Opened project {resolved.name} ({project_type}, {file_count} files)",
+        }
+    except Exception as exc:
+        return {"success": False, "description": str(exc)}
+
+
+async def dc_execute_command_stream(
+    command: str,
+    *,
+    shell: str = "powershell",
+    timeout_ms: int = 30000,
+    cwd: Optional[str] = None,
+) -> AsyncGenerator[str, None]:
+    """Execute a command and stream output line-by-line as SSE events."""
+    blocked = _local_only()
+    if blocked:
+        yield f"data: {json.dumps({'event': 'error', 'message': blocked.get('description', 'Blocked')})}\n\n"
+        return
+
+    config = _load_config()
+    blocked_cmd = _command_is_blocked(command, config["blocked_commands"])
+    if blocked_cmd:
+        yield f"data: {json.dumps({'event': 'error', 'message': f'Blocked command: {blocked_cmd}'})}\n\n"
+        return
+
+    if cwd:
+        working_dir = cwd
+    elif config["allowed_directories"]:
+        working_dir = config["allowed_directories"][0]
+    else:
+        working_dir = str(Path.home())
+    resolved_cwd, error = _validate_path(working_dir)
+    if error:
+        yield f"data: {json.dumps({'event': 'error', 'message': error['description']})}\n\n"
+        return
+
+    try:
+        shell_name = (shell or _default_shell()).lower()
+        if "powershell" in shell_name:
+            args = ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command]
+        elif shell_name == "cmd":
+            args = ["cmd.exe", "/c", command]
+        else:
+            args = [shell_name, "-lc", command]
+
+        flags = 0
+        if hasattr(subprocess, "CREATE_NO_WINDOW"):
+            flags = subprocess.CREATE_NO_WINDOW
+
+        process = await asyncio.create_subprocess_exec(
+            *args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=str(resolved_cwd),
+            creationflags=flags,
+        )
+
+        async def _read_stream(stream, source: str) -> None:
+            assert stream is not None
+            while True:
+                line = await stream.readline()
+                if not line:
+                    break
+                text = line.decode("utf-8", errors="replace").rstrip("\n").rstrip("\r")
+                if text:
+                    yield f"data: {json.dumps({'event': 'stdout' if source == 'stdout' else 'stderr', 'data': text})}\n\n"
+
+        async def _read_stdout():
+            assert process.stdout is not None
+            async for chunk in _read_stream(process.stdout, "stdout"):
+                yield chunk
+
+        async def _read_stderr():
+            assert process.stderr is not None
+            async for chunk in _read_stream(process.stderr, "stderr"):
+                yield chunk
+
+        # Run both readers concurrently
+        async def _wait_and_finish():
+            exit_code = await process.wait()
+            yield f"data: {json.dumps({'event': 'exit', 'exit_code': exit_code})}\n\n"
+
+        import asyncio as _asyncio
+
+        # Stream stdout and stderr concurrently, then send exit event
+        stdout_task = _asyncio.create_task(_read_stdout().__anext__())
+        stderr_task = _asyncio.create_task(_read_stderr().__anext__())
+        pending = {stdout_task, stderr_task}
+
+        while pending:
+            done, pending = await _asyncio.wait(pending, timeout=timeout_ms / 1000)
+            for task in done:
+                try:
+                    chunk = task.result()
+                    yield chunk
+                    # Reschedule
+                    if task is stdout_task:
+                        stdout_task = _asyncio.create_task(_read_stdout().__anext__())
+                        pending.add(stdout_task)
+                    else:
+                        stderr_task = _asyncio.create_task(_read_stderr().__anext__())
+                        pending.add(stderr_task)
+                except StopAsyncIteration:
+                    pass
+                except Exception as exc:
+                    yield f"data: {json.dumps({'event': 'error', 'message': str(exc)})}\n\n"
+
+        exit_code = await process.wait()
+        yield f"data: {json.dumps({'event': 'exit', 'exit_code': exit_code})}\n\n"
+
+    except Exception as exc:
+        yield f"data: {json.dumps({'event': 'error', 'message': str(exc)})}\n\n"
