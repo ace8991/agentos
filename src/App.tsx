@@ -44,6 +44,14 @@ const RuntimeSync = () => {
       if (cancelled) {
         return;
       }
+      // Mirror backend-online state onto window so non-React code (chatDirect)
+      // can fast-path to direct provider calls when the backend is offline.
+      try {
+        (window as unknown as Record<string, unknown>).__agentos_backend_online__ =
+          useStore.getState().backendOnline;
+      } catch {
+        // ignore
+      }
       const delay = useStore.getState().backendOnline ? 15000 : 60000;
       timeoutId = window.setTimeout(probe, delay);
     };
