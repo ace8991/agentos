@@ -27,6 +27,8 @@ import {
 import TaskSidebar from '@/components/TaskSidebar';
 import ModelSelector from '@/components/ModelSelector';
 import ProviderConfigModal from '@/components/ProviderConfigModal';
+import BackendStatusChip from '@/components/BackendStatusChip';
+import LocalConnectionBanner from '@/components/LocalConnectionBanner';
 import ComposerInsertMenu from '@/components/chat/ComposerInsertMenu';
 import ConnectorQuickAccess from '@/components/chat/ConnectorQuickAccess';
 import { useStore } from '@/store/useStore';
