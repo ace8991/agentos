@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, FolderOpen, Plus, ArrowRight } from 'lucide-react';
+import { ArrowLeft, ChevronDown, FolderOpen, Plus, ArrowRight } from 'lucide-react';
 import CoworkSidebar, { type CoworkView } from '@/components/cowork/CoworkSidebar';
 import CoworkChatView from '@/components/cowork/CoworkChatView';
 import DispatchPanel from '@/components/cowork/DispatchPanel';
@@ -78,6 +78,16 @@ const CoworkPage = () => {
 
   return (
     <div className="flex flex-col h-[100dvh] w-full overflow-hidden bg-[hsl(0,0%,10%)]">
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/50 bg-[hsl(0,0%,10%)]">
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-white/10"
+          aria-label="Retour"
+        >
+          <ArrowLeft size={16} />
+          <span className="text-xs">Retour</span>
+        </button>
+      </div>
       <div className="flex flex-1 min-h-0">
         <CoworkSidebar
           activeView={activeView}

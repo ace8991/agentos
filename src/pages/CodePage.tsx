@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  GitBranch, FolderOpen, Check, ChevronDown, Mic, Monitor,
+  ArrowLeft, GitBranch, FolderOpen, Check, ChevronDown, Mic, Monitor,
   MessageSquare, Files, GitFork, Terminal as TerminalIcon,
   PanelLeftClose, PanelLeftOpen, PanelBottomClose, PanelBottomOpen,
   Send, Bot, User, Copy, Paperclip, X, Undo2, ChevronRight,
@@ -426,6 +426,7 @@ const CodePage = () => {
   const model = useStore((s) => s.model);
   const isMobile = useIsMobile();
   const location = useLocation();
+  const navigate = useNavigate();
 
   // GitHub state
   const [repos, setRepos] = useState<GitHubRepo[]>(loadRepos());
@@ -796,6 +797,16 @@ const CodePage = () => {
 
   return (
     <div className="flex flex-col h-[100dvh] w-full overflow-hidden bg-[hsl(0,0%,10%)]">
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[hsl(0,0%,17%)] bg-[hsl(0,0%,11%)]">
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-white/10"
+          aria-label="Retour"
+        >
+          <ArrowLeft size={16} />
+          <span className="text-xs">Retour</span>
+        </button>
+      </div>
       <div className="flex flex-1 min-h-0">
       <TaskSidebar />
       <div className="flex-1 flex flex-col min-w-0">

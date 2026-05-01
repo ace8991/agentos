@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Loader2, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Loader2, ShieldAlert } from 'lucide-react';
 import HexLogo from '@/components/HexLogo';
 import { login, register, enableGuestSession, getGuestUser } from '@/lib/auth';
 import { useAuthStore } from '@/store/authStore';
@@ -104,6 +104,15 @@ const AuthPage = () => {
 
   return (
     <div className="flex min-h-screen bg-[linear-gradient(180deg,#0d1020_0%,#13172a_52%,#090b14_100%)] text-white">
+      <div className="fixed top-4 left-4 z-50">
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-1.5 text-white/60 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/10 bg-black/20 backdrop-blur-sm"
+          aria-label="Retour"
+        >
+          <ArrowLeft size={18} />
+        </button>
+      </div>
       <aside className="relative hidden w-[420px] shrink-0 overflow-hidden border-r border-white/8 bg-[#0a0a12] lg:flex lg:flex-col lg:items-center lg:justify-center">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(111,92,255,0.28),transparent_30%),radial-gradient(circle_at_70%_75%,rgba(52,211,153,0.18),transparent_25%)]" />
         <div className="absolute left-[-20%] top-[14%] h-64 w-64 rounded-full bg-fuchsia-500/20 blur-[100px]" />

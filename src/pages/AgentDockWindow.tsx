@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState } from 'react';
-import { ArrowUpRight, Globe, Radio, TerminalSquare } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Globe, Radio, TerminalSquare } from 'lucide-react';
 import { readAgentDockSnapshot, subscribeAgentDockSnapshot, type AgentDockSnapshot } from '@/lib/agent-dock-bridge';
 import { getMobileHubOverlayPrefs } from '@/lib/mobile-hub';
 
@@ -33,6 +33,15 @@ const AgentDockWindow = () => {
 
   return (
     <div className="flex min-h-screen bg-[radial-gradient(circle_at_top,_rgba(90,126,255,0.18),_transparent_32%),linear-gradient(180deg,#111521_0%,#090b12_100%)] text-white">
+      <div className="fixed top-4 left-4 z-50">
+        <button
+          onClick={() => window.open('/', '_self')}
+          className="flex items-center gap-1.5 text-white/60 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/10 bg-black/20 backdrop-blur-sm"
+          aria-label="Retour"
+        >
+          <ArrowLeft size={18} />
+        </button>
+      </div>
       <div className="flex min-h-screen w-full flex-col px-4 py-4">
         <div className="rounded-[28px] border border-white/10 bg-[rgba(10,14,23,0.88)] shadow-[0_30px_90px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
           <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">

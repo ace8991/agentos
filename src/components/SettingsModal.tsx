@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Eye, EyeOff, Calendar, Mail, Database, Globe, User, Puzzle, Plug, Layers, Key, Shield, Camera, Monitor, Plus, Trash2, Check, ExternalLink, Settings, Bot, Sparkles, Wrench, BookText, Smartphone, Terminal } from 'lucide-react';
+import { ArrowLeft, X, Eye, EyeOff, Calendar, Mail, Database, Globe, User, Puzzle, Plug, Layers, Key, Shield, Camera, Monitor, Plus, Trash2, Check, ExternalLink, Settings, Bot, Sparkles, Wrench, BookText, Smartphone, Terminal } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { useAuthStore } from '@/store/authStore';
 import { MODEL_PROVIDERS, getReasoningEffortOptions, supportsReasoningEffort, type ReasoningEffort } from './ModelSelector';
@@ -1468,6 +1468,14 @@ const SettingsModal = () => {
         {/* Sidebar - horizontal scroll on mobile, vertical on desktop */}
         <div className="md:w-[220px] shrink-0 border-b md:border-b-0 md:border-r border-border bg-card/50 overflow-x-auto md:overflow-x-visible md:overflow-y-auto scrollbar-thin py-2 md:py-4">
           <div className="flex md:flex-col gap-0.5 px-2 md:px-2 min-w-max md:min-w-0">
+            <button
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 md:gap-2.5 px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm rounded-md md:rounded-md whitespace-nowrap transition-colors text-muted-foreground hover:text-foreground hover:bg-surface-elevated/50 mb-1 md:mb-2"
+            >
+              <ArrowLeft size={14} />
+              <span>Retour</span>
+            </button>
+            <div className="hidden md:block border-t border-border mb-2" />
             {sidebarSections.map((s) => (
               <button
                 key={s.key}
@@ -1488,7 +1496,12 @@ const SettingsModal = () => {
         {/* Content */}
         <div className="flex-1 overflow-y-auto scrollbar-thin p-4 md:p-8 min-h-0">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-medium text-foreground">Settings</h2>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-md hover:bg-surface-elevated/50">
+                <ArrowLeft size={20} />
+              </button>
+              <h2 className="text-lg font-medium text-foreground">Settings</h2>
+            </div>
             <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-md hover:bg-surface-elevated/50">
               <X size={20} />
             </button>

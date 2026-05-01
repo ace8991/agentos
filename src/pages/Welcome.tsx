@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  ArrowLeft,
   Bell,
   ChevronDown,
   Code2,
@@ -370,6 +371,13 @@ const Welcome = () => {
 
         <div className="relative z-20 flex items-center justify-between px-4 md:px-6 py-3 border-b border-white/10 backdrop-blur-md bg-[rgba(9,12,20,0.14)]">
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="flex items-center gap-1.5 text-white/60 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10"
+              aria-label="Retour"
+            >
+              <ArrowLeft size={18} />
+            </button>
             {isMobile && <div className="w-10" />}
             <span className="text-sm text-white font-medium">AgentOS 1.0</span>
             <svg width="10" height="10" viewBox="0 0 10 10" className="text-white/55 mt-0.5">
