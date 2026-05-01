@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from typing import Optional
 
 from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.services import desktop_commander as dc
@@ -62,6 +64,22 @@ class ExecuteCommandRequest(BaseModel):
     shell: str = "powershell"
     timeout_ms: int = 30000
     cwd: Optional[str] = None
+
+
+class ExecuteCommandStreamRequest(BaseModel):
+    command: str
+    shell: str = "powershell"
+    timeout_ms: int = 30000
+    cwd: Optional[str] = None
+
+
+class GitCommandRequest(BaseModel):
+    repo_path: str
+    command: str
+
+
+class OpenProjectRequest(BaseModel):
+    path: str
 
 
 class DesktopCommanderConfigPatchRequest(BaseModel):
@@ -166,3 +184,39 @@ async def execute_command(req: ExecuteCommandRequest):
 @router.get("/system-info")
 async def system_info():
     return dc.dc_get_system_info()
+
+
+@router.post("/git")
+async def git_command(req: GitCommandRequest):
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None,
+        lambda: dc.dc_git_command(req.repo_path, req.command),
+    )
+
+
+@router.post("/open-project")
+async def open_project(req: OpenProjectRequest):
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None,
+        lambda: dc.dc_open_project(req.path),
+    )
+
+
+@router.post("/execute-command-stream")
+async def execute_command_stream(req: ExecuteCommandStreamRequest):
+    return StreamingResponse(
+        dc.dc_execute_command_stream(
+            req.command,
+            shell=req.shell,
+            timeout_ms=req.timeout_ms,
+            cwd=req.cwd,
+        ),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
