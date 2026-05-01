@@ -229,7 +229,15 @@ const CodeSidebar = ({ onSelectProject, activeProject }: CodeSidebarProps) => {
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-[hsl(0,0%,17%)]">
         <div className="flex items-center gap-2">
-          <FileCode2 size={16} className="text-purple-400" />
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors p-1 rounded-lg hover:bg-[hsl(0,0%,15%)]"
+            aria-label="Retour"
+          >
+            <ArrowLeft size={16} />
+            <span className="text-xs">Retour</span>
+          </button>
+          <FileCode2 size={16} className="text-purple-400 ml-1" />
           <span className="text-sm font-semibold text-foreground/90">Code</span>
         </div>
         <button

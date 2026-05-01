@@ -1332,17 +1332,6 @@ const CodePage = () => {
 
   return (
     <div className="flex flex-col h-[100dvh] w-full overflow-hidden bg-[hsl(0,0%,10%)]">
-      {/* Top bar minimaliste */}
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[hsl(0,0%,17%)] bg-[hsl(0,0%,10%)]">
-        <button
-          onClick={() => navigate('/dashboard')}
-          className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-[hsl(0,0%,15%)]"
-          aria-label="Retour"
-        >
-          <ArrowLeft size={16} />
-          <span className="text-xs">Retour</span>
-        </button>
-      </div>
       <div className="flex flex-1 min-h-0">
         {/* Sidebar — left side */}
         <AnimatePresence>
