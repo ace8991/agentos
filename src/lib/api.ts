@@ -1,4 +1,5 @@
 import { buildChatSystemPrompt } from '@/lib/system-prompt';
+import { chatDirectFromBrowser, detectDirectProvider, getApiKey } from '@/lib/browser-providers';
 
 export type ReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
 
