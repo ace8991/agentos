@@ -82,6 +82,7 @@ const getRelativeDate = (date: Date) => {
    ─────────────────────────────────────────── */
 
 const CodeSidebar = ({ onSelectProject, activeProject }: CodeSidebarProps) => {
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [projects, setProjects] = useState<AppProject[]>([]);
   const [search, setSearch] = useState('');
