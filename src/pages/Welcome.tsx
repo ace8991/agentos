@@ -27,6 +27,8 @@ import {
 import TaskSidebar from '@/components/TaskSidebar';
 import ModelSelector from '@/components/ModelSelector';
 import ProviderConfigModal from '@/components/ProviderConfigModal';
+import BackendStatusChip from '@/components/BackendStatusChip';
+import LocalConnectionBanner from '@/components/LocalConnectionBanner';
 import ComposerInsertMenu from '@/components/chat/ComposerInsertMenu';
 import ConnectorQuickAccess from '@/components/chat/ConnectorQuickAccess';
 import { useStore } from '@/store/useStore';
@@ -362,6 +364,10 @@ const Welcome = () => {
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,14,24,0.12)_0%,rgba(10,14,24,0.42)_100%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(9,11,19,0.20)_0%,rgba(9,11,19,0.04)_45%,rgba(9,11,19,0.20)_100%)]" />
 
+        <div className="relative z-30">
+          <LocalConnectionBanner />
+        </div>
+
         <div className="relative z-20 flex items-center justify-between px-4 md:px-6 py-3 border-b border-white/10 backdrop-blur-md bg-[rgba(9,12,20,0.14)]">
           <div className="flex items-center gap-2">
             {isMobile && <div className="w-10" />}
@@ -372,6 +378,7 @@ const Welcome = () => {
           </div>
 
           <div className="flex items-center gap-2 md:gap-3">
+            <BackendStatusChip />
             <div ref={notificationsRef} className="relative">
               <button
                 onClick={toggleNotifications}
