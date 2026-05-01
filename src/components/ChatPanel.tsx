@@ -33,6 +33,8 @@ import {
 import { buildProjectContext, getCurrentProject, loadProjects, PROJECTS_UPDATED_EVENT, type AppProject } from '@/lib/projects';
 import { buildAttachmentContext } from '@/lib/attachment-context';
 import { useSpeechInput } from '@/hooks/useSpeechInput';
+import { useIntentEngine } from '@/hooks/useIntentEngine';
+import { ResponseTypePill } from '@/components/ResponseTypePill';
 
 const ConnectorConfigModal = lazy(() => import('./chat/ConnectorConfigModal'));
 const ConnectorsDirectoryModal = lazy(() => import('./chat/ConnectorsDirectoryModal'));
@@ -163,6 +165,7 @@ const ChatPanel = () => {
   const setWorkspacePanelView = useStore((s) => s.setWorkspacePanelView);
 
   const [inputValue, setInputValue] = useState('');
+  const [currentResponseType, setCurrentResponseType] = useState<import('@/lib/intentEngine/types').ResponseType>('text');
   const [configProvider, setConfigProvider] = useState<string | null>(null);
   const [directoryOpen, setDirectoryOpen] = useState(false);
   const [configConnectorId, setConfigConnectorId] = useState<string | null>(null);
@@ -290,10 +293,17 @@ const ChatPanel = () => {
     }
   }, [speechError]);
 
+  const { analyzeAndPrepare, lastIntent } = useIntentEngine();
+
   const handleSend = async () => {
     const text = inputValue.trim();
     if (!text) return;
     setComposerMenuOpen(false);
+
+    // Analyse l'intention AVANT d'envoyer
+    const intent = analyzeAndPrepare(text, undefined, backendOnline);
+    setCurrentResponseType(intent.responseType);
+
     let attachmentContext = await buildAttachmentContext(attachments);
     const shouldUseBuilder = shouldUseBuilderWorkspace(text, composerPreferences);
     const shouldUseAgent =
@@ -1179,6 +1189,12 @@ const ChatPanel = () => {
           />
           <input ref={fileInputRef} type="file" multiple onChange={handleFileSelect} className="hidden" />
           <input ref={imageInputRef} type="file" accept="image/*" multiple onChange={handleImageSelect} className="hidden" />
+          <div className="flex items-center gap-2 px-1 pb-1">
+            <ResponseTypePill
+              responseType={currentResponseType}
+              isVisible={inputValue.trim().length > 0}
+            />
+          </div>
           <textarea
             value={inputValue}
             onChange={(event) => setInputValue(event.target.value)}

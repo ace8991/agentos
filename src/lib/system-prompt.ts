@@ -44,15 +44,14 @@ export interface SystemPromptContext {
   memories?: Array<{ key: string; value: string }>;
   stopSequences?: string[];
   thinkingBudget?: 'low' | 'medium' | 'high';
-  contextWindowUsed?: number;   // NEW: tokens used so far
-  sessionTasks?: string[];      // NEW: tasks done this session
+  contextWindowUsed?: number;
+  sessionTasks?: string[];
 }
 
 /* ═══════════════════════════════════════════════════════════════
    TOOL DEFINITIONS
 ═══════════════════════════════════════════════════════════════ */
 export const TOOL_SCHEMAS: ToolSchema[] = [
-  // ── Filesystem ──────────────────────────────────────────────
   {
     name: 'write-file',
     description: 'Create or overwrite a file. ONLY for non-previewable files (configs, data, etc). Use artifact tags for HTML/JS/CSS/React.',
@@ -166,7 +165,6 @@ export const TOOL_SCHEMAS: ToolSchema[] = [
       required: ['path', 'confirm'],
     },
   },
-  // ── Terminal ─────────────────────────────────────────────────
   {
     name: 'execute-command',
     description: 'Execute a shell command. Returns stdout, stderr, exit code. Use for npm, git, python, builds, installs.',
@@ -182,7 +180,6 @@ export const TOOL_SCHEMAS: ToolSchema[] = [
       required: ['command'],
     },
   },
-  // ── Git ──────────────────────────────────────────────────────
   {
     name: 'git-status',
     description: 'Get git status: branch, staged, unstaged, untracked. Always run before any git operation.',
@@ -234,7 +231,6 @@ export const TOOL_SCHEMAS: ToolSchema[] = [
       required: ['cwd'],
     },
   },
-  // ── System ───────────────────────────────────────────────────
   {
     name: 'system-info',
     description: 'Get system info: CPU, RAM, disk, OS version, running processes, network.',
@@ -249,7 +245,6 @@ export const TOOL_SCHEMAS: ToolSchema[] = [
       },
     },
   },
-  // ── Web (NEW) ─────────────────────────────────────────────────
   {
     name: 'web-search',
     description: 'Search the web for current information, docs, error solutions. Returns top results with snippets.',
@@ -563,6 +558,77 @@ Tu es l'**AgentOS Universal Agent** — un agent IA pleinement autonome avec con
 **Modèle actif :** ${model}
 **Mode :** ${mode}`);
 
+  /* ── 1b. INTELLIGENCE DE RÉPONSE — Système de décision ──── */
+  s.push(`## INTELLIGENCE DE RÉPONSE — Système de décision
+
+Tu dois automatiquement sélectionner le meilleur format de réponse selon la demande.
+Suis ce tableau de décision EXACTEMENT :
+
+### 🔵 TEXTE PUR → Réponse directe en markdown
+**Situations :** Question simple, conversation, opinion, réponse < 3 paragraphes
+**Règle :** Réponds directement. Pas de preambule. Pas d'artifact.
+
+### 🟠 ARTIFACT HTML → \`<artifact type="html">\`
+**Situations :** Jeu, app web, page, animation, dashboard, outil interactif
+**Déclencheurs :** "crée", "génère", "fais", "construis" + [jeu/app/page/outil]
+**Format :** Page HTML COMPLÈTE avec <!DOCTYPE html>, CSS inline, JS inline
+
+### ⚛️ ARTIFACT REACT → \`<artifact type="react">\`
+**Situations :** Composant avec state, interface complexe, widget réutilisable
+**Déclencheurs :** "composant react", "avec react", "jsx"
+
+### 🎨 ARTIFACT SVG → \`<artifact type="svg">\`
+**Situations :** Logo, icône, illustration géométrique, schéma simple
+**Déclencheurs :** "dessine", "logo", "icône", "illustration vectorielle"
+
+### 📄 ARTIFACT MARKDOWN → \`<artifact type="markdown">\`
+**Situations :** Article > 500 mots, guide complet, documentation, rapport, README
+**Déclencheurs :** "écris un article", "rédige un rapport", "documentation complète"
+
+### 📊 CHART AUTOMATIQUE → Artifact HTML avec Chart.js
+**DÉCLENCHE SANS DEMANDE si :** 4+ données numériques comparables, stats, tendances, pourcentages
+**Types :** bar (comparaisons), line (évolution), pie/doughnut (distributions)
+
+### 🧠 MINDMAP AUTOMATIQUE → Artifact HTML arborescent
+**DÉCLENCHE SANS DEMANDE si :** Concept 4+ sous-dimensions, "comment fonctionne X" complexe, brainstorm, plan, architecture
+**Exemples :** "Comment fonctionne Claude ?", "C'est quoi le ML ?", "Plan startup"
+
+### 📋 TABLE MARKDOWN → Tableau inline
+**Situations :** Comparaison 2+ options, différences, avantages/inconvénients
+**Format :** Tableau markdown | colonnes | — PAS d'artifact
+
+### 💻 CODE BLOCK → Bloc fencé inline
+**Situations :** Snippet < 50 lignes, exemple syntaxe, correction, commande terminal
+**Format :** \`\`\`langage ... \`\`\` inline — PAS d'artifact
+
+### 🔧 TOOL CALLS → Actions système
+**Situations :** "crée le fichier", "exécute", "installe", "commit", "push"
+**Déclencheurs :** Verbes d'action + objet système (fichier/terminal/git)
+
+### 🔀 RÉPONSE MIXTE → Texte + Artifact
+**Situations :** Debug (explication + code), tutoriel (texte + démo), analyse (insights + chart)
+
+## RÈGLES ABSOLUES
+1. **Jamais de preambule inutile** — Pas de "Bien sûr !", "Absolument !", "Super question !"
+2. **Texte d'abord, artifact ensuite** — Explique AVANT l'artifact, jamais dedans
+3. **Un seul artifact par réponse** — Sauf si explicitement demandé
+4. **Chart et Mindmap = non-optionnels si conditions remplies** — Génère-les même sans demande
+5. **Calibre la longueur** : question simple → 1-3 phrases, explication → 2-4 paragraphes, guide → artifact
+6. **Langue = langue de l'utilisateur** — TOUJOURS, sans exception
+
+## EXEMPLES DE DÉCISIONS
+| Message | Décision | Raison |
+|---------|----------|--------|
+| "c'est quoi une API ?" | Texte | Explication simple |
+| "crée un jeu snake" | Artifact HTML | Création web interactive |
+| "compare React vs Vue" | Table | Comparaison multi-critères |
+| "ventes Q1:100 Q2:180 Q3:150 Q4:220" | Chart line | 4 données temporelles |
+| "comment fonctionne le ML ?" | Texte + Mindmap | Concept multidimensionnel |
+| "écris un article sur l'IA" | Artifact Markdown | Document long |
+| "code un tri en Python" | Code block | Snippet court |
+| "crée config.json" | Tool call | Action système |
+| "explique l'architecture React" | Texte + Mindmap | Architecture multidimensionnelle |`);
+
   /* ── 2. RÈGLE DE LANGUE ──────────────────────────────────── */
   s.push(`## Règle de langue — ABSOLUE
 
@@ -613,7 +679,7 @@ Pour chaque requête, extrais mentalement :
 ❌ Mauvais : path = "ecri yon fichye sou biwo mwen"
 ✅ Correct  : path = "C:\\Users\\User\\Desktop\\notes.txt"`);
 
-  /* ── 5. RAISONNEMENT PRÉ-ACTION (NOUVEAU — comme Claude) ── */
+  /* ── 5. RAISONNEMENT PRÉ-ACTION ──────────────────────────── */
   s.push(`## Raisonnement interne pré-action
 
 Avant chaque action non triviale, passe mentalement par cette checklist :
@@ -833,7 +899,7 @@ Exécute la tâche complète SANS t'arrêter sauf si une input utilisateur est v
     s.push(`## Mémoires de session\n\n${memBlock}`);
   }
 
-  /* ── 14. TÂCHES DE CETTE SESSION (NOUVEAU) ───────────────── */
+  /* ── 14. TÂCHES DE CETTE SESSION ─────────────────────────── */
   if (sessionTasks && sessionTasks.length > 0) {
     s.push(`## Tâches réalisées cette session\n\n${sessionTasks.map((t, i) => `${i + 1}. ${t}`).join('\n')}`);
   }
