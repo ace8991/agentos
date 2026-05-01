@@ -495,7 +495,7 @@ const Welcome = () => {
                     </div>
                   <div className="mt-3 flex items-center gap-2 flex-wrap text-[11px] text-white/55">
                       {currentProject && (
-                        <span className="rounded-full border border-sky-300/16 bg-sky-400/10 px-2.5 py-1 text-sky-100">
+                        <span className="rounded-full border border-primary-300/16 bg-primary-400/10 px-2.5 py-1 text-primary-100">
                           {currentProject.name}
                         </span>
                       )}
@@ -567,7 +567,7 @@ const Welcome = () => {
                 onClick={() => setProjectsOpen(true)}
                 className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
                   currentProject
-                    ? 'border-sky-300/16 bg-sky-400/10 text-sky-100'
+                    ? 'border-primary-300/16 bg-primary-400/10 text-primary-100'
                     : 'border-white/12 bg-white/[0.06] text-white/78 hover:text-white hover:bg-white/[0.09]'
                 }`}
               >
@@ -578,7 +578,7 @@ const Welcome = () => {
                 onClick={() => setIncognitoMode(!incognitoMode)}
                 className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
                   incognitoMode
-                    ? 'border-amber-300/16 bg-amber-400/10 text-amber-100'
+                    ? 'border-primary-300/16 bg-primary-400/10 text-primary-100'
                     : 'border-white/12 bg-white/[0.06] text-white/78 hover:text-white hover:bg-white/[0.09]'
                 }`}
               >
@@ -632,7 +632,7 @@ const Welcome = () => {
                     <div key={`${file.name}-${index}`} className="flex items-center gap-1.5 bg-white/[0.08] border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white">
                       <Paperclip size={11} className="text-white/65" />
                       {file.type.startsWith('image/') && (
-                        <span className="rounded-full border border-sky-300/20 bg-sky-400/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-100">
+                        <span className="rounded-full border border-primary-300/20 bg-primary-400/10 px-1.5 py-0.5 text-[10px] font-medium text-primary-100">
                           Image
                         </span>
                       )}
@@ -650,7 +650,7 @@ const Welcome = () => {
                   {composerPreferences.builderMode && (
                     <button
                       onClick={() => setComposerPreferences({ builderMode: false })}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-violet-300/16 bg-violet-400/10 px-2.5 py-1 text-[11px] font-medium text-violet-100"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-primary-300/16 bg-primary-400/10 px-2.5 py-1 text-[11px] font-medium text-primary-100"
                     >
                       <Code2 size={12} />
                       Agent builder
@@ -660,7 +660,7 @@ const Welcome = () => {
                   {composerPreferences.webResearch && (
                     <button
                       onClick={() => setComposerPreferences({ webResearch: false })}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-sky-300/16 bg-sky-400/10 px-2.5 py-1 text-[11px] font-medium text-sky-100"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-primary-300/16 bg-primary-400/10 px-2.5 py-1 text-[11px] font-medium text-primary-100"
                     >
                       <GlobeIcon size={12} />
                       Web research
@@ -670,7 +670,7 @@ const Welcome = () => {
                   {composerPreferences.useStyle && (
                     <button
                       onClick={() => setComposerPreferences({ useStyle: false })}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-fuchsia-300/16 bg-fuchsia-400/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-100"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-primary-300/16 bg-primary-400/10 px-2.5 py-1 text-[11px] font-medium text-primary-100"
                     >
                       <Wand2 size={12} />
                       {responseStyleLabel}
@@ -749,7 +749,7 @@ const Welcome = () => {
                     }}
                     className={`p-2 rounded-xl transition-colors active:scale-95 ${
                       speechListening
-                        ? 'bg-red-500/10 text-red-300 hover:text-red-200'
+                        ? 'bg-destructive/10 text-destructive hover:text-destructive'
                         : 'text-white/55 hover:text-white hover:bg-white/10'
                     }`}
                     title="Voice input"

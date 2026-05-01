@@ -88,7 +88,7 @@ const ExecutionScreen = ({ forceMobile }: ExecutionScreenProps) => {
               onClick={() => setActiveTab('live')}
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
                 activeTab === 'live'
-                  ? 'border border-red-500/20 bg-red-500/10 text-red-400'
+                  ? 'border border-destructive/20 bg-destructive/10 text-destructive'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >

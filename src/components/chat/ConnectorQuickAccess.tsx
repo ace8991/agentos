@@ -87,9 +87,9 @@ const ConnectorQuickAccess = ({
             onClick={() => onSelect(connector.id)}
             className={`group relative flex h-8 w-8 items-center justify-center rounded-xl border transition-all duration-200 overflow-hidden ${
               connector.connected
-                ? 'border-emerald-300/18 bg-emerald-400/10 hover:bg-emerald-400/14'
+                ? 'border-primary-300/18 bg-primary-400/10 hover:bg-primary-400/14'
                 : connector.configured
-                ? 'border-amber-300/18 bg-amber-400/10 hover:bg-amber-400/14'
+                ? 'border-primary-300/18 bg-primary-400/10 hover:bg-primary-400/14'
                 : 'border-white/10 bg-white/[0.04] hover:bg-white/[0.08]'
             }`}
             title={

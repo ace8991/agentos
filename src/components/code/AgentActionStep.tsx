@@ -23,16 +23,16 @@ export interface ActionStep {
 }
 
 const STEP_CONFIG: Record<ActionStepType, { Icon: typeof Eye; color: string; bgColor: string }> = {
-  think:     { Icon: Brain,      color: 'text-purple-400',  bgColor: 'bg-purple-500/10' },
-  read_file: { Icon: FileText,   color: 'text-amber-400',   bgColor: 'bg-amber-500/10' },
-  write_file:{ Icon: FileText,   color: 'text-emerald-400', bgColor: 'bg-emerald-500/10' },
-  edit_file: { Icon: FileText,   color: 'text-blue-400',    bgColor: 'bg-blue-500/10' },
-  bash:      { Icon: Terminal,    color: 'text-green-400',   bgColor: 'bg-green-500/10' },
-  search:    { Icon: Search,     color: 'text-sky-400',     bgColor: 'bg-sky-500/10' },
-  test:      { Icon: TestTube,   color: 'text-orange-400',  bgColor: 'bg-orange-500/10' },
-  list_dir:  { Icon: FolderOpen, color: 'text-amber-400',   bgColor: 'bg-amber-500/10' },
+  think:     { Icon: Brain,      color: 'text-primary-400',  bgColor: 'bg-primary-500/10' },
+  read_file: { Icon: FileText,   color: 'text-primary-400',   bgColor: 'bg-primary-500/10' },
+  write_file:{ Icon: FileText,   color: 'text-primary-400', bgColor: 'bg-primary-500/10' },
+  edit_file: { Icon: FileText,   color: 'text-primary-400',    bgColor: 'bg-primary-500/10' },
+  bash:      { Icon: Terminal,    color: 'text-primary-400',   bgColor: 'bg-primary-500/10' },
+  search:    { Icon: Search,     color: 'text-primary-400',     bgColor: 'bg-primary-500/10' },
+  test:      { Icon: TestTube,   color: 'text-primary-400',  bgColor: 'bg-primary-500/10' },
+  list_dir:  { Icon: FolderOpen, color: 'text-primary-400',   bgColor: 'bg-primary-500/10' },
   plan:      { Icon: Zap,        color: 'text-primary',     bgColor: 'bg-primary/10' },
-  verify:    { Icon: Check,      color: 'text-emerald-400', bgColor: 'bg-emerald-500/10' },
+  verify:    { Icon: Check,      color: 'text-primary-400', bgColor: 'bg-primary-500/10' },
 };
 
 const StatusIcon = ({ status }: { status: ActionStepStatus }) => {

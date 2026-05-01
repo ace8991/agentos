@@ -81,7 +81,7 @@ const LocalConnectionBanner = ({ className }: LocalConnectionBannerProps) => {
       <button
         type="button"
         onClick={handleDismiss}
-        className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-sky-200/60 transition-colors hover:bg-white/10 hover:text-white"
+        className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-primary-200/60 transition-colors hover:bg-white/10 hover:text-white"
         aria-label="Dismiss"
       >
         <X size={14} />

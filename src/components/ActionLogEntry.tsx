@@ -20,7 +20,7 @@ const typeConfig: Record<LogType, { icon: typeof Eye; color: string; border: str
   thinking:  { icon: Loader2,           color: 'text-primary',          border: 'border-l-primary',          label: 'Thinking'  },
   ask:       { icon: MessageCircleQuestion, color: 'text-accent',       border: 'border-l-accent',           label: 'Ask'       },
   result:    { icon: FileText,          color: 'text-success',          border: 'border-l-success',          label: 'Result'    },
-  file:      { icon: FolderOpen,        color: 'text-amber-500',        border: 'border-l-amber-400',        label: 'File'      },
+  file:      { icon: FolderOpen,        color: 'text-primary-500',        border: 'border-l-primary-400',        label: 'File'      },
 };
 
 // Sub-icons for specific file action types

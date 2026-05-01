@@ -386,7 +386,7 @@ const ArtifactPreviewPanel = ({ artifact, artifacts, initialView = 'preview' }: 
                     className={cn(
                       'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
                       workspaceView === id
-                        ? 'border-sky-300/18 bg-sky-400/10 text-sky-100'
+                        ? 'border-primary-300/18 bg-primary-400/10 text-primary-100'
                         : 'border-white/10 bg-white/[0.04] text-white/60 hover:bg-white/[0.08] hover:text-white',
                     )}
                   >
@@ -448,7 +448,7 @@ const ArtifactPreviewPanel = ({ artifact, artifacts, initialView = 'preview' }: 
                       className={cn(
                         'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
                         activePreviewTab === tab
-                          ? 'border-sky-300/18 bg-sky-400/10 text-sky-100'
+                          ? 'border-primary-300/18 bg-primary-400/10 text-primary-100'
                           : 'border-white/10 bg-white/[0.04] text-white/60 hover:bg-white/[0.08] hover:text-white',
                       )}
                     >
@@ -493,7 +493,7 @@ const ArtifactPreviewPanel = ({ artifact, artifacts, initialView = 'preview' }: 
               {stackSignals.map((signal) => (
                 <span
                   key={signal}
-                  className="inline-flex items-center gap-1 rounded-full border border-sky-300/14 bg-sky-400/10 px-2.5 py-1 text-[11px] font-medium text-sky-100"
+                  className="inline-flex items-center gap-1 rounded-full border border-primary-300/14 bg-primary-400/10 px-2.5 py-1 text-[11px] font-medium text-primary-100"
                 >
                   <Sparkles size={10} />
                   {signal}
@@ -540,7 +540,7 @@ const ArtifactPreviewPanel = ({ artifact, artifacts, initialView = 'preview' }: 
                     className={cn(
                       'w-full rounded-2xl border px-3 py-2 text-left text-sm transition-colors',
                       effectiveArtifact.type === 'slides' && slideIndex === index
-                        ? 'border-sky-300/18 bg-sky-400/10 text-sky-100'
+                        ? 'border-primary-300/18 bg-primary-400/10 text-primary-100'
                         : 'border-white/10 bg-white/[0.03] text-white/68 hover:bg-white/[0.06] hover:text-white',
                     )}
                   >
@@ -667,7 +667,7 @@ const WorkspaceDatabaseView = ({
                 <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Database artifact</p>
                 <p className="mt-1 text-sm font-medium text-white">{selectedFile.path}</p>
               </div>
-              <ServerCog size={16} className="text-sky-200" />
+              <ServerCog size={16} className="text-primary-200" />
             </div>
             <p className="mt-3 text-sm leading-relaxed text-white/62">
               Review the detected schema, migration, or data structure here before wiring persistence into the preview runtime.
@@ -760,7 +760,7 @@ const WorkspaceExplorer = ({
             className={cn(
               'w-full rounded-2xl border px-3 py-2 text-left transition-colors',
               selectedId === file.id
-                ? 'border-sky-300/18 bg-sky-400/10 text-sky-100'
+                ? 'border-primary-300/18 bg-primary-400/10 text-primary-100'
                 : 'border-white/10 bg-white/[0.03] text-white/64 hover:bg-white/[0.06] hover:text-white',
             )}
           >
@@ -817,7 +817,7 @@ const ExternalAssetPlaceholder = ({
           href={artifact.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-4 inline-flex items-center gap-2 rounded-full border border-sky-300/18 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-100"
+          className="mt-4 inline-flex items-center gap-2 rounded-full border border-primary-300/18 bg-primary-400/10 px-4 py-2 text-sm font-medium text-primary-100"
         >
           <ExternalLink size={14} />
           Open original
@@ -886,7 +886,7 @@ const OutlinePreview = ({
           className={cn(
             'rounded-2xl border px-4 py-3 text-left transition-colors',
             artifact.type === 'slides' && slideIndex === index
-              ? 'border-sky-300/20 bg-sky-400/10'
+              ? 'border-primary-300/20 bg-primary-400/10'
               : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]',
           )}
         >
@@ -1003,7 +1003,7 @@ const renderMarkdownBlock = (block: string, index: number) => {
   }
   if (lines.every((line) => /^>\s?/.test(line))) {
     return (
-      <blockquote key={index} className="mb-5 border-l-2 border-sky-300/30 pl-4 text-sm italic leading-7 text-white/70">
+      <blockquote key={index} className="mb-5 border-l-2 border-primary-300/30 pl-4 text-sm italic leading-7 text-white/70">
         {lines.map((line, lineIndex) => (
           <p key={lineIndex}>{renderInlineMarkdown(line.replace(/^>\s?/, ''))}</p>
         ))}
@@ -1033,7 +1033,7 @@ const renderInlineMarkdown = (text: string) =>
         return (
           <code
             key={index}
-            className="rounded-md border border-white/10 bg-white/[0.06] px-1.5 py-0.5 font-mono text-[12px] text-sky-100"
+            className="rounded-md border border-white/10 bg-white/[0.06] px-1.5 py-0.5 font-mono text-[12px] text-primary-100"
           >
             {part.slice(1, -1)}
           </code>
@@ -1047,7 +1047,7 @@ const renderInlineMarkdown = (text: string) =>
             href={linkMatch[2]}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sky-200 underline decoration-sky-400/40 underline-offset-4 transition-colors hover:text-white"
+            className="text-primary-200 underline decoration-primary-400/40 underline-offset-4 transition-colors hover:text-white"
           >
             {linkMatch[1]}
           </a>
@@ -1128,7 +1128,7 @@ const ModeChip = ({
   <div
     className={cn(
       'inline-flex w-full items-center gap-2 rounded-2xl border px-3 py-2 text-sm transition-colors',
-      active ? 'border-sky-300/18 bg-sky-400/10 text-sky-100' : 'border-white/10 bg-white/[0.03] text-white/55',
+      active ? 'border-primary-300/18 bg-primary-400/10 text-primary-100' : 'border-white/10 bg-white/[0.03] text-white/55',
     )}
   >
     <Icon size={14} />

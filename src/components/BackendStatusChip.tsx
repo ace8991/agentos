@@ -44,9 +44,9 @@ const BackendStatusChip = ({ className }: BackendStatusChipProps) => {
       tooltip: backendHealth?.version
         ? `Local backend online (v${backendHealth.version}) — filesystem, terminal & git available.`
         : 'Local backend online — filesystem, terminal & git available.',
-      dotClass: 'bg-emerald-400',
+      dotClass: 'bg-primary-400',
       pulse: true,
-      chipClass: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+      chipClass: 'border-primary-500/30 bg-primary-500/10 text-primary-300',
     },
     offline: {
       Icon: Cloud,
@@ -54,9 +54,9 @@ const BackendStatusChip = ({ className }: BackendStatusChipProps) => {
       label: 'Online mode',
       tooltip:
         'Cloud-only mode. Start the local backend (port 8000) to unlock filesystem, terminal & git tools.',
-      dotClass: 'bg-sky-400',
+      dotClass: 'bg-primary-400',
       pulse: false,
-      chipClass: 'border-sky-500/30 bg-sky-500/10 text-sky-300',
+      chipClass: 'border-primary-500/30 bg-primary-500/10 text-primary-300',
     },
   }[state];
 

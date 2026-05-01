@@ -14,23 +14,23 @@ import { useArtifactStore } from '@/stores/artifactStore';
 
 /* ── Tool config ── */
 const TOOL: Record<string, { label: string; Icon: typeof Eye; color: string }> = {
-  file_read:       { label: 'Reading',     Icon: FileText,   color: 'text-amber-400/70'   },
-  file_write:      { label: 'Writing',     Icon: FileText,   color: 'text-amber-400/70'   },
-  file_edit:       { label: 'Editing',     Icon: FileText,   color: 'text-amber-400/70'   },
-  file_list:       { label: 'Listing',     Icon: FolderOpen, color: 'text-amber-400/70'   },
-  file_search:     { label: 'Searching',   Icon: Search,     color: 'text-amber-400/70'   },
-  file_create_dir: { label: 'Creating',    Icon: FolderOpen, color: 'text-amber-400/70'   },
-  file_move:       { label: 'Moving',      Icon: FolderOpen, color: 'text-amber-400/70'   },
-  file_info:       { label: 'Reading',     Icon: FileText,   color: 'text-amber-400/70'   },
-  dc_shell:        { label: 'Running',     Icon: Terminal,   color: 'text-green-400/70'   },
-  shell:           { label: 'Running',     Icon: Terminal,   color: 'text-green-400/70'   },
-  browser:         { label: 'Browsing',    Icon: Globe,      color: 'text-sky-400/70'     },
-  web:             { label: 'Searching',   Icon: Search,     color: 'text-sky-400/70'     },
-  perceive:        { label: 'Analyzing',   Icon: Eye,        color: 'text-purple-400/70'  },
-  plan:            { label: 'Planning',    Icon: Brain,      color: 'text-purple-400/70'  },
-  act:             { label: 'Executing',   Icon: Zap,        color: 'text-orange-400/70'  },
-  verify:          { label: 'Verifying',   Icon: Check,      color: 'text-emerald-400/70' },
-  thinking:        { label: 'Thinking',    Icon: Brain,      color: 'text-purple-400/70'  },
+  file_read:       { label: 'Reading',     Icon: FileText,   color: 'text-primary-400/70'   },
+  file_write:      { label: 'Writing',     Icon: FileText,   color: 'text-primary-400/70'   },
+  file_edit:       { label: 'Editing',     Icon: FileText,   color: 'text-primary-400/70'   },
+  file_list:       { label: 'Listing',     Icon: FolderOpen, color: 'text-primary-400/70'   },
+  file_search:     { label: 'Searching',   Icon: Search,     color: 'text-primary-400/70'   },
+  file_create_dir: { label: 'Creating',    Icon: FolderOpen, color: 'text-primary-400/70'   },
+  file_move:       { label: 'Moving',      Icon: FolderOpen, color: 'text-primary-400/70'   },
+  file_info:       { label: 'Reading',     Icon: FileText,   color: 'text-primary-400/70'   },
+  dc_shell:        { label: 'Running',     Icon: Terminal,   color: 'text-primary-400/70'   },
+  shell:           { label: 'Running',     Icon: Terminal,   color: 'text-primary-400/70'   },
+  browser:         { label: 'Browsing',    Icon: Globe,      color: 'text-primary-400/70'     },
+  web:             { label: 'Searching',   Icon: Search,     color: 'text-primary-400/70'     },
+  perceive:        { label: 'Analyzing',   Icon: Eye,        color: 'text-primary-400/70'  },
+  plan:            { label: 'Planning',    Icon: Brain,      color: 'text-primary-400/70'  },
+  act:             { label: 'Executing',   Icon: Zap,        color: 'text-primary-400/70'  },
+  verify:          { label: 'Verifying',   Icon: Check,      color: 'text-primary-400/70' },
+  thinking:        { label: 'Thinking',    Icon: Brain,      color: 'text-primary-400/70'  },
 };
 
 function toolCfg(e: LogEntry) {
@@ -46,51 +46,51 @@ const isStep = (e: LogEntry) =>
 /* ── Syntax highlighting (lightweight inline) ── */
 const SYNTAX_RULES: Record<string, Array<[RegExp, string]>> = {
   javascript: [
-    [/\b(const|let|var|function|return|if|else|for|while|class|import|export|from|default|async|await|new|typeof|instanceof|try|catch|throw|switch|case|break|continue|yield|delete|in|of|void)\b/g, 'text-purple-400'],
-    [/\b(true|false|null|undefined|NaN|Infinity)\b/g, 'text-orange-400'],
-    [/\b(\d+\.?\d*)\b/g, 'text-amber-300'],
+    [/\b(const|let|var|function|return|if|else|for|while|class|import|export|from|default|async|await|new|typeof|instanceof|try|catch|throw|switch|case|break|continue|yield|delete|in|of|void)\b/g, 'text-primary-400'],
+    [/\b(true|false|null|undefined|NaN|Infinity)\b/g, 'text-primary-400'],
+    [/\b(\d+\.?\d*)\b/g, 'text-primary-300'],
     [/(\/\/.*$)/gm, 'text-foreground/30 italic'],
-    [/('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`)/g, 'text-green-400'],
-    [/\b(console|window|document|Math|JSON|Array|Object|String|Number|Promise|Map|Set)\b/g, 'text-sky-400'],
+    [/('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`)/g, 'text-primary-400'],
+    [/\b(console|window|document|Math|JSON|Array|Object|String|Number|Promise|Map|Set)\b/g, 'text-primary-400'],
   ],
   typescript: [], // filled below
   python: [
-    [/\b(def|class|return|if|elif|else|for|while|import|from|as|with|try|except|raise|yield|lambda|pass|break|continue|global|nonlocal|assert|del|in|not|and|or|is)\b/g, 'text-purple-400'],
-    [/\b(True|False|None)\b/g, 'text-orange-400'],
-    [/\b(\d+\.?\d*)\b/g, 'text-amber-300'],
+    [/\b(def|class|return|if|elif|else|for|while|import|from|as|with|try|except|raise|yield|lambda|pass|break|continue|global|nonlocal|assert|del|in|not|and|or|is)\b/g, 'text-primary-400'],
+    [/\b(True|False|None)\b/g, 'text-primary-400'],
+    [/\b(\d+\.?\d*)\b/g, 'text-primary-300'],
     [/(#.*$)/gm, 'text-foreground/30 italic'],
-    [/('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|"""[\s\S]*?"""|'''[\s\S]*?''')/g, 'text-green-400'],
-    [/\b(print|len|range|list|dict|set|tuple|int|float|str|bool|type|isinstance|enumerate|zip|map|filter|sorted|super|self)\b/g, 'text-sky-400'],
+    [/('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|"""[\s\S]*?"""|'''[\s\S]*?''')/g, 'text-primary-400'],
+    [/\b(print|len|range|list|dict|set|tuple|int|float|str|bool|type|isinstance|enumerate|zip|map|filter|sorted|super|self)\b/g, 'text-primary-400'],
   ],
   html: [
-    [/(<\/?[\w-]+)/g, 'text-red-400'],
-    [/([\w-]+)(?==)/g, 'text-amber-300'],
-    [/("(?:[^"\\]|\\.)*")/g, 'text-green-400'],
+    [/(<\/?[\w-]+)/g, 'text-primary-400'],
+    [/([\w-]+)(?==)/g, 'text-primary-300'],
+    [/("(?:[^"\\]|\\.)*")/g, 'text-primary-400'],
     [/(<!--[\s\S]*?-->)/g, 'text-foreground/30 italic'],
   ],
   css: [
-    [/([.#][\w-]+)/g, 'text-amber-300'],
-    [/([\w-]+)(?=\s*:)/g, 'text-sky-400'],
+    [/([.#][\w-]+)/g, 'text-primary-300'],
+    [/([\w-]+)(?=\s*:)/g, 'text-primary-400'],
     [/(\/\*[\s\S]*?\*\/)/g, 'text-foreground/30 italic'],
-    [/(\b\d+\.?\d*(px|rem|em|%|vh|vw|s|ms)?\b)/g, 'text-orange-400'],
+    [/(\b\d+\.?\d*(px|rem|em|%|vh|vw|s|ms)?\b)/g, 'text-primary-400'],
   ],
   sql: [
-    [/\b(SELECT|FROM|WHERE|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TABLE|INDEX|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AND|OR|NOT|IN|IS|NULL|AS|ORDER|BY|GROUP|HAVING|LIMIT|OFFSET|SET|VALUES|INTO|DISTINCT|UNION|EXISTS|BETWEEN|LIKE|CASE|WHEN|THEN|ELSE|END|PRIMARY|KEY|FOREIGN|REFERENCES|CONSTRAINT|DEFAULT|CHECK|UNIQUE)\b/gi, 'text-purple-400'],
-    [/('(?:[^'\\]|\\.)*')/g, 'text-green-400'],
+    [/\b(SELECT|FROM|WHERE|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TABLE|INDEX|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AND|OR|NOT|IN|IS|NULL|AS|ORDER|BY|GROUP|HAVING|LIMIT|OFFSET|SET|VALUES|INTO|DISTINCT|UNION|EXISTS|BETWEEN|LIKE|CASE|WHEN|THEN|ELSE|END|PRIMARY|KEY|FOREIGN|REFERENCES|CONSTRAINT|DEFAULT|CHECK|UNIQUE)\b/gi, 'text-primary-400'],
+    [/('(?:[^'\\]|\\.)*')/g, 'text-primary-400'],
     [/(--.*$)/gm, 'text-foreground/30 italic'],
-    [/\b(\d+\.?\d*)\b/g, 'text-amber-300'],
+    [/\b(\d+\.?\d*)\b/g, 'text-primary-300'],
   ],
   json: [
-    [/("(?:[^"\\]|\\.)*")\s*:/g, 'text-sky-400'],
-    [/:\s*("(?:[^"\\]|\\.)*")/g, 'text-green-400'],
-    [/\b(true|false|null)\b/g, 'text-orange-400'],
-    [/\b(\d+\.?\d*)\b/g, 'text-amber-300'],
+    [/("(?:[^"\\]|\\.)*")\s*:/g, 'text-primary-400'],
+    [/:\s*("(?:[^"\\]|\\.)*")/g, 'text-primary-400'],
+    [/\b(true|false|null)\b/g, 'text-primary-400'],
+    [/\b(\d+\.?\d*)\b/g, 'text-primary-300'],
   ],
   bash: [
-    [/\b(if|then|else|elif|fi|for|do|done|while|case|esac|function|return|exit|export|source|alias|cd|echo|sudo|chmod|chown|mkdir|rm|cp|mv|ls|cat|grep|sed|awk|find|curl|wget|npm|yarn|pip|git|docker)\b/g, 'text-purple-400'],
+    [/\b(if|then|else|elif|fi|for|do|done|while|case|esac|function|return|exit|export|source|alias|cd|echo|sudo|chmod|chown|mkdir|rm|cp|mv|ls|cat|grep|sed|awk|find|curl|wget|npm|yarn|pip|git|docker)\b/g, 'text-primary-400'],
     [/(#.*$)/gm, 'text-foreground/30 italic'],
-    [/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g, 'text-green-400'],
-    [/(\$[\w{]+}?)/g, 'text-amber-300'],
+    [/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g, 'text-primary-400'],
+    [/(\$[\w{]+}?)/g, 'text-primary-300'],
   ],
 };
 SYNTAX_RULES.typescript = SYNTAX_RULES.javascript;
@@ -149,7 +149,7 @@ function CopyBtn({ text }: { text: string }) {
   return (
     <button onClick={() => { navigator.clipboard.writeText(text); setOk(true); setTimeout(() => setOk(false), 1800); }}
       className="p-1 text-foreground/25 hover:text-foreground/60 transition-colors">
-      {ok ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
+      {ok ? <Check size={11} className="text-primary-400" /> : <Copy size={11} />}
     </button>
   );
 }
@@ -401,17 +401,17 @@ function ToolStep({ entry }: { entry: LogEntry }) {
       >
         {/* Status icon */}
         <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md ${
-          isErr ? 'bg-red-500/12' : isRunning ? 'bg-white/[0.06]' : 'bg-white/[0.04]'
+          isErr ? 'bg-destructive/12' : isRunning ? 'bg-white/[0.06]' : 'bg-white/[0.04]'
         }`}>
           {isRunning
             ? <Loader2 size={11} className={`${cfg.color} animate-spin`} />
-            : <Icon size={11} className={isErr ? 'text-red-400/70' : cfg.color} />
+            : <Icon size={11} className={isErr ? 'text-destructive/70' : cfg.color} />
           }
         </div>
 
         {/* Label */}
         <span className={`flex-1 min-w-0 truncate text-[13px] font-mono leading-5 ${
-          isErr ? 'text-red-400/70' : 'text-foreground/50'
+          isErr ? 'text-destructive/70' : 'text-foreground/50'
         }`}>
           {label}
         </span>
@@ -464,8 +464,8 @@ function ThinkingStep({ entry }: { entry: LogEntry }) {
 
   return (
     <div className="flex items-start gap-2.5 py-0.5">
-      <div className="mt-[3px] flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-sm bg-purple-500/10">
-        <Brain size={11} className="text-purple-400/70" />
+      <div className="mt-[3px] flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-sm bg-primary-500/10">
+        <Brain size={11} className="text-primary-400/70" />
       </div>
       <div className="flex-1">
         <button onClick={()=>entry.reasoning&&setOpen(o=>!o)}
@@ -474,7 +474,7 @@ function ThinkingStep({ entry }: { entry: LogEntry }) {
             {entry.reasoning ? `${budgetLabel} Thinking` : 'Thinking…'}
           </span>
           {tokenCount > 0 && (
-            <span className="flex items-center gap-0.5 text-[10px] text-purple-400/30 font-mono">
+            <span className="flex items-center gap-0.5 text-[10px] text-primary-400/30 font-mono">
               <Hash size={8} />
               ~{tokenCount} tokens
             </span>
@@ -484,9 +484,9 @@ function ThinkingStep({ entry }: { entry: LogEntry }) {
             : <ChevronRight size={12} className="text-foreground/18"/>)}
         </button>
         {open && entry.reasoning && (
-          <div className="mt-1.5 rounded-lg border border-purple-500/15 bg-purple-500/5 px-4 py-3">
+          <div className="mt-1.5 rounded-lg border border-primary-500/15 bg-primary-500/5 px-4 py-3">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] text-purple-400/40 font-mono uppercase tracking-wider">
+              <span className="text-[10px] text-primary-400/40 font-mono uppercase tracking-wider">
                 {budgetLabel} Thinking · ~{tokenCount} tokens
               </span>
               <CopyBtn text={entry.reasoning} />
@@ -559,9 +559,9 @@ export const ChatMessage = ({ entry, onAskReply, isStreaming }: {
   // Error
   if (entry.type === 'error') return (
     <div className="px-4 py-2 log-entry-enter">
-      <div className="flex items-start gap-2.5 rounded-xl border border-red-500/15 bg-red-500/5 px-4 py-3">
-        <AlertTriangle size={13} className="text-red-400/80 shrink-0 mt-0.5" />
-        <p className="text-[13.5px] text-red-300/80 leading-[1.5]">{entry.action}</p>
+      <div className="flex items-start gap-2.5 rounded-xl border border-destructive/15 bg-destructive/5 px-4 py-3">
+        <AlertTriangle size={13} className="text-destructive/80 shrink-0 mt-0.5" />
+        <p className="text-[13.5px] text-destructive/80 leading-[1.5]">{entry.action}</p>
       </div>
     </div>
   );

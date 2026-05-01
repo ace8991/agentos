@@ -56,11 +56,11 @@ const defaultTree: FileNode[] = [
 ];
 
 const langColors: Record<string, string> = {
-  tsx: 'text-blue-400',
-  ts: 'text-blue-300',
-  css: 'text-purple-400',
-  py: 'text-yellow-400',
-  json: 'text-green-400',
+  tsx: 'text-primary-400',
+  ts: 'text-primary-300',
+  css: 'text-primary-400',
+  py: 'text-primary-400',
+  json: 'text-primary-400',
   txt: 'text-muted-foreground',
 };
 

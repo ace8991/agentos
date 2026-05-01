@@ -173,7 +173,7 @@ const ArtifactWorkspaceModal = ({ open, artifacts, initialView = 'preview', onCl
               <div className="space-y-5">
                 <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
                   <div className="min-w-0">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-sky-300/14 bg-sky-400/8 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-sky-100/78">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-primary-300/14 bg-primary-400/8 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-primary-100/78">
                       <Sparkles size={11} />
                       Advanced preview workspace
                     </div>

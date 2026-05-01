@@ -104,11 +104,11 @@ const LiveBrowserView = ({ runId, isRunning, currentReasoning, onClose }: LiveBr
           <span className="text-[11px] text-muted-foreground font-mono flex-1 truncate">{urlShort || (isRunning ? 'Connecting...' : '—')}</span>
           {displayUrl && <a href={displayUrl} target="_blank" rel="noopener noreferrer" className="text-muted-foreground/30 hover:text-muted-foreground ml-1 shrink-0"><ExternalLink size={9} /></a>}
         </div>
-        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-500/10 border border-red-500/20">
-          <div className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-red-400' : 'bg-muted-foreground/40'}`} style={connected ? {animation:'pulse 1s ease-in-out infinite'} : {}} />
-          <span className="text-[9px] font-bold text-red-400 tracking-widest">LIVE</span>
+        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-destructive/10 border border-destructive/20">
+          <div className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-destructive' : 'bg-muted-foreground/40'}`} style={connected ? {animation:'pulse 1s ease-in-out infinite'} : {}} />
+          <span className="text-[9px] font-bold text-destructive tracking-widest">LIVE</span>
         </div>
-        <div className={connected ? 'text-green-400' : 'text-muted-foreground/30'}>{connected ? <Wifi size={11}/> : <WifiOff size={11}/>}</div>
+        <div className={connected ? 'text-primary-400' : 'text-muted-foreground/30'}>{connected ? <Wifi size={11}/> : <WifiOff size={11}/>}</div>
         {onClose && <button onClick={onClose} className="text-muted-foreground/30 hover:text-muted-foreground"><X size={12}/></button>}
       </div>
 

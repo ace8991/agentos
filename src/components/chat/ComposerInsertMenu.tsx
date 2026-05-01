@@ -258,7 +258,7 @@ const ToggleRow = ({
     )}
     <div className="shrink-0">
       {active ? (
-        <Check size={14} className="text-sky-300" />
+        <Check size={14} className="text-primary-300" />
       ) : (
         <ChevronRight size={15} className="text-white/32" />
       )}

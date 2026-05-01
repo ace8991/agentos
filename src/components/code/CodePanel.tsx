@@ -44,14 +44,14 @@ type CodePanelTab = 'files' | 'code' | 'terminal' | 'git';
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 const langColors: Record<string, string> = {
-  tsx: 'text-blue-400', ts: 'text-blue-300', css: 'text-purple-400',
-  py: 'text-yellow-400', json: 'text-green-400', txt: 'text-[hsl(0,0%,53%)]',
-  html: 'text-orange-400', js: 'text-yellow-300', jsx: 'text-blue-400',
-  md: 'text-gray-400', yml: 'text-red-300', yaml: 'text-red-300',
-  toml: 'text-red-300', sh: 'text-green-300', bat: 'text-gray-400',
-  ps1: 'text-blue-300', sql: 'text-orange-300', rs: 'text-orange-400',
-  go: 'text-cyan-400', java: 'text-red-400', c: 'text-blue-400',
-  cpp: 'text-blue-400', h: 'text-purple-400',
+  tsx: 'text-primary-400', ts: 'text-primary-300', css: 'text-primary-400',
+  py: 'text-primary-400', json: 'text-primary-400', txt: 'text-[hsl(0,0%,53%)]',
+  html: 'text-primary-400', js: 'text-primary-300', jsx: 'text-primary-400',
+  md: 'text-muted-foreground', yml: 'text-primary-300', yaml: 'text-primary-300',
+  toml: 'text-primary-300', sh: 'text-primary-300', bat: 'text-muted-foreground',
+  ps1: 'text-primary-300', sql: 'text-primary-300', rs: 'text-primary-400',
+  go: 'text-primary-400', java: 'text-primary-400', c: 'text-primary-400',
+  cpp: 'text-primary-400', h: 'text-primary-400',
 };
 
 const EXT_TO_LANGUAGE: Record<string, string> = {

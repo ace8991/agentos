@@ -14,9 +14,9 @@ const STATE_LABELS: Record<ParlorState, string> = {
 
 const STATE_COLORS: Record<ParlorState, string> = {
   idle: 'bg-white/10',
-  listening: 'bg-blue-500/20 text-blue-300',
-  processing: 'bg-purple-500/20 text-purple-300',
-  speaking: 'bg-green-500/20 text-green-300',
+  listening: 'bg-primary-500/20 text-primary-300',
+  processing: 'bg-primary-500/20 text-primary-300',
+  speaking: 'bg-primary-500/20 text-primary-300',
 };
 
 const ParlorPage = () => {
@@ -83,7 +83,7 @@ const ParlorPage = () => {
               {!isActive ? (
                 <button
                   onClick={startSession}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-sm font-medium transition-colors"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary hover:bg-primary/80 text-sm font-medium transition-colors"
                 >
                   <Phone size={16} />
                   Démarrer
@@ -91,7 +91,7 @@ const ParlorPage = () => {
               ) : (
                 <button
                   onClick={stopSession}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-red-600/80 hover:bg-red-500 text-sm font-medium transition-colors"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-destructive/80 hover:bg-destructive text-sm font-medium transition-colors"
                 >
                   <PhoneOff size={16} />
                   Terminer
@@ -101,7 +101,7 @@ const ParlorPage = () => {
           </div>
 
           {error && (
-            <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+            <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive">
               {error}
             </div>
           )}
@@ -129,7 +129,7 @@ const ParlorPage = () => {
                 <div
                   className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
                     entry.role === 'user'
-                      ? 'bg-blue-600/20 text-blue-100 rounded-br-md'
+                      ? 'bg-primary-600/20 text-primary-100 rounded-br-md'
                       : 'bg-white/[0.06] text-white/80 rounded-bl-md'
                   }`}
                 >
@@ -145,9 +145,9 @@ const ParlorPage = () => {
               <div className="flex justify-start">
                 <div className="bg-white/[0.06] rounded-2xl rounded-bl-md px-4 py-3">
                   <div className="flex gap-1">
-                    <span className="w-2 h-2 rounded-full bg-purple-400/60 animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-2 h-2 rounded-full bg-purple-400/60 animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-2 h-2 rounded-full bg-purple-400/60 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    <span className="w-2 h-2 rounded-full bg-primary-400/60 animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-2 h-2 rounded-full bg-primary-400/60 animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-2 h-2 rounded-full bg-primary-400/60 animate-bounce" style={{ animationDelay: '300ms' }} />
                   </div>
                 </div>
               </div>

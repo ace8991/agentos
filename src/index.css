@@ -16,33 +16,59 @@
     --popover: 240 20% 8%;
     --popover-foreground: 50 18% 93%;
 
+    /* Primary: violet/purple — the single dominant accent color */
     --primary: 263 84% 58%;
     --primary-foreground: 0 0% 100%;
+    --primary-light: 263 70% 72%;
+    --primary-dark: 263 60% 40%;
+    --primary-muted: 263 50% 20%;
+    --primary-glow: 263 84% 58% / 0.15;
 
-    --secondary: 174 84% 32%;
+    /* Secondary: derived from primary with lower saturation */
+    --secondary: 263 40% 45%;
     --secondary-foreground: 0 0% 100%;
 
+    /* Muted */
     --muted: 240 20% 12%;
     --muted-foreground: 220 9% 46%;
 
-    --accent: 36 91% 44%;
+    /* Accent: now uses primary hue instead of orange */
+    --accent: 263 84% 58%;
     --accent-foreground: 0 0% 100%;
 
+    /* Destructive: keep red for errors */
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
+    /* Border & input */
     --border: 0 0% 100% / 0.06;
     --input: 0 0% 100% / 0.06;
     --ring: 263 84% 58%;
 
+    /* Radius */
     --radius: 0.75rem;
     --radius-sm: 0.5rem;
     --radius-pill: 1.25rem;
 
+    /* Surface */
     --surface: 240 20% 8%;
     --surface-elevated: 240 20% 12%;
 
-    --success: 142 71% 45%;
+    /* Semantic colors — all derived from primary */
+    --success: 263 70% 50%;
+    --info: 263 70% 60%;
+    --warning: 263 60% 55%;
+
+    /* Primary-based semantic aliases for replacing hardcoded colors */
+    --primary-100: 263 70% 90%;
+    --primary-200: 263 65% 80%;
+    --primary-300: 263 60% 70%;
+    --primary-400: 263 55% 60%;
+    --primary-500: 263 84% 58%;
+    --primary-600: 263 60% 40%;
+    --primary-700: 263 50% 30%;
+    --primary-800: 263 40% 20%;
+    --primary-900: 263 30% 12%;
   }
 
   * {

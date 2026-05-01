@@ -120,7 +120,7 @@ const LiveSessionCard = () => {
       <div className="space-y-2">
         {terminalEntries.map((entry) => (
           <div key={entry.id} className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
-            <div className="text-[11px] text-emerald-300">$ {entry.action}</div>
+            <div className="text-[11px] text-primary-300">$ {entry.action}</div>
             {entry.tool_result && (
               <pre className="mt-2 whitespace-pre-wrap break-all text-[11px] text-slate-300/92">
                 {JSON.stringify(entry.tool_result, null, 2)}
@@ -179,7 +179,7 @@ const LiveSessionCard = () => {
               style={{ width: `${progress}%` }}
             />
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-300/18 bg-sky-400/10 px-2.5 py-1 text-[11px] font-medium text-sky-100">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-300/18 bg-primary-400/10 px-2.5 py-1 text-[11px] font-medium text-primary-100">
             <Radio size={11} className={isLive ? 'animate-pulse' : undefined} />
             LIVE
           </span>
@@ -194,7 +194,7 @@ const LiveSessionCard = () => {
           <div className="mx-auto flex h-full w-full max-w-[1400px] flex-col overflow-hidden rounded-[32px] border border-white/12 bg-[#090c14] shadow-[0_40px_120px_rgba(0,0,0,0.55)]">
             <div className="flex items-center justify-between gap-3 border-b border-white/8 px-5 py-4">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-100/72">Agent preview</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary-100/72">Agent preview</p>
                 <h3 className="mt-1 text-lg font-medium text-white/96">{statusCopy}</h3>
               </div>
               <div className="flex items-center gap-2">
@@ -239,11 +239,11 @@ const LiveSessionCard = () => {
         <div className="overflow-hidden rounded-[24px] border border-white/10 bg-[rgba(10,14,24,0.9)] shadow-[0_24px_80px_rgba(3,7,18,0.35)]">
           <div className="flex items-center justify-between gap-3 px-4 py-3">
             <div className="min-w-0 flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-sky-300/18 bg-sky-400/10 text-sky-100">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-primary-300/18 bg-primary-400/10 text-primary-100">
                 <Bot size={16} />
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-100/72">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-100/72">
                   Agent browser summary
                 </p>
                 <div className="truncate text-sm font-medium text-white/92">{statusCopy}</div>
@@ -262,7 +262,7 @@ const LiveSessionCard = () => {
               </button>
               <button
                 onClick={() => setFullPreviewOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-sky-300/18 bg-sky-400/10 px-3 py-2 text-xs font-medium text-sky-100 transition-colors hover:bg-sky-400/16"
+                className="inline-flex items-center gap-1.5 rounded-full border border-primary-300/18 bg-primary-400/10 px-3 py-2 text-xs font-medium text-primary-100 transition-colors hover:bg-primary-400/16"
               >
                 <Maximize2 size={13} />
                 Full preview
@@ -280,7 +280,7 @@ const LiveSessionCard = () => {
       <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(90,126,255,0.16),_transparent_36%),rgba(12,15,24,0.96)] shadow-[0_28px_90px_rgba(0,0,0,0.34)]">
         <div className="flex items-start justify-between gap-3 border-b border-white/8 px-4 py-3 md:px-5">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-100/72">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary-100/72">
               Live browser session
             </p>
             <h3 className="mt-1 text-[15px] font-medium text-white/96 md:text-lg">{statusCopy}</h3>
@@ -298,13 +298,13 @@ const LiveSessionCard = () => {
                 {timerLabel}
               </span>
               {takeoverRequested && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/25 bg-amber-300/10 px-2.5 py-1 text-[11px] text-amber-100">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-300/25 bg-primary-300/10 px-2.5 py-1 text-[11px] text-primary-100">
                   <Hand size={11} />
                   Waiting for you
                 </span>
               )}
               {overlayPrefs.mobileHud && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-300/18 bg-cyan-400/10 px-2.5 py-1 text-[11px] text-cyan-100">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-300/18 bg-primary-400/10 px-2.5 py-1 text-[11px] text-primary-100">
                   <Radio size={11} />
                   Mobile HUD
                 </span>
@@ -343,7 +343,7 @@ const LiveSessionCard = () => {
             )}
             <button
               onClick={() => setFullPreviewOpen(true)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-sky-300/18 bg-sky-400/10 text-sky-100 transition-colors hover:bg-sky-400/16"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-primary-300/18 bg-primary-400/10 text-primary-100 transition-colors hover:bg-primary-400/16"
               title="Open full preview"
             >
               <Maximize2 size={14} />

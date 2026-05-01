@@ -237,7 +237,7 @@ const CodeSidebar = ({ onSelectProject, activeProject }: CodeSidebarProps) => {
             <ArrowLeft size={16} />
             <span className="text-xs">Retour</span>
           </button>
-          <FileCode2 size={16} className="text-purple-400 ml-1" />
+          <FileCode2 size={16} className="text-primary-400 ml-1" />
           <span className="text-sm font-semibold text-foreground/90">Code</span>
         </div>
         <button

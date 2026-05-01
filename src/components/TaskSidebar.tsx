@@ -362,7 +362,7 @@ const TaskSidebar = () => {
       </div>
       <div className="border-t border-border px-3 py-3">
         <div className="group flex items-center gap-3 rounded-xl border border-border bg-muted/25 px-3 py-2.5">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-500/18 text-sm font-semibold text-violet-300">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-500/18 text-sm font-semibold text-primary-300">
             {userInitial}
           </div>
           <div className="min-w-0 flex-1">
@@ -452,7 +452,7 @@ const TaskSidebar = () => {
         </button>
         <button
           onClick={() => void handleLogout()}
-          className="mt-2 flex h-8 w-8 items-center justify-center rounded-full bg-violet-500/18 text-xs font-semibold text-violet-300 hover:bg-violet-500/24"
+          className="mt-2 flex h-8 w-8 items-center justify-center rounded-full bg-primary-500/18 text-xs font-semibold text-primary-300 hover:bg-primary-500/24"
           title={authUser?.display_name || 'Guest'}
         >
           {userInitial}

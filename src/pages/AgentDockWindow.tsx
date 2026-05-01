@@ -46,7 +46,7 @@ const AgentDockWindow = () => {
         <div className="rounded-[28px] border border-white/10 bg-[rgba(10,14,23,0.88)] shadow-[0_30px_90px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
           <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
             <div>
-              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-100/72">
+              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-primary-100/72">
                 <Radio size={11} className="animate-pulse" />
                 Agent live dock
               </div>

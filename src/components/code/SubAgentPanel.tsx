@@ -11,8 +11,8 @@ export interface SubAgent {
 }
 
 const STATUS_STYLE: Record<string, { icon: JSX.Element; color: string }> = {
-  running: { icon: <Loader2 size={12} className="animate-spin" />, color: 'text-sky-400' },
-  done:    { icon: <Check size={12} />, color: 'text-emerald-400' },
+  running: { icon: <Loader2 size={12} className="animate-spin" />, color: 'text-primary-400' },
+  done:    { icon: <Check size={12} />, color: 'text-primary-400' },
   error:   { icon: <AlertTriangle size={12} />, color: 'text-destructive' },
   queued:  { icon: <Brain size={12} className="opacity-40" />, color: 'text-muted-foreground' },
 };

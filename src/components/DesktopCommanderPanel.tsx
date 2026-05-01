@@ -81,8 +81,8 @@ export function DesktopCommanderPanel() {
           <span className="font-medium text-xs">Desktop Commander</span>
           {dc.status.checked && (
             dc.status.online
-              ? <Badge variant="outline" className="text-green-600 border-green-300 text-[10px] px-1.5 py-0">Online</Badge>
-              : <Badge variant="outline" className="text-red-500 border-red-300 text-[10px] px-1.5 py-0">Offline</Badge>
+              ? <Badge variant="outline" className="text-primary-600 border-primary-300 text-[10px] px-1.5 py-0">Online</Badge>
+              : <Badge variant="outline" className="text-destructive border-destructive/50 text-[10px] px-1.5 py-0">Offline</Badge>
           )}
         </div>
         <button
@@ -145,12 +145,12 @@ export function DesktopCommanderPanel() {
                     </pre>
                   )}
                   {entry.result.stderr && (
-                    <pre className="text-[10px] text-red-500 whitespace-pre-wrap bg-red-50 dark:bg-red-950/20 rounded px-2 py-1 max-h-24 overflow-y-auto mt-0.5">
+                    <pre className="text-[10px] text-destructive whitespace-pre-wrap bg-destructive/10 dark:bg-destructive/20 rounded px-2 py-1 max-h-24 overflow-y-auto mt-0.5">
                       {entry.result.stderr}
                     </pre>
                   )}
                   {entry.result.timed_out && (
-                    <span className="text-[10px] text-amber-500">Timeout</span>
+                    <span className="text-[10px] text-primary-400">Timeout</span>
                   )}
                 </div>
               ))}
@@ -223,8 +223,8 @@ export function DesktopCommanderPanel() {
                       className="flex items-center gap-2 w-full text-left px-2 py-1 hover:bg-muted/50 rounded text-xs"
                     >
                       {entry.type === 'directory'
-                        ? <FolderOpen className="w-3 h-3 text-amber-500 shrink-0" />
-                        : <FileText className="w-3 h-3 text-blue-500 shrink-0" />
+                        ? <FolderOpen className="w-3 h-3 text-primary-400 shrink-0" />
+                        : <FileText className="w-3 h-3 text-primary-300 shrink-0" />
                       }
                       <span className="truncate">{entry.name}</span>
                       {entry.size_bytes != null && (
@@ -273,7 +273,7 @@ export function DesktopCommanderPanel() {
                   onClick={() => { setDirPath(r.split('\\').slice(0, -1).join('\\')); setTab('files'); handleReadFile(r); }}
                   className="flex items-center gap-2 w-full text-left px-1 py-0.5 hover:bg-muted/50 rounded"
                 >
-                  <FileText className="w-3 h-3 text-blue-500 shrink-0" />
+                  <FileText className="w-3 h-3 text-primary-300 shrink-0" />
                   <span className="text-[11px] truncate">{r}</span>
                 </button>
               ))}
@@ -285,7 +285,7 @@ export function DesktopCommanderPanel() {
 
       {/* Error bar */}
       {dc.error && (
-        <div className="px-3 py-1.5 bg-red-50 dark:bg-red-950/20 border-t text-[10px] text-red-600 flex items-center gap-1">
+        <div className="px-3 py-1.5 bg-destructive/10 dark:bg-destructive/20 border-t text-[10px] text-destructive flex items-center gap-1">
           <XCircle className="w-3 h-3 shrink-0" />
           <span className="truncate">{dc.error}</span>
         </div>

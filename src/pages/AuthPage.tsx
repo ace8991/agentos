@@ -24,8 +24,8 @@ const passwordStrengthSegments = (password: string) => {
 
 const strengthColors = [
   'bg-destructive',
-  'bg-orange-400',
-  'bg-yellow-400',
+  'bg-primary-400',
+  'bg-primary-300',
   'bg-success',
 ];
 
@@ -114,9 +114,9 @@ const AuthPage = () => {
         </button>
       </div>
       <aside className="relative hidden w-[420px] shrink-0 overflow-hidden border-r border-white/8 bg-[#0a0a12] lg:flex lg:flex-col lg:items-center lg:justify-center">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(111,92,255,0.28),transparent_30%),radial-gradient(circle_at_70%_75%,rgba(52,211,153,0.18),transparent_25%)]" />
-        <div className="absolute left-[-20%] top-[14%] h-64 w-64 rounded-full bg-fuchsia-500/20 blur-[100px]" />
-        <div className="absolute bottom-[12%] right-[-10%] h-72 w-72 rounded-full bg-teal-400/15 blur-[120px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(111,92,255,0.28),transparent_30%),radial-gradient(circle_at_70%_75%,rgba(139,92,246,0.18),transparent_25%)]" />
+        <div className="absolute left-[-20%] top-[14%] h-64 w-64 rounded-full bg-primary-500/20 blur-[100px]" />
+        <div className="absolute bottom-[12%] right-[-10%] h-72 w-72 rounded-full bg-primary-400/15 blur-[120px]" />
 
         <div className="relative z-10 flex max-w-[280px] flex-col items-center text-center">
           <HexLogo size={40} />
@@ -173,11 +173,11 @@ const AuthPage = () => {
             </div>
 
             {backendChecked && !backendOnline && (
-              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-300/14 bg-amber-400/8 px-4 py-3 text-sm text-amber-100">
+              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-primary-300/14 bg-primary-400/8 px-4 py-3 text-sm text-primary-100">
                 <ShieldAlert size={16} className="mt-0.5 shrink-0" />
                 <div>
                   <p className="font-medium">Backend offline</p>
-                  <p className="mt-1 text-xs leading-relaxed text-amber-100/72">
+                  <p className="mt-1 text-xs leading-relaxed text-primary-100/72">
                     Local auth endpoints are unavailable right now. You can still continue without an account.
                   </p>
                 </div>

@@ -37,9 +37,9 @@ const artifactColors: Record<ArtifactType, string> = {
   terminal: 'border-muted-foreground/30 bg-muted',
   webpage: 'border-primary/30 bg-primary/5',
   markdown: 'border-accent/30 bg-accent/5',
-  slides: 'border-fuchsia-300/30 bg-fuchsia-400/5',
-  app: 'border-sky-300/30 bg-sky-400/5',
-  pdf: 'border-amber-300/30 bg-amber-400/5',
+  slides: 'border-primary-300/30 bg-primary-400/5',
+  app: 'border-primary-300/30 bg-primary-400/5',
+  pdf: 'border-primary-300/30 bg-primary-400/5',
 };
 
 interface ArtifactCardProps {

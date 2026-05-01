@@ -193,7 +193,7 @@ const ConnectorsDirectoryModal = ({
                       {state?.statusLabel && (
                         <>
                           <span className="text-stone-500">/</span>
-                          <span className={isConnected ? 'text-emerald-300' : isConfigured ? 'text-amber-300' : 'text-stone-400'}>
+                          <span className={isConnected ? 'text-primary-300' : isConfigured ? 'text-primary-300' : 'text-stone-400'}>
                             {state.statusLabel}
                           </span>
                         </>

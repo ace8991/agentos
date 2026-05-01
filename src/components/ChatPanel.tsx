@@ -783,7 +783,7 @@ const ChatPanel = () => {
               onClick={() => setMode('agent')}
               className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
                 mode === 'agent'
-                  ? 'border border-red-500/20 bg-red-500/10 text-red-300'
+                  ? 'border border-primary/20 bg-primary/10 text-primary-300'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -795,7 +795,7 @@ const ChatPanel = () => {
             onClick={() => setProjectsOpen(true)}
             className={`hidden items-center gap-1.5 rounded-md border px-3 py-1 text-xs transition-colors md:inline-flex ${
               currentProject
-                ? 'border-sky-300/18 bg-sky-400/10 text-sky-100 hover:bg-sky-400/15'
+                ? 'border-primary-300/18 bg-primary-400/10 text-primary-100 hover:bg-primary-400/15'
                 : 'border-border text-muted-foreground hover:bg-surface-elevated'
             }`}
           >
@@ -806,7 +806,7 @@ const ChatPanel = () => {
             onClick={() => setIncognitoMode(!incognitoMode)}
             className={`hidden items-center gap-1.5 rounded-md border px-3 py-1 text-xs transition-colors md:inline-flex ${
               incognitoMode
-                ? 'border-amber-300/18 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15'
+                ? 'border-primary-300/18 bg-primary-400/10 text-primary-100 hover:bg-primary-400/15'
                 : 'border-border text-muted-foreground hover:bg-surface-elevated'
             }`}
             title="Private session mode"
@@ -814,21 +814,6 @@ const ChatPanel = () => {
             <Ghost size={12} />
             {incognitoMode ? 'Private' : 'Standard'}
           </button>
-          {(activeWorkspace || artifacts.length > 0) && (
-            <button
-              onClick={() => {
-                if (activeWorkspace) {
-                  openGeneratedWorkspace('preview');
-                  return;
-                }
-                openArtifactWorkspace('preview');
-              }}
-              className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-surface-elevated active:scale-[0.97]"
-            >
-              <Layers3 size={12} />
-              Workspace
-            </button>
-          )}
           {isPaused && (
             <span className="rounded-md bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent">
               Paused
@@ -881,7 +866,7 @@ const ChatPanel = () => {
           <div className="mx-auto mb-4 w-full max-w-[980px] rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.18)]">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
-                <div className="inline-flex items-center gap-2 rounded-full border border-sky-300/14 bg-sky-400/8 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-sky-100/78">
+                <div className="inline-flex items-center gap-2 rounded-full border border-primary-300/14 bg-primary-400/8 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-primary-100/78">
                   <Layers3 size={12} />
                   Workspace ready
                 </div>
@@ -893,7 +878,7 @@ const ChatPanel = () => {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => openGeneratedWorkspace('preview')}
-                  className="inline-flex items-center gap-2 rounded-full border border-sky-300/18 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-100 transition-colors hover:bg-sky-400/15"
+                  className="inline-flex items-center gap-2 rounded-full border border-primary-300/18 bg-primary-400/10 px-4 py-2 text-sm font-medium text-primary-100 transition-colors hover:bg-primary-400/15"
                 >
                   <MonitorPlay size={14} />
                   Preview
@@ -928,7 +913,7 @@ const ChatPanel = () => {
           <div className="mx-auto mb-4 w-full max-w-[980px] rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.18)]">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
-                <div className="inline-flex items-center gap-2 rounded-full border border-sky-300/14 bg-sky-400/8 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-sky-100/78">
+                <div className="inline-flex items-center gap-2 rounded-full border border-primary-300/14 bg-primary-400/8 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-primary-100/78">
                   <Layers3 size={12} />
                   Artifact workspace
                 </div>
@@ -940,7 +925,7 @@ const ChatPanel = () => {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => openArtifactWorkspace('preview')}
-                  className="inline-flex items-center gap-2 rounded-full border border-sky-300/18 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-100 transition-colors hover:bg-sky-400/15"
+                  className="inline-flex items-center gap-2 rounded-full border border-primary-300/18 bg-primary-400/10 px-4 py-2 text-sm font-medium text-primary-100 transition-colors hover:bg-primary-400/15"
                 >
                   <MonitorPlay size={14} />
                   Preview
@@ -1044,7 +1029,7 @@ const ChatPanel = () => {
             <div key={index} className="flex items-center gap-1.5 rounded-lg border border-border bg-muted px-2.5 py-1 text-xs text-foreground">
               <Paperclip size={11} className="text-muted-foreground" />
               {file.type.startsWith('image/') && (
-                <span className="rounded-full border border-sky-300/20 bg-sky-400/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-100">
+                <span className="rounded-full border border-primary-300/20 bg-primary-400/10 px-1.5 py-0.5 text-[10px] font-medium text-primary-100">
                   Image
                 </span>
               )}
@@ -1062,7 +1047,7 @@ const ChatPanel = () => {
           {mode === 'agent' && (
             <button
               onClick={() => setMode('chat')}
-              className="inline-flex items-center gap-1.5 rounded-full border border-red-400/20 bg-red-500/10 px-2.5 py-1 text-[11px] font-medium text-red-200"
+              className="inline-flex items-center gap-1.5 rounded-full border border-destructive/20 bg-destructive/10 px-2.5 py-1 text-[11px] font-medium text-destructive"
             >
               <Bot size={11} />
               Agent mode
@@ -1072,7 +1057,7 @@ const ChatPanel = () => {
           {composerPreferences.builderMode && (
             <button
               onClick={() => setComposerPreferences({ builderMode: false })}
-              className="inline-flex items-center gap-1.5 rounded-full border border-violet-300/16 bg-violet-400/10 px-2.5 py-1 text-[11px] font-medium text-violet-100"
+              className="inline-flex items-center gap-1.5 rounded-full border border-primary-300/16 bg-primary-400/10 px-2.5 py-1 text-[11px] font-medium text-primary-100"
             >
               <Code2 size={11} />
               Agent builder
@@ -1082,7 +1067,7 @@ const ChatPanel = () => {
           {composerPreferences.webResearch && (
             <button
               onClick={() => setComposerPreferences({ webResearch: false })}
-              className="inline-flex items-center gap-1.5 rounded-full border border-sky-300/16 bg-sky-400/10 px-2.5 py-1 text-[11px] font-medium text-sky-100"
+              className="inline-flex items-center gap-1.5 rounded-full border border-primary-300/16 bg-primary-400/10 px-2.5 py-1 text-[11px] font-medium text-primary-100"
             >
               Web research
               <X size={11} />
@@ -1091,7 +1076,7 @@ const ChatPanel = () => {
           {composerPreferences.useStyle && (
             <button
               onClick={() => setComposerPreferences({ useStyle: false })}
-              className="inline-flex items-center gap-1.5 rounded-full border border-fuchsia-300/16 bg-fuchsia-400/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-100"
+              className="inline-flex items-center gap-1.5 rounded-full border border-primary-300/16 bg-primary-400/10 px-2.5 py-1 text-[11px] font-medium text-primary-100"
             >
               {responseStyleLabel}
               <X size={11} />
@@ -1105,7 +1090,7 @@ const ChatPanel = () => {
           {currentProject && (
             <button
               onClick={() => setProjectsOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-sky-300/16 bg-sky-400/10 px-2.5 py-1 text-[11px] font-medium text-sky-100"
+              className="inline-flex items-center gap-1.5 rounded-full border border-primary-300/16 bg-primary-400/10 px-2.5 py-1 text-[11px] font-medium text-primary-100"
             >
               <FolderOpen size={11} />
               {currentProject.name}
@@ -1114,7 +1099,7 @@ const ChatPanel = () => {
           {incognitoMode && (
             <button
               onClick={() => setIncognitoMode(false)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/16 bg-amber-400/10 px-2.5 py-1 text-[11px] font-medium text-amber-100"
+              className="inline-flex items-center gap-1.5 rounded-full border border-primary-300/16 bg-primary-400/10 px-2.5 py-1 text-[11px] font-medium text-primary-100"
             >
               <Ghost size={11} />
               Private session
@@ -1124,7 +1109,7 @@ const ChatPanel = () => {
           {!composerPreferences.webResearch && !composerPreferences.useStyle && !composerPreferences.builderMode && mode === 'agent' && (
             <button
               onClick={() => setMode('chat')}
-              className="inline-flex items-center gap-1.5 rounded-full border border-red-400/20 bg-red-500/10 px-2.5 py-1 text-[11px] font-medium text-red-200"
+              className="inline-flex items-center gap-1.5 rounded-full border border-destructive/20 bg-destructive/10 px-2.5 py-1 text-[11px] font-medium text-destructive"
             >
               <Bot size={11} />
               Agent mode
@@ -1226,7 +1211,7 @@ const ChatPanel = () => {
                 toggleSpeechInput();
               }}
               className={`p-1 transition-colors active:scale-95 ${
-                speechListening ? 'text-red-300 hover:text-red-200' : 'text-muted-foreground hover:text-foreground'
+                speechListening ? 'text-destructive hover:text-destructive' : 'text-muted-foreground hover:text-foreground'
               }`}
               title="Voice input"
             >

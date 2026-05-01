@@ -75,11 +75,11 @@ const AgentDockOverlay = () => {
             onClick={() => navigate('/dashboard')}
             className="flex min-w-0 items-center gap-2 text-left transition-opacity hover:opacity-100"
           >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl border border-sky-300/18 bg-sky-400/10 text-sky-100">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl border border-primary-300/18 bg-primary-400/10 text-primary-100">
               {lastSurface === 'terminal' ? <MonitorSmartphone size={15} /> : <Globe size={15} />}
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-100/72">
+              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary-100/72">
                 <Radio size={11} className="animate-pulse" />
                 Agent live
               </div>
