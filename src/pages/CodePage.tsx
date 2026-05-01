@@ -1,7 +1,8 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  AlertTriangle, ArrowLeft, Bot, CheckCircle, Code2, Database, FolderOpen, Ghost, Layers3, MessageSquareText, Mic, MonitorPlay, Paperclip, Plus, Send, Square, X,
+  AlertTriangle, ArrowLeft, Bot, CheckCircle, Code2, Database, FolderOpen, Ghost, Layers3, Menu, MessageSquareText, Mic, MonitorPlay, Paperclip, Plus, Send, Square, X,
 } from 'lucide-react';
 
 import { toast } from '@/components/ui/sonner';
@@ -39,6 +40,7 @@ import { useSpeechInput } from '@/hooks/useSpeechInput';
 import { useIntentEngine } from '@/hooks/useIntentEngine';
 import { ResponseTypePill } from '@/components/ResponseTypePill';
 import { CodePanel } from '@/components/code/CodePanel';
+import { CodeSidebar } from '@/components/code/CodeSidebar';
 
 const ConnectorConfigModal = lazy(() => import('@/components/chat/ConnectorConfigModal'));
 const ConnectorsDirectoryModal = lazy(() => import('@/components/chat/ConnectorsDirectoryModal'));
@@ -771,6 +773,8 @@ const CodePage = () => {
   const [projects, setProjects] = useState<AppProject[]>([]);
   const [composerMenuOpen, setComposerMenuOpen] = useState(false);
   const [isCodePanelOpen, setIsCodePanelOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [activeProject, setActiveProject] = useState<AppProject | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -1327,25 +1331,40 @@ const CodePage = () => {
   const isArtifactPanelOpen = useArtifactStore((s) => s.isOpen);
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 h-screen md:h-screen">
-      {/* Chat content — left side (45% quand le panel est ouvert) */}
-      <div
-        className="flex min-h-0 min-w-0 flex-col"
-        style={{
-          flex: isArtifactPanelOpen || isCodePanelOpen ? '1 1 44%' : '1 1 100%',
-          maxWidth: isArtifactPanelOpen || isCodePanelOpen ? '44%' : '100%',
-          transition: 'flex 0.3s ease, max-width 0.3s ease',
-        }}
-      >
-      <div className="flex items-center justify-between border-b border-border px-3 py-3 md:px-5">
-        <div className="min-w-0 flex items-center gap-2 md:gap-3">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-surface-elevated active:scale-[0.97]"
-          >
-            <ArrowLeft size={12} />
-            Back
-          </button>
+    <div className="flex flex-col h-[100dvh] w-full overflow-hidden bg-[hsl(0,0%,10%)]">
+      {/* Top bar minimaliste */}
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[hsl(0,0%,17%)] bg-[hsl(0,0%,10%)]">
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-[hsl(0,0%,15%)]"
+          aria-label="Retour"
+        >
+          <ArrowLeft size={16} />
+          <span className="text-xs">Retour</span>
+        </button>
+      </div>
+      <div className="flex flex-1 min-h-0">
+        {/* Sidebar — left side */}
+        <AnimatePresence>
+          {isSidebarOpen && (
+            <CodeSidebar
+              onSelectProject={setActiveProject}
+              activeProject={activeProject}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Chat content — center */}
+        <div
+          className="flex min-h-0 min-w-0 flex-col"
+          style={{
+            flex: isArtifactPanelOpen || isCodePanelOpen ? '1 1 44%' : '1 1 100%',
+            maxWidth: isArtifactPanelOpen || isCodePanelOpen ? '44%' : '100%',
+            transition: 'flex 0.3s ease, max-width 0.3s ease',
+          }}
+        >
+        <div className="flex items-center justify-between border-b border-[hsl(0,0%,17%)] px-3 py-3 md:px-5">
+          <div className="min-w-0 flex items-center gap-2 md:gap-3">
           <div className="w-10 shrink-0 md:hidden" />
           <ModelSelector onConfigureProvider={setConfigProvider} />
           <span className="hidden truncate text-sm font-medium text-foreground md:inline">
@@ -1892,6 +1911,7 @@ const CodePage = () => {
       {/* Code panel — right side (56%) */}
       {isCodePanelOpen && <CodePanel projectPath="" projectType="static" onClose={() => setIsCodePanelOpen(false)} />}
       <ArtifactPanel />
+    </div>
     </div>
   );
 };
