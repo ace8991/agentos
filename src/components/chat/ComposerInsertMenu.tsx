@@ -154,12 +154,12 @@ const ComposerInsertMenu = ({
             onClick={onOpenConnectors}
             trailing={
               connectedCount > 0 ? (
-                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-200">
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary-200">
                   <Check size={12} />
                   {connectedCount}
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-200">
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary-200">
                   <TriangleAlert size={11} />
                   1
                 </span>
@@ -173,7 +173,7 @@ const ComposerInsertMenu = ({
         <div className="space-y-0.5">
           {onToggleAgentMode && (
             <ToggleRow
-              icon={<Bot size={16} className={agentModeEnabled ? 'text-red-300' : 'text-red-400'} />}
+              icon={<Bot size={16} className={agentModeEnabled ? 'text-destructive' : 'text-destructive/70'} />}
               title="Agent mode"
               active={agentModeEnabled}
               onClick={onToggleAgentMode}
@@ -181,20 +181,20 @@ const ComposerInsertMenu = ({
           )}
           {onToggleBuilderMode && (
             <ToggleRow
-              icon={<Code2 size={16} className={builderModeEnabled ? 'text-violet-200' : 'text-violet-300'} />}
+              icon={<Code2 size={16} className={builderModeEnabled ? 'text-primary-200' : 'text-primary-300'} />}
               title="Agent builder"
               active={builderModeEnabled}
               onClick={onToggleBuilderMode}
             />
           )}
           <ToggleRow
-            icon={<Search size={16} className={webSearchEnabled ? 'text-sky-300' : 'text-sky-400'} />}
+            icon={<Search size={16} className={webSearchEnabled ? 'text-primary-300' : 'text-primary-400'} />}
             title="Web research"
             active={webSearchEnabled}
             onClick={onToggleWebSearch}
           />
           <ToggleRow
-            icon={<Wand2 size={16} className={useStyleEnabled ? 'text-fuchsia-200' : 'text-fuchsia-300'} />}
+            icon={<Wand2 size={16} className={useStyleEnabled ? 'text-primary-200' : 'text-primary-300'} />}
             title="Use saved style"
             active={useStyleEnabled}
             onClick={onToggleUseStyle}

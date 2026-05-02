@@ -285,7 +285,7 @@ const CodeSidebar = ({ onSelectProject, activeProject }: CodeSidebarProps) => {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Rechercher..."
-                  className="w-full h-8 pl-7 pr-2 text-xs bg-[hsl(0,0%,14%)] border border-[hsl(0,0%,20%)] rounded-md text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-purple-500/40 transition-colors"
+                  className="w-full h-8 pl-7 pr-2 text-xs bg-[hsl(0,0%,14%)] border border-[hsl(0,0%,20%)] rounded-md text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary-500/40 transition-colors"
                 />
                 {search && (
                   <button
@@ -308,13 +308,13 @@ const CodeSidebar = ({ onSelectProject, activeProject }: CodeSidebarProps) => {
                       onClick={() => handleSelectProject(project)}
                       className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors ${
                         isActive
-                          ? 'bg-purple-500/10 text-purple-200'
+                          ? 'bg-primary-500/10 text-primary-200'
                           : 'text-foreground/80 hover:bg-[hsl(0,0%,15%)]'
                       }`}
                     >
                       <span className="text-base flex-shrink-0">{getProjectEmoji(project.name)}</span>
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-medium truncate ${isActive ? 'text-purple-200' : 'text-foreground/90'}`}>
+                        <p className={`text-sm font-medium truncate ${isActive ? 'text-primary-200' : 'text-foreground/90'}`}>
                           {project.name}
                         </p>
                         <p className="text-[11px] text-muted-foreground/60 truncate flex items-center gap-1">
@@ -323,7 +323,7 @@ const CodeSidebar = ({ onSelectProject, activeProject }: CodeSidebarProps) => {
                         </p>
                       </div>
                       {isActive && (
-                        <span className="text-[10px] font-medium text-purple-400 bg-purple-500/15 px-1.5 py-0.5 rounded-full">
+                        <span className="text-[10px] font-medium text-primary-400 bg-primary-500/15 px-1.5 py-0.5 rounded-full">
                           Actif
                         </span>
                       )}
@@ -336,12 +336,12 @@ const CodeSidebar = ({ onSelectProject, activeProject }: CodeSidebarProps) => {
                         className="p-1 text-muted-foreground hover:text-foreground transition-colors rounded"
                         title="Copier l'ID"
                       >
-                        {copiedId === project.id ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
+                        {copiedId === project.id ? <Check size={12} className="text-primary-400" /> : <Copy size={12} />}
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleDeleteProject(project.id); }}
                         className={`p-1 transition-colors rounded ${
-                          isDeleting ? 'text-red-400 bg-red-500/15' : 'text-muted-foreground hover:text-red-400'
+                          isDeleting ? 'text-destructive bg-destructive/15' : 'text-muted-foreground hover:text-destructive'
                         }`}
                         title={isDeleting ? 'Confirmer la suppression' : 'Supprimer'}
                       >
@@ -367,7 +367,7 @@ const CodeSidebar = ({ onSelectProject, activeProject }: CodeSidebarProps) => {
                 {!search && (
                   <button
                     onClick={() => setTab('new')}
-                    className="flex items-center gap-1.5 text-xs font-medium text-purple-400 hover:text-purple-300 transition-colors"
+                    className="flex items-center gap-1.5 text-xs font-medium text-primary-400 hover:text-primary-300 transition-colors"
                   >
                     <Plus size={13} />
                     Nouveau projet
@@ -387,8 +387,8 @@ const CodeSidebar = ({ onSelectProject, activeProject }: CodeSidebarProps) => {
                   onClick={() => setNewProjectType('local')}
                   className="w-full flex items-center gap-3 px-3 py-3 rounded-lg bg-[hsl(0,0%,14%)] border border-[hsl(0,0%,20%)] hover:bg-[hsl(0,0%,16%)] transition-colors text-left group"
                 >
-                  <div className="h-9 w-9 rounded-lg bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/15 transition-colors">
-                    <Plus size={18} className="text-purple-400" />
+                  <div className="h-9 w-9 rounded-lg bg-primary-500/10 flex items-center justify-center group-hover:bg-primary-500/15 transition-colors">
+                    <Plus size={18} className="text-primary-400" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-foreground/90">Projet local</p>
@@ -400,8 +400,8 @@ const CodeSidebar = ({ onSelectProject, activeProject }: CodeSidebarProps) => {
                   onClick={() => setNewProjectType('github')}
                   className="w-full flex items-center gap-3 px-3 py-3 rounded-lg bg-[hsl(0,0%,14%)] border border-[hsl(0,0%,20%)] hover:bg-[hsl(0,0%,16%)] transition-colors text-left group"
                 >
-                  <div className="h-9 w-9 rounded-lg bg-sky-500/10 flex items-center justify-center group-hover:bg-sky-500/15 transition-colors">
-                    <Github size={18} className="text-sky-400" />
+                  <div className="h-9 w-9 rounded-lg bg-primary-500/10 flex items-center justify-center group-hover:bg-primary-500/15 transition-colors">
+                    <Github size={18} className="text-primary-400" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-foreground/90">Depuis GitHub</p>
@@ -432,7 +432,7 @@ const CodeSidebar = ({ onSelectProject, activeProject }: CodeSidebarProps) => {
                         value={newName}
                         onChange={(e) => setNewName(e.target.value)}
                         placeholder="Mon projet"
-                        className="w-full h-9 px-3 text-sm bg-[hsl(0,0%,14%)] border border-[hsl(0,0%,20%)] rounded-md text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-purple-500/40 transition-colors"
+                        className="w-full h-9 px-3 text-sm bg-[hsl(0,0%,14%)] border border-[hsl(0,0%,20%)] rounded-md text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary-500/40 transition-colors"
                       />
                     </div>
                     <div>
@@ -442,7 +442,7 @@ const CodeSidebar = ({ onSelectProject, activeProject }: CodeSidebarProps) => {
                         onChange={(e) => setNewDescription(e.target.value)}
                         placeholder="Description du projet..."
                         rows={3}
-                        className="w-full px-3 py-2 text-sm bg-[hsl(0,0%,14%)] border border-[hsl(0,0%,20%)] rounded-md text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-purple-500/40 transition-colors resize-none"
+                        className="w-full px-3 py-2 text-sm bg-[hsl(0,0%,14%)] border border-[hsl(0,0%,20%)] rounded-md text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary-500/40 transition-colors resize-none"
                       />
                     </div>
                   </>
@@ -455,13 +455,13 @@ const CodeSidebar = ({ onSelectProject, activeProject }: CodeSidebarProps) => {
                       value={githubUrl}
                       onChange={(e) => setGithubUrl(e.target.value)}
                       placeholder="https://github.com/user/repo"
-                      className="w-full h-9 px-3 text-sm bg-[hsl(0,0%,14%)] border border-[hsl(0,0%,20%)] rounded-md text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-sky-500/40 transition-colors"
+                      className="w-full h-9 px-3 text-sm bg-[hsl(0,0%,14%)] border border-[hsl(0,0%,20%)] rounded-md text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary-500/40 transition-colors"
                     />
                   </div>
                 )}
 
                 {createError && (
-                  <div className="flex items-center gap-1.5 text-xs text-red-400 bg-red-500/10 px-2.5 py-1.5 rounded-md">
+                  <div className="flex items-center gap-1.5 text-xs text-destructive bg-destructive/10 px-2.5 py-1.5 rounded-md">
                     <AlertCircle size={12} />
                     {createError}
                   </div>
@@ -470,7 +470,7 @@ const CodeSidebar = ({ onSelectProject, activeProject }: CodeSidebarProps) => {
                 <button
                   onClick={handleCreateProject}
                   disabled={creating}
-                  className="w-full flex items-center justify-center gap-2 h-9 text-sm font-medium rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/20 hover:bg-purple-500/30 transition-colors disabled:opacity-50"
+                  className="w-full flex items-center justify-center gap-2 h-9 text-sm font-medium rounded-md bg-primary-500/20 text-primary-300 border border-primary-500/20 hover:bg-primary-500/30 transition-colors disabled:opacity-50"
                 >
                   {creating ? (
                     <Loader2 size={14} className="animate-spin" />
@@ -501,7 +501,7 @@ const CodeSidebar = ({ onSelectProject, activeProject }: CodeSidebarProps) => {
             </span>
           </div>
           {activeProject && (
-            <span className="text-[11px] text-purple-400/70 truncate max-w-[120px]">
+            <span className="text-[11px] text-primary-400/70 truncate max-w-[120px]">
               {activeProject.name}
             </span>
           )}

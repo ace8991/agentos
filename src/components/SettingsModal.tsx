@@ -597,7 +597,7 @@ const SettingsModal = () => {
 
             <div className="rounded-2xl border border-border bg-muted/25 p-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-violet-500/18 text-sm font-semibold text-violet-300">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-500/18 text-sm font-semibold text-primary-300">
                   {userInitial}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -610,8 +610,8 @@ const SettingsModal = () => {
                 </div>
                 <span className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${
                   guestMode
-                    ? 'border-amber-400/20 bg-amber-500/10 text-amber-200'
-                    : 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200'
+                    ? 'border-primary-400/20 bg-primary-500/10 text-primary-200'
+                    : 'border-primary-400/20 bg-primary-500/10 text-primary-200'
                 }`}>
                   {guestMode ? 'Guest session' : 'Authenticated'}
                 </span>
@@ -1172,7 +1172,7 @@ const SettingsModal = () => {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm text-foreground">{skill.name}</p>
                       {skill.source === 'imported' && (
-                        <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-sky-400/10 text-sky-200">
+                        <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-primary-400/10 text-primary-200">
                           Imported
                         </span>
                       )}
@@ -1376,7 +1376,7 @@ const SettingsModal = () => {
 
                 {/* Status indicator */}
                 <div className="flex items-center gap-2 text-xs">
-                  <span className={`w-2 h-2 rounded-full ${telegramRunning ? 'bg-green-500' : 'bg-gray-500'}`} />
+                  <span className={`w-2 h-2 rounded-full ${telegramRunning ? 'bg-primary-500' : 'bg-muted-foreground'}`} />
                   <span className="text-muted-foreground">
                     {telegramRunning ? 'Bot is running' : 'Bot is stopped'}
                     {telegramToken && !telegramRunning ? ' (configured but not started)' : ''}

@@ -234,7 +234,7 @@ const ProjectsModal = ({ open, onClose }: ProjectsModalProps) => {
                       onClick={() => handleSelectProject(project.id)}
                       className={`w-full rounded-2xl border px-4 py-3 text-left transition-colors ${
                         isSelected
-                          ? 'border-sky-300/28 bg-sky-300/10'
+                          ? 'border-primary-300/28 bg-primary-300/10'
                           : 'border-white/10 bg-white/[0.04] hover:bg-white/[0.06]'
                       }`}
                     >
@@ -246,7 +246,7 @@ const ProjectsModal = ({ open, onClose }: ProjectsModalProps) => {
                           </p>
                         </div>
                         {isActive && (
-                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-2 py-1 text-[10px] font-medium text-emerald-100">
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary-300/20 bg-primary-400/10 px-2 py-1 text-[10px] font-medium text-primary-100">
                             <Check size={10} />
                             Active
                           </span>
@@ -279,7 +279,7 @@ const ProjectsModal = ({ open, onClose }: ProjectsModalProps) => {
                       onClick={handleActivateProject}
                       className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
                         currentProjectId === draftProject.id
-                          ? 'border-emerald-300/18 bg-emerald-400/10 text-emerald-100'
+                          ? 'border-primary-300/18 bg-primary-400/10 text-primary-100'
                           : 'border-white/10 bg-white/[0.05] text-white hover:bg-white/[0.08]'
                       }`}
                     >

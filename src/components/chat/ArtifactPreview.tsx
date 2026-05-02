@@ -134,7 +134,7 @@ const ArtifactPreview = ({ artifact, className = '' }: ArtifactPreviewProps) => 
             {showCode ? 'Source' : 'Preview'}
           </span>
           {error && (
-            <span className="flex items-center gap-1 text-[11px] text-red-400">
+            <span className="flex items-center gap-1 text-[11px] text-destructive">
               <AlertTriangle size={10} /> Error
             </span>
           )}
@@ -179,7 +179,7 @@ const ArtifactPreview = ({ artifact, className = '' }: ArtifactPreviewProps) => 
             {artifact.content}
           </pre>
         ) : error ? (
-          <div className="p-4 text-[12px] font-mono text-red-400/80 whitespace-pre-wrap">
+          <div className="p-4 text-[12px] font-mono text-destructive/80 whitespace-pre-wrap">
             {error}
           </div>
         ) : (

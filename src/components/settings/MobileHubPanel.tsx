@@ -267,7 +267,7 @@ const MobileHubPanel = () => {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-medium text-foreground">{device.name}</p>
-                  <span className={`rounded-full px-2 py-0.5 text-[11px] ${device.status === 'online' ? 'bg-emerald-500/15 text-emerald-300' : device.status === 'pairing' ? 'bg-amber-500/15 text-amber-200' : 'bg-muted text-muted-foreground'}`}>
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] ${device.status === 'online' ? 'bg-primary-500/15 text-primary-300' : device.status === 'pairing' ? 'bg-primary-500/15 text-primary-200' : 'bg-muted text-muted-foreground'}`}>
                     {device.status}
                   </span>
                 </div>
@@ -353,7 +353,7 @@ const MobileHubPanel = () => {
                   <Copy size={13} />
                 </button>
               </div>
-              <pre className="mt-3 overflow-x-auto rounded-md border border-border bg-[#07090f] px-3 py-2 text-[11px] text-emerald-300">
+              <pre className="mt-3 overflow-x-auto rounded-md border border-border bg-[#07090f] px-3 py-2 text-[11px] text-primary-300">
                 {command.command}
               </pre>
             </div>
@@ -406,7 +406,7 @@ const ChannelRow = ({
         <div className="flex items-center gap-2">
           <p className="text-sm font-medium text-foreground">{channel.name}</p>
           {channel.configured && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] text-emerald-300">
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary-500/15 px-2 py-0.5 text-[11px] text-primary-300">
               <Check size={11} />
               {channel.secret_hint || 'configured'}
             </span>

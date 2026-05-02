@@ -49,7 +49,7 @@ const ClaudeMdEditor = () => {
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-3 py-2 border-b border-[hsl(0,0%,17%)] bg-[hsl(0,0%,11%)]">
         <div className="flex items-center gap-1.5">
-          <FileText size={13} className="text-purple-400" />
+          <FileText size={13} className="text-primary-400" />
           <span className="text-xs font-medium text-foreground">CLAUDE.md</span>
           <span className="text-[10px] text-muted-foreground ml-1">Mémoire de projet</span>
         </div>
@@ -63,7 +63,7 @@ const ClaudeMdEditor = () => {
           </button>
           <button
             onClick={handleSave}
-            className="flex items-center gap-1 px-2 py-1 text-[11px] rounded-md bg-purple-500/15 text-purple-400 hover:bg-purple-500/25 transition-colors"
+            className="flex items-center gap-1 px-2 py-1 text-[11px] rounded-md bg-primary-500/15 text-primary-400 hover:bg-primary-500/25 transition-colors"
           >
             {saved ? <Check size={11} /> : <Save size={11} />}
             {saved ? 'Sauvé' : 'Sauver'}

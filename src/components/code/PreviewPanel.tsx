@@ -204,7 +204,7 @@ export const PreviewPanel = ({ content, language, filePath }: PreviewPanelProps)
           ))}
           <div className="w-px h-4 bg-[hsl(0,0%,20%)] mx-0.5" />
           <button onClick={copyContent} className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors" title="Copier HTML">
-            {copied ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
+            {copied ? <Check size={12} className="text-primary-400" /> : <Copy size={12} />}
           </button>
           <button onClick={refresh} className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors" title="Rafraîchir">
             <RefreshCw size={12} />

@@ -38,7 +38,7 @@ const STEP_CONFIG: Record<ActionStepType, { Icon: typeof Eye; color: string; bgC
 const StatusIcon = ({ status }: { status: ActionStepStatus }) => {
   if (status === 'running') return <Loader2 size={10} className="animate-spin text-muted-foreground" />;
   if (status === 'error') return <AlertTriangle size={10} className="text-destructive" />;
-  return <Check size={10} className="text-emerald-400" />;
+  return <Check size={10} className="text-primary-400" />;
 };
 
 const AgentActionStep = ({ step }: { step: ActionStep }) => {

@@ -102,7 +102,7 @@ const ArtifactWorkspaceModal = ({ open, artifacts, initialView = 'preview', onCl
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search artifacts, file names, sources"
-                className="w-full rounded-2xl border border-white/10 bg-white/[0.05] px-11 py-3 text-sm text-white placeholder:text-white/35 outline-none transition-colors focus:border-sky-300/25"
+                className="w-full rounded-2xl border border-white/10 bg-white/[0.05] px-11 py-3 text-sm text-white placeholder:text-white/35 outline-none transition-colors focus:border-primary-300/25"
               />
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -116,7 +116,7 @@ const ArtifactWorkspaceModal = ({ open, artifacts, initialView = 'preview', onCl
                   onClick={() => setFilter(item)}
                   className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
                     filter === item
-                      ? 'border-sky-300/18 bg-sky-400/10 text-sky-100'
+                      ? 'border-primary-300/18 bg-primary-400/10 text-primary-100'
                       : 'border-white/10 bg-white/[0.04] text-white/60 hover:text-white hover:bg-white/[0.08]'
                   }`}
                 >

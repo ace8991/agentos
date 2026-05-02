@@ -50,27 +50,27 @@ const LocalConnectionBanner = ({ className }: LocalConnectionBannerProps) => {
   return (
     <div
       className={cn(
-        'relative z-30 flex flex-wrap items-center gap-3 border-b border-sky-500/20 bg-[linear-gradient(90deg,rgba(56,189,248,0.10),rgba(99,102,241,0.10))] px-4 py-2 text-xs text-sky-100 backdrop-blur-md',
+        'relative z-30 flex flex-wrap items-center gap-3 border-b border-primary-500/20 bg-[linear-gradient(90deg,rgba(139,92,246,0.10),rgba(99,102,241,0.10))] px-4 py-2 text-xs text-primary-100 backdrop-blur-md',
         className,
       )}
       role="status"
     >
-      <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-sky-500/20 text-sky-200">
+      <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary-500/20 text-primary-200">
         <Terminal size={12} aria-hidden="true" />
       </div>
 
       <div className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1.5 min-w-0">
-        <span className="text-sky-100/90">
+        <span className="text-primary-100/90">
           <span className="font-medium text-white">Online mode active.</span>{' '}
           Start the local backend to unlock filesystem, terminal & git:
         </span>
 
-        <div className="flex items-center gap-1.5 rounded-md border border-white/10 bg-black/30 px-2 py-1 font-mono text-[11px] text-sky-100">
+        <div className="flex items-center gap-1.5 rounded-md border border-white/10 bg-black/30 px-2 py-1 font-mono text-[11px] text-primary-100">
           <code className="truncate max-w-[260px] sm:max-w-none">{BACKEND_COMMAND}</code>
           <button
             type="button"
             onClick={handleCopy}
-            className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-sky-200 transition-colors hover:bg-white/10 hover:text-white"
+            className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-primary-200 transition-colors hover:bg-white/10 hover:text-white"
             aria-label="Copy command"
           >
             {copied ? <Check size={12} /> : <Copy size={12} />}

@@ -113,7 +113,7 @@ const ArtifactCard = ({ artifact }: ArtifactCardProps) => {
           {(isExecutable || isReactArtifact) && (
             <button
               onClick={() => setLivePreview(true)}
-              className="p-1.5 rounded-md text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+              className="p-1.5 rounded-md text-primary-400/60 hover:text-primary-400 hover:bg-primary-500/10 transition-colors"
               title="Run in sandbox"
             >
               <Play size={12} />

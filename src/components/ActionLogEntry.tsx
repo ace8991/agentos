@@ -109,12 +109,12 @@ const ActionLogEntry = ({ entry }: { entry: LogEntry }) => {
           {entry.type === 'shell' && entry.tool_result && (
             <div>
               {typeof (entry.tool_result as any).stdout === 'string' && (entry.tool_result as any).stdout && (
-                <pre className="text-xs font-mono text-green-600 dark:text-green-400 bg-muted/60 p-3 rounded-md whitespace-pre-wrap overflow-x-auto max-h-48 scrollbar-thin border border-border">
+                <pre className="text-xs font-mono text-primary-600 dark:text-primary-400 bg-muted/60 p-3 rounded-md whitespace-pre-wrap overflow-x-auto max-h-48 scrollbar-thin border border-border">
                   {(entry.tool_result as any).stdout}
                 </pre>
               )}
               {typeof (entry.tool_result as any).stderr === 'string' && (entry.tool_result as any).stderr && (
-                <pre className="text-xs font-mono text-red-500 bg-red-50 dark:bg-red-950/20 p-2 rounded-md whitespace-pre-wrap max-h-24 overflow-y-auto">
+                <pre className="text-xs font-mono text-destructive bg-destructive/10 dark:bg-destructive/20 p-2 rounded-md whitespace-pre-wrap max-h-24 overflow-y-auto">
                   {(entry.tool_result as any).stderr}
                 </pre>
               )}

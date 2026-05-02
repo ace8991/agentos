@@ -51,7 +51,7 @@ const SubAgentRow = ({ agent }: { agent: SubAgent }) => {
       {open && (
         <div className="px-3 pb-2.5 pl-8 space-y-1">
           {agent.progress && (
-            <p className="text-[11px] text-sky-400/70 font-mono">{agent.progress}</p>
+            <p className="text-[11px] text-primary-400/70 font-mono">{agent.progress}</p>
           )}
           <div className="space-y-0.5">
             {agent.steps.map((s, i) => (
@@ -62,7 +62,7 @@ const SubAgentRow = ({ agent }: { agent: SubAgent }) => {
             ))}
           </div>
           {agent.result && (
-            <p className="text-[11px] text-emerald-400/70 mt-1 font-mono">{agent.result}</p>
+            <p className="text-[11px] text-primary-400/70 mt-1 font-mono">{agent.result}</p>
           )}
         </div>
       )}
@@ -80,7 +80,7 @@ const SubAgentPanel = ({ onClose }: { onClose: () => void }) => {
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-3 py-2 border-b border-[hsl(0,0%,17%)] bg-[hsl(0,0%,11%)]">
         <div className="flex items-center gap-1.5">
-          <Layers size={13} className="text-sky-400" />
+          <Layers size={13} className="text-primary-400" />
           <span className="text-xs font-medium text-foreground">Sous-agents</span>
           <span className="text-[10px] text-muted-foreground ml-1">{running} actifs · {done} terminés</span>
         </div>

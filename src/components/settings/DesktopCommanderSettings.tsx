@@ -98,8 +98,8 @@ export function DesktopCommanderSettings() {
       <div
         className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${
           online
-            ? 'bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400'
-            : 'bg-red-50 text-red-600 dark:bg-red-950/20 dark:text-red-400'
+            ? 'bg-primary-50 text-primary-700 dark:bg-primary-950/20 dark:text-primary-400'
+            : 'bg-destructive/10 text-destructive dark:bg-destructive/20 dark:text-destructive'
         }`}
       >
         {online ? <CheckCircle size={14} /> : <XCircle size={14} />}
@@ -214,8 +214,8 @@ export function DesktopCommanderSettings() {
               <span
                 className={`rounded px-1 font-mono text-[10px] ${
                   method === 'GET'
-                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                    : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                    ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
+                    : 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
                 }`}
               >
                 {method}

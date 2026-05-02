@@ -103,9 +103,9 @@ const ConnectorQuickAccess = ({
             <span
               className={`absolute right-1 top-1 h-1.5 w-1.5 rounded-full ${
                 connector.connected
-                  ? 'bg-emerald-300'
+                  ? 'bg-primary-300'
                   : connector.configured
-                  ? 'bg-amber-300'
+                  ? 'bg-primary-300'
                   : 'bg-white/18'
               }`}
             />

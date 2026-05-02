@@ -52,7 +52,7 @@ const IdeasPanel = () => {
             </div>
             <button
               onClick={() => removeIdea(idea.id)}
-              className="p-1 text-muted-foreground hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
+              className="p-1 text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
             >
               <Trash2 size={12} />
             </button>

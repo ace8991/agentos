@@ -22,7 +22,7 @@ const CameraViewport = ({ stream, enabled, onToggle, aiActive }: CameraViewportP
       <div
         className={`relative overflow-hidden rounded-2xl border transition-all duration-700 ${
           aiActive
-            ? 'border-purple-500/60 shadow-[0_0_40px_rgba(168,85,247,0.25)]'
+            ? 'border-primary-500/60 shadow-[0_0_40px_rgba(139,92,246,0.25)]'
             : 'border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.3)]'
         }`}
       >
@@ -44,7 +44,7 @@ const CameraViewport = ({ stream, enabled, onToggle, aiActive }: CameraViewportP
         {aiActive && (
           <div className="absolute inset-0 pointer-events-none rounded-2xl animate-pulse"
             style={{
-              background: 'radial-gradient(ellipse at center, rgba(168,85,247,0.08) 0%, transparent 70%)',
+              background: 'radial-gradient(ellipse at center, rgba(139,92,246,0.08) 0%, transparent 70%)',
             }}
           />
         )}
@@ -56,7 +56,7 @@ const CameraViewport = ({ stream, enabled, onToggle, aiActive }: CameraViewportP
         className={`absolute bottom-3 right-3 p-2.5 rounded-xl backdrop-blur-xl transition-all ${
           enabled
             ? 'bg-white/10 text-white/80 hover:bg-white/20'
-            : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+            : 'bg-destructive/20 text-destructive hover:bg-destructive/30'
         }`}
       >
         {enabled ? <Video size={18} /> : <VideoOff size={18} />}
@@ -64,7 +64,7 @@ const CameraViewport = ({ stream, enabled, onToggle, aiActive }: CameraViewportP
 
       {/* On-device indicator */}
       <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-xl text-[10px] uppercase tracking-widest text-white/50">
-        <span className="w-1.5 h-1.5 rounded-full bg-green-400/80" />
+        <span className="w-1.5 h-1.5 rounded-full bg-primary-400/80" />
         On-device
       </div>
     </div>

@@ -127,7 +127,7 @@ const DocumentationGuide = () => {
   return (
     <div className="space-y-6">
       <section className="space-y-3">
-        <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/20 bg-sky-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-sky-100">
+        <div className="inline-flex items-center gap-2 rounded-full border border-primary-400/20 bg-primary-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-primary-100">
           <BookText size={13} />
           Product documentation
         </div>
@@ -143,7 +143,7 @@ const DocumentationGuide = () => {
 
       <section className="rounded-2xl border border-border bg-card/40 p-4 md:p-5">
         <div className="flex items-center gap-2">
-          <CheckCircle2 size={16} className="text-emerald-400" />
+          <CheckCircle2 size={16} className="text-primary-400" />
           <h4 className="text-sm font-medium text-foreground">Current local runtime target</h4>
         </div>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -162,7 +162,7 @@ const DocumentationGuide = () => {
 
       <section className="space-y-3">
         <div className="flex items-center gap-2">
-          <Sparkles size={16} className="text-violet-300" />
+          <Sparkles size={16} className="text-primary-300" />
           <h4 className="text-sm font-medium text-foreground">Quick start, step by step</h4>
         </div>
         <div className="space-y-3">
@@ -190,7 +190,7 @@ const DocumentationGuide = () => {
 
       <section className="space-y-3">
         <div className="flex items-center gap-2">
-          <Wrench size={16} className="text-amber-300" />
+          <Wrench size={16} className="text-primary-300" />
           <h4 className="text-sm font-medium text-foreground">Core configuration areas</h4>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
@@ -220,7 +220,7 @@ const DocumentationGuide = () => {
 
       <section className="space-y-3">
         <div className="flex items-center gap-2">
-          <TerminalSquare size={16} className="text-cyan-300" />
+          <TerminalSquare size={16} className="text-primary-300" />
           <h4 className="text-sm font-medium text-foreground">Recommended local startup sequence</h4>
         </div>
         <div className="rounded-2xl border border-border bg-card/30 p-4 space-y-4">
@@ -255,7 +255,7 @@ const DocumentationGuide = () => {
 
       <section className="space-y-3">
         <div className="flex items-center gap-2">
-          <FolderOpen size={16} className="text-fuchsia-300" />
+          <FolderOpen size={16} className="text-primary-300" />
           <h4 className="text-sm font-medium text-foreground">What the workspace can do</h4>
         </div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -294,7 +294,7 @@ const DocumentationGuide = () => {
 
       <section className="space-y-3">
         <div className="flex items-center gap-2">
-          <ShieldCheck size={16} className="text-emerald-300" />
+          <ShieldCheck size={16} className="text-primary-300" />
           <h4 className="text-sm font-medium text-foreground">Operational notes</h4>
         </div>
         <div className="rounded-2xl border border-border bg-card/30 p-4 space-y-3">
@@ -315,7 +315,7 @@ const DocumentationGuide = () => {
 
       <section className="space-y-3">
         <div className="flex items-center gap-2">
-          <AlertTriangle size={16} className="text-rose-300" />
+          <AlertTriangle size={16} className="text-primary-300" />
           <h4 className="text-sm font-medium text-foreground">Troubleshooting guide</h4>
         </div>
         <div className="space-y-3">
@@ -388,16 +388,16 @@ const Callout = ({
   <div
     className={`rounded-2xl border px-4 py-4 ${
       tone === 'success'
-        ? 'border-emerald-400/18 bg-emerald-500/8'
-        : 'border-amber-400/18 bg-amber-500/8'
+        ? 'border-primary-400/18 bg-primary-500/8'
+        : 'border-primary-400/18 bg-primary-500/8'
     }`}
   >
     <div className="flex items-start gap-3">
       <div
         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl ${
           tone === 'success'
-            ? 'bg-emerald-500/14 text-emerald-200'
-            : 'bg-amber-500/14 text-amber-200'
+            ? 'bg-primary-500/14 text-primary-200'
+            : 'bg-primary-500/14 text-primary-200'
         }`}
       >
         <Icon size={16} />
