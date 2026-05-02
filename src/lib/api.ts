@@ -389,6 +389,35 @@ export function getBuilderWorkspaceDownloadUrl(workspaceId: string, filePath: st
   return `${BASE}/workspace/builder/${workspaceId}/download/${encodeWorkspacePath(filePath)}`;
 }
 
+// ── Project Generator API ──────────────────────────────────────────────────────
+
+export interface ProjectGenerateRequest {
+  prompt: string;
+  model?: string;
+  title?: string;
+}
+
+export async function generateProject(params: ProjectGenerateRequest): Promise<GeneratedWorkspace> {
+  const response = await fetch(`${BASE}/project/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+    signal: AbortSignal.timeout(300000), // 5 minutes timeout
+  });
+  if (!response.ok) {
+    throw new Error(await readError(response, `Project generation failed: ${response.status}`));
+  }
+  return response.json();
+}
+
+export async function getProjectStatus(workspaceId: string): Promise<{ status: string; workspace?: GeneratedWorkspace }> {
+  const response = await fetch(`${BASE}/project/generate/${workspaceId}/status`);
+  if (!response.ok) {
+    throw new Error(await readError(response, `Project status fetch failed: ${response.status}`));
+  }
+  return response.json();
+}
+
 export interface AgentEvent {
   type: 'step' | 'done' | 'error' | 'info' | 'thinking' | 'ask' | 'result' | 'takeover';
   step: number;

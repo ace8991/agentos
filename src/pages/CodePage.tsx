@@ -1,8 +1,9 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  AlertTriangle, ArrowLeft, Bot, CheckCircle, Code2, Database, FolderOpen, Ghost, Layers3, Menu, MessageSquareText, Mic, MonitorPlay, Paperclip, Plus, Send, Square, X,
+  AlertTriangle, ArrowLeft, Bot, CheckCircle, Code2, Database, FolderOpen, Ghost, Layers3, Menu, MessageSquareText, Mic, MonitorPlay, Paperclip, Plus, Send, Sparkles, Square, X,
 } from 'lucide-react';
 
 import { toast } from '@/components/ui/sonner';
@@ -41,6 +42,8 @@ import { useIntentEngine } from '@/hooks/useIntentEngine';
 import { ResponseTypePill } from '@/components/ResponseTypePill';
 import { CodePanel } from '@/components/code/CodePanel';
 import { CodeSidebar } from '@/components/code/CodeSidebar';
+import HistorySidebar from '@/components/HistorySidebar';
+import ProjectGeneratorPanel from '@/components/ProjectGeneratorPanel';
 
 const ConnectorConfigModal = lazy(() => import('@/components/chat/ConnectorConfigModal'));
 const ConnectorsDirectoryModal = lazy(() => import('@/components/chat/ConnectorsDirectoryModal'));
@@ -73,10 +76,313 @@ const BUILDER_REQUEST_KEYWORDS = [
   'application web',
 ];
 
+/**
+ * Mots-clés pour déclencher le Project Generator (IA puissante).
+ * Détecte les demandes de création de projets complexes.
+ */
+const PROJECT_GENERATOR_KEYWORDS = [
+  // Français — création de projet
+  'crée un projet',
+  'cree un projet',
+  'crée moi un projet',
+  'cree moi un projet',
+  'génère un projet',
+  'genere un projet',
+  'génère moi un projet',
+  'genere moi un projet',
+  'crée une application',
+  'cree une application',
+  'crée un site web',
+  'cree un site web',
+  'développe un projet',
+  'developpe un projet',
+  'développe moi',
+  'developpe moi',
+  'construis un projet',
+  'construis moi',
+  'fabrique un projet',
+  'fabrique moi',
+  'réalise un projet',
+  'realise un projet',
+  'réalise moi',
+  'realise moi',
+  'je veux un projet',
+  'je veux créer',
+  'je veux cree',
+  'je veux développer',
+  'je veux developper',
+  'je veux construire',
+  'je veux fabriquer',
+  'aide moi à créer',
+  'aide moi a creer',
+  'aide moi à cree',
+  'aide moi a cree',
+  'aide moi à développer',
+  'aide moi a developper',
+  'aide moi à construire',
+  'aide moi a construire',
+  'génère une app',
+  'genere une app',
+  'génère un site',
+  'genere un site',
+  'crée un dashboard',
+  'cree un dashboard',
+  'crée un tableau de bord',
+  'cree un tableau de bord',
+  'crée un jeu',
+  'cree un jeu',
+  'crée une animation',
+  'cree une animation',
+  'crée un portfolio',
+  'cree un portfolio',
+  'crée une landing page',
+  'cree une landing page',
+  'crée une page d\'accueil',
+  'cree une page d\'accueil',
+  'crée un blog',
+  'cree un blog',
+  'crée un e-commerce',
+  'cree un e-commerce',
+  'crée une boutique',
+  'cree une boutique',
+  'crée un SaaS',
+  'cree un SaaS',
+  'crée un outil',
+  'cree un outil',
+  'crée une API',
+  'cree une API',
+  'crée un backend',
+  'cree un backend',
+  'crée un frontend',
+  'cree un frontend',
+  'crée une interface',
+  'cree une interface',
+  'crée un composant',
+  'cree un composant',
+  'crée une librairie',
+  'cree une librairie',
+  'crée un package',
+  'cree un package',
+  'crée un module',
+  'cree un module',
+  'crée un plugin',
+  'cree un plugin',
+  'crée une extension',
+  'cree une extension',
+  'crée un thème',
+  'cree un theme',
+  'crée un template',
+  'cree un template',
+  'crée un starter',
+  'cree un starter',
+  'crée un boilerplate',
+  'cree un boilerplate',
+  'crée un scaffold',
+  'cree un scaffold',
+  'génère un dashboard',
+  'genere un dashboard',
+  'génère un jeu',
+  'genere un jeu',
+  'génère une animation',
+  'genere une animation',
+  'génère un portfolio',
+  'genere un portfolio',
+  'génère un blog',
+  'genere un blog',
+  'génère un e-commerce',
+  'genere un e-commerce',
+  'génère une boutique',
+  'genere une boutique',
+  'génère un SaaS',
+  'genere un SaaS',
+  'génère un outil',
+  'genere un outil',
+  'génère une API',
+  'genere une API',
+  'génère un backend',
+  'genere un backend',
+  'génère un frontend',
+  'genere un frontend',
+  'génère une interface',
+  'genere une interface',
+  'génère un composant',
+  'genere un composant',
+  'génère une librairie',
+  'genere une librairie',
+  'génère un package',
+  'genere un package',
+  'génère un module',
+  'genere un module',
+  'génère un plugin',
+  'genere un plugin',
+  'génère une extension',
+  'genere une extension',
+  'génère un thème',
+  'genere un theme',
+  'génère un template',
+  'genere un template',
+  'génère un starter',
+  'genere un starter',
+  'génère un boilerplate',
+  'genere un boilerplate',
+  'génère un scaffold',
+  'genere un scaffold',
+  // Anglais — project creation
+  'create a project',
+  'build a project',
+  'generate a project',
+  'make a project',
+  'develop a project',
+  'create an app',
+  'build an app',
+  'generate an app',
+  'make an app',
+  'develop an app',
+  'create a website',
+  'build a website',
+  'generate a website',
+  'make a website',
+  'create a web app',
+  'build a web app',
+  'generate a web app',
+  'make a web app',
+  'create a dashboard',
+  'build a dashboard',
+  'generate a dashboard',
+  'make a dashboard',
+  'create a game',
+  'build a game',
+  'generate a game',
+  'make a game',
+  'create an animation',
+  'build an animation',
+  'generate an animation',
+  'make an animation',
+  'create a portfolio',
+  'build a portfolio',
+  'generate a portfolio',
+  'make a portfolio',
+  'create a landing page',
+  'build a landing page',
+  'generate a landing page',
+  'make a landing page',
+  'create a blog',
+  'build a blog',
+  'generate a blog',
+  'make a blog',
+  'create an ecommerce',
+  'build an ecommerce',
+  'generate an ecommerce',
+  'make an ecommerce',
+  'create a saas',
+  'build a saas',
+  'generate a saas',
+  'make a saas',
+  'create a tool',
+  'build a tool',
+  'generate a tool',
+  'make a tool',
+  'create an api',
+  'build an api',
+  'generate an api',
+  'make an api',
+  'create a backend',
+  'build a backend',
+  'generate a backend',
+  'make a backend',
+  'create a frontend',
+  'build a frontend',
+  'generate a frontend',
+  'make a frontend',
+  'create a fullstack',
+  'build a fullstack',
+  'generate a fullstack',
+  'make a fullstack',
+  'create a component',
+  'build a component',
+  'generate a component',
+  'make a component',
+  'create a library',
+  'build a library',
+  'generate a library',
+  'make a library',
+  'create a package',
+  'build a package',
+  'generate a package',
+  'make a package',
+  'create a module',
+  'build a module',
+  'generate a module',
+  'make a module',
+  'create a plugin',
+  'build a plugin',
+  'generate a plugin',
+  'make a plugin',
+  'create an extension',
+  'build an extension',
+  'generate an extension',
+  'make an extension',
+  'create a theme',
+  'build a theme',
+  'generate a theme',
+  'make a theme',
+  'create a template',
+  'build a template',
+  'generate a template',
+  'make a template',
+  'create a starter',
+  'build a starter',
+  'generate a starter',
+  'make a starter',
+  'create a boilerplate',
+  'build a boilerplate',
+  'generate a boilerplate',
+  'make a boilerplate',
+  'create a scaffold',
+  'build a scaffold',
+  'generate a scaffold',
+  'make a scaffold',
+  'i want to create',
+  'i want to build',
+  'i want to generate',
+  'i want to make',
+  'i want to develop',
+  'help me create',
+  'help me build',
+  'help me generate',
+  'help me make',
+  'help me develop',
+  'can you create',
+  'can you build',
+  'can you generate',
+  'can you make',
+  'can you develop',
+  'could you create',
+  'could you build',
+  'could you generate',
+  'could you make',
+  'could you develop',
+  'would you create',
+  'would you build',
+  'would you generate',
+  'would you make',
+  'would you develop',
+];
+
 const shouldUseBuilderWorkspace = (text: string, preferences: ComposerPreferences) => {
   if (!preferences.builderMode) return false;
   const lower = text.toLowerCase();
   return BUILDER_REQUEST_KEYWORDS.some((keyword) => lower.includes(keyword));
+};
+
+/**
+ * Détecte si l'utilisateur demande la création d'un projet via l'IA générative.
+ * Ouvre le ProjectGeneratorPanel au lieu de passer par le builder classique.
+ */
+const shouldUseProjectGenerator = (text: string): boolean => {
+  const lower = text.toLowerCase().trim();
+  if (lower.length < 10) return false;
+  return PROJECT_GENERATOR_KEYWORDS.some((keyword) => lower.includes(keyword));
 };
 
 const shouldRouteToAgent = (
@@ -87,213 +393,80 @@ const shouldRouteToAgent = (
   if (mode === 'agent') return true;
   if (!backendOnline) return false;
   const lower = text.toLowerCase();
-  const agentKeywords = [
-    'browser',
-    'navigate to',
-    'go to',
-    'search for',
-    'find',
-    'look up',
-    'terminal',
-    'run command',
-    'execute',
-    'install',
-    'create file',
-    'write file',
-    'edit file',
-    'read file',
-    'list directory',
-    'files',
-    'folder',
-    'system',
-    'desktop',
-    'mouse',
-    'click',
-    'type',
-    'screenshot',
-    'take a screenshot',
-    'what is on my screen',
-    'open',
-    'launch',
-    'start',
-    'stop',
-    'restart',
-    'download',
-    'upload',
-    'git',
-    'commit',
-    'push',
-    'pull',
-    'clone',
-    'npm',
-    'pip',
-    'python',
-    'node',
-    'localhost',
-    'server',
-    'deploy',
-    'build',
-    'compile',
-    'test',
-    'debug',
-    'analyse',
-    'analyze',
-    'check',
-    'monitor',
-    'watch',
-    'tail',
-    'log',
-    'error',
-    'fix',
-    'repair',
-    'update',
-    'upgrade',
-    'configure',
-    'setup',
-    'init',
-    'scaffold',
-    'generate',
-    'create project',
-    'new project',
-    'workspace',
-    'code',
-    'editor',
-    'ide',
-    'vscode',
-    'cursor',
-    'windsurf',
-    'github',
-    'repo',
-    'repository',
-    'branch',
-    'merge',
-    'rebase',
-    'fetch',
-    'remote',
-    'ssh',
-    'docker',
-    'container',
-    'compose',
-    'kubernetes',
-    'k8s',
-    'aws',
-    'azure',
-    'gcp',
-    'cloud',
-    'api',
-    'rest',
-    'graphql',
-    'database',
-    'db',
-    'sql',
-    'postgres',
-    'mysql',
-    'mongodb',
-    'redis',
-    'queue',
-    'worker',
-    'cron',
-    'schedule',
-    'automate',
-    'script',
-    'shell',
-    'bash',
-    'zsh',
-    'powershell',
-    'cmd',
-    'terminal',
-    'console',
-    'cli',
-    'tool',
-    'utility',
-    'plugin',
-    'extension',
-    'addon',
-    'module',
-    'package',
-    'dependency',
-    'library',
-    'framework',
-    'template',
-    'boilerplate',
-    'starter',
-    'kit',
-    'sdk',
-    'client',
-    'server',
-    'backend',
-    'frontend',
-    'fullstack',
-    'stack',
-    'web',
-    'app',
-    'application',
-    'software',
-    'program',
-    'service',
-    'microservice',
-    'function',
-    'lambda',
-    'endpoint',
-    'route',
-    'middleware',
-    'auth',
-    'login',
-    'signup',
-    'register',
-    'authenticate',
-    'authorize',
-    'permission',
-    'role',
-    'user',
-    'admin',
-    'moderator',
-    'owner',
-    'team',
-    'organization',
-    'org',
-    'company',
-    'enterprise',
-    'business',
-    'startup',
-    'saas',
-    'product',
-    'feature',
-    'bug',
-    'issue',
-    'ticket',
-    'task',
-    'story',
-    'epic',
-    'sprint',
-    'agile',
-    'scrum',
-    'kanban',
-    'board',
-    'backlog',
-    'roadmap',
-    'milestone',
-    'release',
-    'version',
-    'tag',
-    'changelog',
-    'readme',
-    'documentation',
-    'docs',
-    'wiki',
-    'guide',
-    'tutorial',
-    'howto',
-    'example',
-    'sample',
-    'demo',
-    'poc',
-    'prototype',
-    'mvp',
-    'proof of concept',
-    'minimum viable product',
+
+  // Mots isolés trop génériques qui ne doivent PAS déclencher le mode agent
+  // (ils sont trop fréquents dans le langage courant / le code)
+  const safeWords = new Set([
+    'code', 'app', 'web', 'site', 'file', 'test', 'check', 'fix',
+    'open', 'create', 'run', 'build', 'start', 'stop', 'update',
+    'git', 'npm', 'python', 'node', 'api', 'error', 'log', 'server',
+    'database', 'db', 'function', 'class', 'variable', 'bug',
+    'issue', 'help', 'question', 'how', 'what', 'why', 'when',
+    'where', 'who', 'explain', 'show', 'tell', 'mean',
+  ]);
+
+  // D'abord vérifier les phrases explicites (plus spécifiques = meilleure détection)
+  const agentPhrases = [
+    // Browser
+    'navigate to', 'go to https://', 'go to http://', 'open in browser',
+    'search the web', 'search for', 'look up', 'find on the internet',
+    'find online', 'web search', 'browser',
+    // Terminal / shell
+    'terminal', 'run command', 'execute command', 'run shell',
+    'run a command', 'run this code', 'run this command',
+    // Screenshot / desktop
+    'screenshot', 'take a screenshot', 'what is on my screen',
+    'desktop', 'mouse', 'click on', 'type on keyboard',
+    'scroll', 'press key', 'move mouse',
+    // Applications
+    'open application', 'launch app', 'open app',
+    // Fichiers (phrases complètes)
+    'list directory', 'list files in', 'what files are in',
+    'create a file', 'write a file', 'edit a file', 'read a file',
+    'delete a file', 'move a file', 'copy a file',
+    'download file', 'upload file', 'create file', 'write file',
+    'edit file', 'read file',
+    // Installation
+    'install package', 'install software', 'install ',
+    // Git
+    'git clone', 'git init', 'git commit', 'git push', 'git pull',
+    // Docker
+    'docker compose', 'docker run', 'docker build',
+    // SSH / déploiement
+    'ssh connect', 'ssh to', 'deploy to', 'deploy on',
+    // Serveurs
+    'start server', 'stop server', 'restart server',
+    // Logs / monitoring
+    'check logs', 'tail logs', 'view logs', 'monitor process',
+    'kill process', 'list processes',
+    // Système
+    'system info', 'system information', 'what is running',
+    // Code / debug
+    'analyse this code', 'analyze this code', 'debug this',
+    'fix this error', 'fix this bug', 'test this code',
+    'build this project', 'compile this', 'configure this',
+    'setup this', 'generate code', 'generate a',
+    // Projets
+    'create a project', 'create an app', 'build a website',
+    'build an app', 'make a website', 'make an app',
+    'create website', 'create app', 'landing page',
+    'create project', 'new project',
   ];
-  return agentKeywords.some((keyword) => lower.includes(keyword));
+
+  if (agentPhrases.some((phrase) => lower.includes(phrase))) {
+    return true;
+  }
+
+  // Ensuite, pour les mots isolés, on vérifie qu'ils ne sont PAS dans la liste safe
+  // et qu'ils indiquent une action système
+  const agentWords = [
+    'terminal', 'browser', 'screenshot', 'desktop',
+    'docker', 'ssh', 'deploy', 'compile',
+    'install', 'uninstall',
+  ];
+
+  const words = lower.split(/\s+/);
+  return agentWords.some((word) => words.includes(word));
 };
 
 const requiresLocalTools = (text: string) => {
@@ -757,6 +930,9 @@ const CodePage = () => {
   const setActiveWorkspace = useStore((s) => s.setActiveWorkspace);
   const openWorkspacePanel = useStore((s) => s.openWorkspacePanel);
   const setWorkspacePanelView = useStore((s) => s.setWorkspacePanelView);
+  const historyOpen = useStore((s) => s.historyOpen);
+  const setHistoryOpen = useStore((s) => s.setHistoryOpen);
+  const saveConversationSnapshot = useStore((s) => s.saveConversationSnapshot);
 
   const [inputValue, setInputValue] = useState('');
   const [currentResponseType, setCurrentResponseType] = useState<import('@/lib/intentEngine/types').ResponseType>('text');
@@ -774,6 +950,7 @@ const CodePage = () => {
   const [composerMenuOpen, setComposerMenuOpen] = useState(false);
   const [isCodePanelOpen, setIsCodePanelOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [projectGeneratorOpen, setProjectGeneratorOpen] = useState(false);
   const [activeProject, setActiveProject] = useState<AppProject | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -809,6 +986,12 @@ const CodePage = () => {
     setWorkspacePanelView(view);
     openWorkspacePanel(view);
   };
+
+  const handleProjectWorkspaceReady = useCallback((workspace: GeneratedWorkspace) => {
+    setActiveWorkspace(workspace);
+    setProjectGeneratorOpen(false);
+    openWorkspacePanel('preview');
+  }, [setActiveWorkspace, openWorkspacePanel]);
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
@@ -907,6 +1090,14 @@ const CodePage = () => {
       shouldRouteToAgent(text, mode, backendOnline) ||
       (mode === 'agent' && backendOnline && requiresLocalTools(text));
 
+    // Détection intelligente : demande de création de projet → ouvre le ProjectGeneratorPanel
+    const shouldGenerateProject = shouldUseProjectGenerator(text);
+    if (shouldGenerateProject && backendOnline) {
+      setInputValue(text);
+      setProjectGeneratorOpen(true);
+      return;
+    }
+
     if (mode === 'agent' && !backendOnline) {
       toast.error('Agent mode needs the local backend to be online.');
       return;
@@ -949,6 +1140,11 @@ const CodePage = () => {
       setActiveThread('agent');
       setInputValue('');
       setAttachments([]);
+
+      // Save snapshot for agent mode
+      setTimeout(() => {
+        useStore.getState().saveConversationSnapshot({ label: text, thread: 'agent' });
+      }, 50);
 
       if (status === 'idle' || status === 'done' || status === 'error') {
         setTimeout(() => {
@@ -1422,21 +1618,6 @@ const CodePage = () => {
             <Ghost size={12} />
             {incognitoMode ? 'Private' : 'Standard'}
           </button>
-          {(activeWorkspace || artifacts.length > 0) && (
-            <button
-              onClick={() => {
-                if (activeWorkspace) {
-                  openGeneratedWorkspace('preview');
-                  return;
-                }
-                openArtifactWorkspace('preview');
-              }}
-              className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-surface-elevated active:scale-[0.97]"
-            >
-              <Layers3 size={12} />
-              Workspace
-            </button>
-          )}
           <button
             onClick={() => setIsCodePanelOpen(!isCodePanelOpen)}
             className={`flex items-center gap-1.5 rounded-md border px-3 py-1 text-xs transition-colors active:scale-[0.97] ${
@@ -1447,6 +1628,26 @@ const CodePage = () => {
           >
             <Code2 size={12} />
             Code
+          </button>
+          <button
+            onClick={() => setProjectGeneratorOpen(true)}
+            className="flex items-center gap-1.5 rounded-md border border-primary-300/18 bg-primary-400/10 px-3 py-1 text-xs font-medium text-primary-100 transition-colors hover:bg-primary-400/15 active:scale-[0.97]"
+            title="Generate a project with AI"
+          >
+            <Sparkles size={12} />
+            Generate
+          </button>
+          <button
+            onClick={() => setHistoryOpen(!historyOpen)}
+            className={`flex items-center gap-1.5 rounded-md border px-3 py-1 text-xs transition-colors active:scale-[0.97] ${
+              historyOpen
+                ? 'border-primary-300/18 bg-primary-400/10 text-primary-100 hover:bg-primary-400/15'
+                : 'border-border text-muted-foreground hover:bg-surface-elevated'
+            }`}
+            title="Conversation history"
+          >
+            <Clock size={12} />
+            History
           </button>
           {isPaused && (
             <span className="rounded-md bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent">
@@ -1894,6 +2095,14 @@ const CodePage = () => {
           }}
         />
       </Suspense>
+<HistorySidebar />
+
+<ProjectGeneratorPanel
+  open={projectGeneratorOpen}
+  onClose={() => setProjectGeneratorOpen(false)}
+  onWorkspaceReady={handleProjectWorkspaceReady}
+/>
+
 
       </div>
 

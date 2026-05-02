@@ -1,0 +1,48 @@
+{
+  "workspace_id": "67469c315373",
+  "title": "Create A Simple Hello World React",
+  "kind": "app",
+  "stack": {
+    "frontend": "React + Vite + TypeScript",
+    "ui": "Design moderne + Animations",
+    "backend": null,
+    "database": null
+  },
+  "preview_entry": "preview/index.html",
+  "preview_url": "",
+  "files": [
+    {
+      "path": "docs/README.md",
+      "name": "README.md",
+      "group": "docs",
+      "language": "md",
+      "size_bytes": 403
+    },
+    {
+      "path": "preview/index.html",
+      "name": "index.html",
+      "group": "output",
+      "language": "html",
+      "size_bytes": 3515
+    }
+  ],
+  "database_files": [],
+  "artifacts": [
+    {
+      "id": "artifact-0",
+      "type": "document",
+      "title": "README.md",
+      "path": "docs/README.md",
+      "group": "docs"
+    },
+    {
+      "id": "artifact-1",
+      "type": "app",
+      "title": "index.html",
+      "path": "preview/index.html",
+      "group": "output"
+    }
+  ],
+  "status": "ready",
+  "summary": "Create A Simple Hello World React \u2014 Projet app g\u00e9n\u00e9r\u00e9 avec React + Vite + TypeScript. 2 fichiers cr\u00e9\u00e9s."
+}

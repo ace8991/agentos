@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Create A Simple Hello World React — Preview</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3e 50%, #0a0a1a 100%);
+      color: #eef3ff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .card {
+      max-width: 800px;
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 32px;
+      padding: 3rem;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 24px 80px rgba(0,0,0,0.4);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: 999px;
+      border: 1px solid rgba(126,167,255,0.2);
+      background: rgba(126,167,255,0.08);
+      color: #7ea7ff;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 1.5rem;
+    }
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 1.1;
+      margin-bottom: 1rem;
+      background: linear-gradient(135deg, #eef3ff 0%, #7ea7ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    p {
+      color: rgba(238,243,255,0.7);
+      line-height: 1.7;
+      font-size: 1.05rem;
+      margin-bottom: 2rem;
+    }
+    .stack {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 2rem;
+    }
+    .stack-item {
+      padding: 0.5rem 1rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+      font-size: 0.85rem;
+      color: rgba(238,243,255,0.8);
+    }
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 1rem 1.5rem;
+      border-radius: 16px;
+      background: rgba(34,197,94,0.08);
+      border: 1px solid rgba(34,197,94,0.15);
+      color: #22c55e;
+      font-size: 0.9rem;
+    }
+    .status::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 12px rgba(34,197,94,0.4);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    @media (max-width: 600px) {
+      .card { padding: 1.5rem; }
+      h1 { font-size: 1.8rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">✨ AgentOS Project Generator</div>
+    <h1>Create A Simple Hello World React</h1>
+    <p>create a simple hello world react app</p>
+    <div class="stack">
+      <span class="stack-item">📦 App</span>
+      <span class="stack-item">⚡ React + Vite + TypeScript</span>
+      <span class="stack-item">🎨 Design moderne</span>
+      <span class="stack-item">📱 Responsive</span>
+    </div>
+    <div class="status">
+      Projet généré avec succès — explore les fichiers dans les onglets ci-dessus
+    </div>
+  </div>
+</body>
+</html>

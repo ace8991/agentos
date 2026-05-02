@@ -487,7 +487,7 @@ class RuntimeConfigResponse(BaseModel):
 
 
 WorkspaceFileGroup = Literal["client", "server", "database", "docs", "assets", "output"]
-GeneratedWorkspaceKind = Literal["website", "landing", "app", "dashboard", "slides", "presentation"]
+GeneratedWorkspaceKind = Literal["website", "landing", "app", "dashboard", "slides", "presentation", "game", "animation", "api", "fullstack"]
 GeneratedWorkspaceStatus = Literal["building", "ready", "error"]
 
 
