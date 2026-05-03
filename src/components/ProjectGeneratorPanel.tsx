@@ -23,8 +23,11 @@ import {
   Terminal,
   Globe,
   Box,
+  Bot,
+  TerminalSquare,
+  FilePlus2,
 } from 'lucide-react';
-import { generateProject, getProjectStatus, type GeneratedWorkspace, type GeneratedWorkspaceFile } from '@/lib/api';
+import { generateProject, getProjectStatus, type GeneratedWorkspace, type GeneratedWorkspaceFile, type ProjectGenerateEvent } from '@/lib/api';
 
 /* ─── Types ─────────────────────────────────────────── */
 
@@ -86,8 +89,12 @@ const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady }: ProjectGener
   const [workspace, setWorkspace] = useState<GeneratedWorkspace | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['source']));
   const [progressMessage, setProgressMessage] = useState('');
+  const [filesCreated, setFilesCreated] = useState(0);
+  const [toolCalls, setToolCalls] = useState<{ tool: string; status: 'running' | 'done' | 'error'; label: string }[]>([]);
+  const [llmText, setLlmText] = useState('');
   const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const logEndRef = useRef<HTMLDivElement>(null);
 
   // Focus input when opened
   useEffect(() => {
@@ -95,6 +102,11 @@ const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady }: ProjectGener
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [open]);
+
+  // Auto-scroll tool log
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [toolCalls, llmText]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -117,6 +129,9 @@ const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady }: ProjectGener
     setError(null);
     setWorkspace(null);
     setProgressMessage('');
+    setFilesCreated(0);
+    setToolCalls([]);
+    setLlmText('');
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -124,12 +139,63 @@ const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady }: ProjectGener
     try {
       // Phase 1: Analyzing
       setProgressMessage('Analyse de votre demande…');
-      await new Promise((r) => setTimeout(r, 800));
+      await new Promise((r) => setTimeout(r, 600));
 
       setPhase('generating');
-      setProgressMessage('Génération du projet via IA…');
+      setProgressMessage('Génération du projet via agentic loop…');
 
-      const result = await generateProject({ prompt: prompt.trim() });
+      const result = await generateProject(
+        { prompt: prompt.trim() },
+        (event: ProjectGenerateEvent) => {
+          if (controller.signal.aborted) return;
+
+          switch (event.type) {
+            case 'phase':
+              setProgressMessage(event.message ?? '');
+              if (event.phase === 'parsing') setPhase('parsing');
+              if (event.phase === 'complete') setPhase('complete');
+              break;
+
+            case 'text':
+              setLlmText((prev) => {
+                const next = prev + (event.text ?? '');
+                // Keep only last ~500 chars for display
+                return next.length > 2000 ? '…' + next.slice(-1997) : next;
+              });
+              break;
+
+            case 'tool_call':
+              setToolCalls((prev) => [
+                ...prev,
+                {
+                  tool: event.tool ?? 'unknown',
+                  status: 'running',
+                  label: toolLabel(event.tool ?? '', event.args ?? {}),
+                },
+              ]);
+              break;
+
+            case 'tool_result':
+              setToolCalls((prev) => {
+                const next = [...prev];
+                const lastIdx = next.length - 1;
+                if (lastIdx >= 0 && next[lastIdx].status === 'running') {
+                  next[lastIdx] = {
+                    ...next[lastIdx],
+                    status: event.success ? 'done' : 'error',
+                  };
+                }
+                return next;
+              });
+              break;
+
+            case 'file_created':
+              setFilesCreated(event.total ?? 0);
+              break;
+          }
+        },
+        controller.signal,
+      );
 
       if (controller.signal.aborted) return;
 
@@ -154,6 +220,9 @@ const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady }: ProjectGener
     setError(null);
     setWorkspace(null);
     setProgressMessage('');
+    setFilesCreated(0);
+    setToolCalls([]);
+    setLlmText('');
     setTimeout(() => inputRef.current?.focus(), 100);
   }, []);
 
@@ -240,11 +309,12 @@ const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady }: ProjectGener
           {(phase === 'analyzing' || phase === 'generating' || phase === 'parsing') && (
             <div className="space-y-4 py-4">
               {PHASES.map((p) => {
-                const isActive = phase === p.phase;
+                const currentPhase = phase;
+                const isActive = currentPhase === p.phase;
                 const isDone =
-                  (p.phase === 'analyzing' && (phase === 'generating' || phase === 'parsing' || phase === 'complete')) ||
-                  (p.phase === 'generating' && (phase === 'parsing' || phase === 'complete')) ||
-                  (p.phase === 'parsing' && phase === 'complete');
+                  (p.phase === 'analyzing' && (currentPhase === 'generating' || currentPhase === 'parsing' || currentPhase === 'complete')) ||
+                  (p.phase === 'generating' && (currentPhase === 'parsing' || currentPhase === 'complete')) ||
+                  (p.phase === 'parsing' && currentPhase === 'complete');
 
                 return (
                   <div key={p.phase} className="flex items-center gap-3">
@@ -284,6 +354,53 @@ const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady }: ProjectGener
                   </div>
                 );
               })}
+
+              {/* Live agentic log (visible during generating phase) */}
+              {phase === 'generating' && (
+                <div className="mt-4 space-y-2 rounded-xl border border-white/10 bg-black/20 p-3 max-h-[260px] overflow-y-auto scrollbar-thin">
+                  {/* LLM text streaming */}
+                  {llmText && (
+                    <div className="flex items-start gap-2 text-xs text-muted-foreground/80">
+                      <Bot size={12} className="mt-0.5 shrink-0 text-primary-100/60" />
+                      <span className="italic leading-relaxed">{llmText}</span>
+                    </div>
+                  )}
+
+                  {/* Tool calls log */}
+                  {toolCalls.map((tc, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs">
+                      {tc.status === 'running' ? (
+                        <Loader2 size={12} className="shrink-0 animate-spin text-primary-100/60" />
+                      ) : tc.status === 'done' ? (
+                        <CheckCircle size={12} className="shrink-0 text-success/70" />
+                      ) : (
+                        <AlertTriangle size={12} className="shrink-0 text-destructive/70" />
+                      )}
+                      <span
+                        className={
+                          tc.status === 'running'
+                            ? 'text-muted-foreground/80'
+                            : tc.status === 'done'
+                              ? 'text-muted-foreground/60'
+                              : 'text-destructive/80'
+                        }
+                      >
+                        {tc.label}
+                      </span>
+                    </div>
+                  ))}
+
+                  {/* Files created counter */}
+                  {filesCreated > 0 && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
+                      <FilePlus2 size={12} className="shrink-0" />
+                      <span>{filesCreated} fichier{filesCreated > 1 ? 's' : ''} créé{filesCreated > 1 ? 's' : ''}</span>
+                    </div>
+                  )}
+
+                  <div ref={logEndRef} />
+                </div>
+              )}
             </div>
           )}
 
@@ -413,5 +530,32 @@ const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady }: ProjectGener
     </AnimatePresence>
   );
 };
+
+function toolLabel(tool: string, args: Record<string, unknown>): string {
+  switch (tool) {
+    case 'str_replace_editor': {
+      const cmd = args.command as string;
+      const path = (args.path as string) ?? '';
+      const fileName = path.split('/').pop() ?? path.split('\\').pop() ?? path;
+      if (cmd === 'create') return `📄 Création de ${fileName}`;
+      if (cmd === 'edit') return `✏️ Modification de ${fileName}`;
+      if (cmd === 'view') return `👁️ Lecture de ${fileName}`;
+      return `📁 ${fileName}`;
+    }
+    case 'bash_tool': {
+      const cmd = (args.command as string) ?? '';
+      const short = cmd.length > 50 ? cmd.slice(0, 50) + '…' : cmd;
+      return `💻 ${short}`;
+    }
+    case 'list_directory':
+      return `📂 Liste: ${(args.path as string) ?? ''}`;
+    case 'web_search':
+      return `🌐 Recherche: ${(args.query as string) ?? ''}`;
+    case 'system_info':
+      return `🖥️ Info système`;
+    default:
+      return `🔧 ${tool}`;
+  }
+}
 
 export default ProjectGeneratorPanel;

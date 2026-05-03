@@ -1,11 +1,11 @@
 """
 Project Generator API Route
 ============================
-Endpoint pour générer des projets complets via LLM.
+Endpoint pour générer des projets complets via LLM avec agentic loop.
 
 POST /project/generate
   Body: { prompt: string, model?: string, title?: string }
-  Response: GeneratedWorkspace (JSON)
+  Response: SSE stream d'événements JSON, se termine par un événement "workspace"
 
 GET /project/generate/{workspace_id}/status
   Response: { status: string, workspace?: GeneratedWorkspace }
@@ -20,6 +20,7 @@ import json
 import logging
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.models.schemas import GeneratedWorkspace
@@ -50,29 +51,53 @@ async def generate_project(req: ProjectGenerateRequest, request: Request):
     Utilise l'agentic loop avec un system prompt spécialisé "Project Architect"
     pour générer du code complet, des animations, des visuels 3D, etc.
 
-    Retourne un GeneratedWorkspace compatible avec l'infrastructure builder.
+    Retourne un flux SSE d'événements JSON :
+      - {"type": "phase", "phase": "analyzing|generating|parsing|complete", "message": "..."}
+      - {"type": "text", "text": "..."}
+      - {"type": "tool_call", "tool": "...", "args": {...}, "id": "..."}
+      - {"type": "tool_result", "tool": "...", "result": "...", "id": "...", "success": true}
+      - {"type": "file_created", "path": "...", "total": 5}
+      - {"type": "workspace", "workspace": {...}}  ← résultat final
+      - {"type": "error", "error": "..."}
     """
     logger.info(f"Project generation request: prompt='{req.prompt[:100]}...' model={req.model}")
 
-    try:
-        workspace = await pg.generate_project(
-            prompt=req.prompt,
-            model=req.model,
-        )
-
-        # Attacher l'URL de preview
+    async def event_stream():
         base_url = str(request.base_url).rstrip("/")
-        workspace = pg.attach_preview_url(workspace, base_url)
+        try:
+            async for event_json in pg.generate_project(
+                prompt=req.prompt,
+                model=req.model,
+            ):
+                # On parse l'événement pour attacher l'URL de preview si c'est le workspace final
+                try:
+                    event = json.loads(event_json)
+                    if event.get("type") == "workspace" and "workspace" in event:
+                        ws = GeneratedWorkspace(**event["workspace"])
+                        ws = pg.attach_preview_url(ws, base_url)
+                        event["workspace"] = ws.model_dump()
+                        yield f"data: {json.dumps(event)}\n\n"
+                    else:
+                        yield f"data: {event_json}\n\n"
+                except json.JSONDecodeError:
+                    yield f"data: {event_json}\n\n"
 
-        logger.info(f"Project generated successfully: {workspace.workspace_id}")
-        return workspace
+        except ValueError as e:
+            logger.error(f"Project generation failed (config error): {e}")
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+        except Exception as e:
+            logger.error(f"Project generation failed: {e}", exc_info=True)
+            yield f"data: {json.dumps({'type': 'error', 'error': f'Project generation failed: {str(e)}'})}\n\n"
 
-    except ValueError as e:
-        logger.error(f"Project generation failed (config error): {e}")
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Project generation failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Project generation failed: {str(e)}")
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/generate/{workspace_id}/status")

@@ -1,46 +1,47 @@
 """
-Project Generator Engine v1.0
-==============================
+Project Generator Engine v2.0 — Agentic Project Generation
+===========================================================
 Génère des projets complets (apps web, jeux, animations 3D, dashboards, sites)
-en utilisant l'agentic loop avec un system prompt spécialisé.
+en utilisant l'agentic loop AVEC les outils filesystem (str_replace_editor, bash_tool).
 
 Architecture:
   1. Analyse la demande → détecte le type de projet, stack, fonctionnalités
   2. Construit un system prompt spécialisé "Project Architect"
   3. Lance l'agentic loop (Anthropic/OpenAI) avec les outils filesystem
-  4. Génère tous les fichiers du projet dans un workspace dédié
-  5. Crée un preview HTML + résumé du projet
+     → Le LLM crée les fichiers un par un via str_replace_editor (comme Claude Code)
+     → Le LLM peut exécuter des commandes via bash_tool (npm init, pip install, etc.)
+  4. Scanne les fichiers créés et construit le workspace
+  5. Génère un preview HTML + résumé du projet
   6. Retourne le workspace GeneratedWorkspace (compatible builder existant)
 
-Supporte:
-  - Apps React/Vite/TypeScript complètes
-  - Jeux HTML5/Canvas/Three.js
-  - Animations CSS/GSAP/Three.js/Framer Motion
-  - Dashboards avec données mock
-  - Sites web statiques
-  - Composants 3D (Three.js, React Three Fiber)
-  - Visualisations de données (Chart.js, D3.js)
-  - Landing pages avec animations
+Différence clé avec v1.0 :
+  - v1.0 : appel LLM unique → parse <file> tags → écriture disque
+  - v2.0 : agentic loop avec outils → le LLM utilise str_replace_editor pour créer
+           chaque fichier, et bash_tool pour exécuter des commandes
+           → Résultat : projets professionnels comme Codex/Claude Code/Roo Code
 """
 
 from __future__ import annotations
 
+import asyncio
 import html
 import json
 import logging
 import re
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, AsyncGenerator
 
 from app.models.schemas import (
     GeneratedWorkspace,
     GeneratedWorkspaceArtifact,
     GeneratedWorkspaceFile,
     GeneratedWorkspaceStack,
+    WorkspaceFileGroup,
 )
 from app.services.runtime_config import get_runtime_value
 from app.services.tool_executor import execute as run_tool
+from app.services.skills_registry import build_skill_guidance
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ PREVIEW_ENTRY = "preview/index.html"
 
 WORKSPACES_ROOT.mkdir(parents=True, exist_ok=True)
 
-MAX_GENERATION_ITERATIONS = 25
+MAX_GENERATION_ITERATIONS = 30  # Plus d'itérations pour les projets complexes
 
 # ── Types de projets détectables ──────────────────────────────────────────────
 
@@ -127,20 +128,70 @@ PROJECT_PATTERNS: dict[str, dict[str, Any]] = {
     },
 }
 
-# ── System Prompt spécialisé pour la génération de projets ────────────────────
+# ── System Prompt spécialisé pour la génération de projets via agentic loop ───
 
-PROJECT_ARCHITECT_SYSTEM_PROMPT = """# AgentOS Project Architect — System Prompt v1.0
+PROJECT_ARCHITECT_SYSTEM_PROMPT = """# AgentOS Project Architect — System Prompt v2.0
 
 Tu es un **Architecte de Projet** spécialisé dans la génération de projets complets.
-Tu génères des projets avec du code réel, fonctionnel, prêt à être exécuté.
+Tu utilises les outils à ta disposition pour créer des projets professionnels.
+
+## OUTILS DISPONIBLES
+
+### str_replace_editor (création et modification de fichiers)
+- `command=create` : Crée un nouveau fichier avec `file_text`
+- `command=str_replace` : Modifie une partie d'un fichier existant
+- `command=view` : Lit le contenu d'un fichier
+
+### bash_tool (exécution de commandes)
+- Pour créer des dossiers : `mkdir -p chemin/vers/dossier`
+- Pour initialiser des projets : `npm init -y`, `npm install react react-dom`
+- Pour installer des dépendances Python : `pip install fastapi uvicorn`
+- Pour exécuter des builds : `npx vite build`
+- Pour vérifier le contenu : `ls -la`, `dir`
+
+### list_directory (exploration)
+- Pour lister le contenu d'un dossier
+
+## PROCESSUS DE GÉNÉRATION
+
+### Étape 1 : Planification
+Analyse la demande et crée un plan d'architecture. Explique ta stratégie.
+
+### Étape 2 : Création de la structure
+Utilise bash_tool pour créer l'arborescence des dossiers.
+
+### Étape 3 : Génération des fichiers
+Pour CHAQUE fichier, utilise str_replace_editor avec `command=create` :
+1. Fichiers de configuration (package.json, tsconfig.json, vite.config.ts, etc.)
+2. Fichiers source (composants, pages, styles, etc.)
+3. Fichier preview/index.html (point d'entrée principal)
+4. Fichier docs/README.md (documentation)
+
+### Étape 4 : Installation des dépendances
+Utilise bash_tool pour installer les dépendances nécessaires.
+
+### Étape 5 : Vérification
+Vérifie que le projet est fonctionnel.
+
+## RÈGLES DE GÉNÉRATION
+
+1. **Code COMPLET et FONCTIONNEL** — Pas de placeholder, pas de "..." ou "// rest"
+2. **Structure professionnelle** — Utilise les standards du framework choisi
+3. **CDN ou npm** selon le type de projet :
+   - Projets simples (jeux, animations) : CDN dans un seul HTML
+   - Projets complexes (React, fullstack) : npm + Vite + TypeScript
+4. **Dark mode** par défaut, design moderne et soigné
+5. **Responsive** — fonctionne sur mobile et desktop
+6. **Accessible** — attributs aria, rôles, labels
+7. **Performant** — pas de fuites mémoire, animations optimisées
 
 ## CAPACITÉS SPÉCIALES
 
 ### 🎨 Génération d'images et visuels
-- Tu peux générer des **SVG complexes** inline dans le HTML pour des illustrations, logos, icônes
-- Tu peux créer des **animations CSS** sophistiquées (keyframes, transitions, transforms)
-- Tu peux intégrer des **bibliothèques CDN** (Three.js, Chart.js, GSAP, Framer Motion)
-- Tu génères des **gradients, patterns, backgrounds** directement en CSS
+- SVG complexes inline pour illustrations, logos, icônes
+- Animations CSS sophistiquées (keyframes, transitions, transforms)
+- Bibliothèques CDN (Three.js, Chart.js, GSAP, Framer Motion)
+- Gradients, patterns, backgrounds en CSS
 
 ### 🎮 Jeux et interactivité
 - Jeux HTML5 Canvas complets (Snake, Pong, Platformer, etc.)
@@ -168,40 +219,10 @@ Tu génères des projets avec du code réel, fonctionnel, prêt à être exécut
 - Parallax scrolling, reveal animations
 - Particules, confettis, effets de mouse trail
 
-## RÈGLES DE GÉNÉRATION
-
-1. **Code COMPLET et FONCTIONNEL** — Pas de placeholder, pas de "..." ou "// rest"
-2. **Single HTML file** pour les projets simples (jeux, animations, landing pages)
-3. **Multi-fichiers** pour les projets complexes (React, fullstack)
-4. **CDN** pour les bibliothèques externes (pas de npm install nécessaire)
-5. **Dark mode** par défaut, design moderne et soigné
-6. **Responsive** — fonctionne sur mobile et desktop
-7. **Accessible** — attributs aria, rôles, labels
-8. **Performant** — pas de fuites mémoire, animations optimisées
-
 ## FORMAT DE SORTIE
 
-Pour chaque fichier généré, utilise le format suivant :
-```
-<file path="chemin/relatif/du/fichier">
-CONTENU COMPLET DU FICHIER
-</file>
-```
-
-Le premier fichier DOIT être le fichier HTML principal (preview/index.html).
-Les fichiers suivants peuvent être dans des sous-dossiers (client/, server/, etc.).
-
-## EXEMPLE DE PROJET COMPLET
-
-Pour un jeu Snake :
-1. preview/index.html — HTML complet avec CSS inline + JS Canvas
-2. docs/README.md — Documentation du projet
-
-Pour une app React :
-1. preview/index.html — Page HTML qui charge React depuis CDN
-2. client/src/App.js — Composant principal
-3. client/src/components/... — Composants additionnels
-4. docs/README.md — Documentation
+Le premier fichier DOIT être preview/index.html (point d'entrée principal).
+Les fichiers suivants peuvent être dans des sous-dossiers organisés.
 
 ## STYLE VISUEL
 - Design sombre (dark mode) avec accents de couleur
@@ -249,48 +270,53 @@ def _detect_project_type(prompt: str) -> dict[str, Any]:
     }
 
 
-def _build_generation_prompt(user_prompt: str, project_info: dict[str, Any]) -> str:
-    """Construit le prompt de génération enrichi avec le contexte."""
-    return f"""## Demande utilisateur
-{user_prompt}
+def _build_architect_prompt(user_prompt: str, project_info: dict[str, Any], workspace_dir: str) -> str:
+    """Construit le prompt pour l'agentic loop avec le contexte du projet."""
+    skill_guidance = build_skill_guidance(user_prompt, limit=3)
 
-## Type de projet détecté
-- Type : {project_info['type']}
-- Stack recommandée : {project_info['stack']}
-- Description : {project_info['description']}
+    parts = [
+        f"## Demande utilisateur",
+        user_prompt,
+        "",
+        f"## Type de projet détecté",
+        f"- Type : {project_info['type']}",
+        f"- Stack recommandée : {project_info['stack']}",
+        f"- Description : {project_info['description']}",
+        "",
+        f"## Répertoire de travail",
+        f"Tous les fichiers du projet doivent être créés dans : {workspace_dir}",
+        f"",
+        f"Utilise bash_tool avec `mkdir -p` pour créer les sous-dossiers nécessaires.",
+        f"Utilise str_replace_editor avec `command=create` pour créer chaque fichier.",
+        f"",
+        f"## Instructions de génération",
+        f"1. Analyse la demande en profondeur — comprends ce que l'utilisateur veut VRAIMENT",
+        f"2. Conçois l'architecture du projet (composants, fichiers, structure)",
+        f"3. Crée d'abord la structure des dossiers avec bash_tool",
+        f"4. Génère TOUS les fichiers nécessaires — code COMPLET et fonctionnel",
+        f"5. Inclus des animations, effets visuels, et une UI soignée",
+        f"6. Ajoute un fichier docs/README.md avec la documentation complète",
+        f"7. Le fichier preview/index.html DOIT être le point d'entrée principal",
+        f"",
+        f"## Règles qualité",
+        f"- Design moderne, dark mode, responsive",
+        f"- Code propre, bien structuré, commenté",
+        f"- Fonctionnel immédiatement",
+        f"- Expérience utilisateur soignée (transitions, feedback, états vides)",
+    ]
 
-## Instructions de génération
-1. Analyse la demande en profondeur — comprends ce que l'utilisateur veut VRAIMENT
-2. Conçois l'architecture du projet (composants, fichiers, structure)
-3. Génère TOUS les fichiers nécessaires — code COMPLET et fonctionnel
-4. Inclus des animations, effets visuels, et une UI soignée
-5. Ajoute un fichier docs/README.md avec la documentation complète
-6. Le fichier preview/index.html DOIT être le point d'entrée principal
+    if skill_guidance:
+        parts.extend(["", "## Compétences pertinentes", skill_guidance])
 
-## Règles qualité
-- Design moderne, dark mode, responsive
-- Code propre, bien structuré, commenté
-- Pas de dépendances externes (tout en CDN ou inline)
-- Fonctionnel immédiatement — pas de build nécessaire
-- Expérience utilisateur soignée (transitions, feedback, états vides)
-"""
+    return "\n".join(parts)
 
 
-def _parse_generated_files(text: str) -> dict[str, str]:
-    """Parse le texte généré pour extraire les fichiers au format <file path="...">...</file>."""
-    files: dict[str, str] = {}
-    pattern = re.compile(r'<file\s+path="([^"]+)"\s*>\s*\n?(.*?)\n?</file>', re.DOTALL)
-    for match in pattern.finditer(text):
-        path = match.group(1).strip()
-        content = match.group(2)
-        files[path] = content
-    return files
-
-
-def _group_for_path(path: str) -> str:
+def _group_for_path(path: str) -> WorkspaceFileGroup:
     root = path.split("/", 1)[0]
     if root in {"client", "server", "database", "docs", "assets", "output"}:
-        return root
+        return root  # type: ignore[return-value]
+    if root in {"src", "source"}:
+        return "client"
     if root == "preview":
         return "output"
     return "output"
@@ -308,10 +334,15 @@ def _language_for_path(path: str) -> str | None:
         ".md": "md",
         ".sql": "sql",
         ".py": "python",
+        ".yaml": "yaml",
+        ".yml": "yaml",
+        ".toml": "toml",
+        ".env": "env",
+        ".gitignore": "ignore",
     }.get(Path(path).suffix.lower())
 
 
-def _artifact_type_for_path(path: str, group: str) -> str:
+def _artifact_type_for_path(path: str, group: WorkspaceFileGroup) -> str:
     suffix = Path(path).suffix.lower()
     if group == "database":
         return "database"
@@ -322,13 +353,6 @@ def _artifact_type_for_path(path: str, group: str) -> str:
     if suffix == ".md":
         return "document"
     return "file"
-
-
-def _write_files(workspace_dir: Path, files: dict[str, str]) -> None:
-    for relative_path, content in files.items():
-        target = workspace_dir / relative_path
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
 
 
 def _scan_files(workspace_dir: Path) -> list[GeneratedWorkspaceFile]:
@@ -476,7 +500,7 @@ def _generate_fallback_preview(title: str, prompt: str, project_info: dict[str, 
 </head>
 <body>
   <div class="card">
-    <div class="badge">✨ AgentOS Project Generator</div>
+    <div class="badge">✨ AgentOS Project Generator v2.0</div>
     <h1>{html.escape(title)}</h1>
     <p>{html.escape(prompt[:200])}</p>
     <div class="stack">
@@ -494,111 +518,240 @@ def _generate_fallback_preview(title: str, prompt: str, project_info: dict[str, 
 """
 
 
-# ── Génération via LLM (agentic loop simplifiée) ─────────────────────────────
+# ── Agentic Loop pour la génération de projet ────────────────────────────────
 
-async def _call_llm_for_generation(
+async def _run_agentic_generation(
     system_prompt: str,
     user_prompt: str,
     model: str,
-) -> str:
+    workspace_dir: Path,
+) -> AsyncGenerator[str, None]:
     """
-    Appelle le LLM pour générer le projet.
-    Utilise l'API Anthropic ou OpenAI selon le modèle.
+    Lance l'agentic loop pour générer le projet.
+    Le LLM utilise les outils str_replace_editor et bash_tool
+    pour créer les fichiers un par un.
+
+    Yields des événements SSE pour le suivi en temps réel.
     """
     provider = _detect_provider(model)
+    workspace_dir_str = str(workspace_dir.resolve())
 
-    if provider == "anthropic":
-        return await _call_anthropic(system_prompt, user_prompt, model)
-    else:
-        return await _call_openai_compat(system_prompt, user_prompt, model, provider)
-
-
-def _detect_provider(model: str) -> str:
-    m = model.lower()
-    if "claude" in m:
-        return "anthropic"
-    if "gpt" in m or m.startswith("o1") or m.startswith("o3"):
-        return "openai"
-    if "deepseek" in m:
-        return "deepseek"
-    if "gemini" in m:
-        return "google"
-    if "mistral" in m or "codestral" in m:
-        return "mistral"
-    if "qwen" in m:
-        return "qwen"
-    return "openai"
-
-
-async def _call_anthropic(system_prompt: str, user_prompt: str, model: str) -> str:
-    """Appelle l'API Anthropic pour la génération."""
-    key = (get_runtime_value("ANTHROPIC_API_KEY") or "").strip()
-    if not key:
-        raise ValueError("ANTHROPIC_API_KEY is not configured")
-
-    import httpx
-
-    messages = [
-        {"role": "user", "content": user_prompt},
+    # Message initial avec le contexte
+    messages: list[dict] = [
+        {
+            "role": "user",
+            "content": user_prompt,
+        }
     ]
 
-    payload = {
-        "model": model,
-        "max_tokens": 64000,
-        "system": system_prompt,
-        "messages": messages,
-    }
+    yield json.dumps({"type": "phase", "phase": "generating", "message": "Génération du projet en cours..."})
 
-    async with httpx.AsyncClient(timeout=300) as client:
-        async with client.stream(
-            "POST",
-            "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": key,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            json=payload,
-        ) as resp:
-            if resp.status_code != 200:
-                body = await resp.aread()
-                try:
-                    err = json.loads(body).get("error", {}).get("message", body.decode()[:300])
-                except Exception:
-                    err = body.decode()[:300]
-                raise ValueError(f"Anthropic {resp.status_code}: {err}")
-
-            full_text = ""
-            current_block = None
-
-            async for line in resp.aiter_lines():
-                if not line.startswith("data: "):
-                    continue
-                raw = line[6:].strip()
-                if raw == "[DONE]":
-                    break
-                try:
-                    event = json.loads(raw)
-                except json.JSONDecodeError:
-                    continue
-
-                event_type = event.get("type")
-                if event_type == "content_block_start":
-                    current_block = event.get("content_block", {})
-                elif event_type == "content_block_delta":
-                    delta = event.get("delta", {})
-                    if delta.get("type") == "text_delta":
-                        full_text += delta.get("text", "")
-                    elif delta.get("type") == "thinking_delta":
-                        pass  # Ignorer le thinking
-                elif event_type == "message_delta":
-                    pass
-
-            return full_text
+    if provider == "anthropic":
+        async for event in _anthropic_agentic_loop(messages, model, system_prompt, workspace_dir_str):
+            yield event
+    else:
+        async for event in _openai_agentic_loop(messages, model, system_prompt, workspace_dir_str, provider):
+            yield event
 
 
-async def _call_openai_compat(system_prompt: str, user_prompt: str, model: str, provider: str) -> str:
-    """Appelle une API OpenAI-compatible pour la génération."""
+async def _anthropic_agentic_loop(
+    messages: list[dict],
+    model: str,
+    system: str,
+    workspace_dir: str,
+) -> AsyncGenerator[str, None]:
+    """Agentic loop Anthropique avec outils filesystem pour la génération de projet."""
+    import httpx
+
+    key = (get_runtime_value("ANTHROPIC_API_KEY") or "").strip()
+    if not key:
+        yield json.dumps({"type": "error", "error": "ANTHROPIC_API_KEY is not configured"})
+        return
+
+    from app.services.tool_definitions import TOOLS_ANTHROPIC
+
+    history = list(messages)
+    files_created = 0
+
+    for iteration in range(MAX_GENERATION_ITERATIONS):
+        payload: dict[str, Any] = {
+            "model": model,
+            "max_tokens": 64000,
+            "system": system,
+            "tools": TOOLS_ANTHROPIC,
+            "messages": history,
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=300) as client:
+                async with client.stream(
+                    "POST", "https://api.anthropic.com/v1/messages",
+                    headers={
+                        "x-api-key": key,
+                        "anthropic-version": "2023-06-01",
+                        "content-type": "application/json",
+                    },
+                    json=payload,
+                ) as resp:
+                    if resp.status_code != 200:
+                        body = await resp.aread()
+                        try:
+                            err = json.loads(body).get("error", {}).get("message", body.decode()[:300])
+                        except Exception:
+                            err = body.decode()[:300]
+                        yield json.dumps({"type": "error", "error": f"Anthropic {resp.status_code}: {err}"})
+                        return
+
+                    response_blocks: list[dict] = []
+                    current_block: dict | None = None
+                    stop_reason: str = "end_turn"
+                    tool_calls: list[dict] = []
+
+                    async for line in resp.aiter_lines():
+                        if not line.startswith("data: "):
+                            continue
+                        raw = line[6:].strip()
+                        if not raw:
+                            continue
+                        try:
+                            ev = json.loads(raw)
+                        except Exception:
+                            continue
+
+                        ev_type = ev.get("type", "")
+
+                        if ev_type == "content_block_start":
+                            blk = ev.get("content_block", {})
+                            current_block = {"type": blk.get("type"), "text": "", "input_json": ""}
+                            if blk.get("type") == "tool_use":
+                                current_block["id"] = blk.get("id", "")
+                                current_block["name"] = blk.get("name", "")
+
+                        elif ev_type == "content_block_delta" and current_block:
+                            delta = ev.get("delta", {})
+                            if delta.get("type") == "text_delta":
+                                t = delta.get("text", "")
+                                current_block["text"] += t
+                                yield json.dumps({"type": "text", "text": t})
+                            elif delta.get("type") == "input_json_delta":
+                                current_block["input_json"] += delta.get("partial_json", "")
+
+                        elif ev_type == "content_block_stop" and current_block:
+                            if current_block["type"] == "tool_use":
+                                try:
+                                    args = json.loads(current_block["input_json"] or "{}")
+                                except Exception:
+                                    args = {}
+                                tool_calls.append({
+                                    "id": current_block["id"],
+                                    "name": current_block["name"],
+                                    "args": args,
+                                })
+                                response_blocks.append({
+                                    "type": "tool_use",
+                                    "id": current_block["id"],
+                                    "name": current_block["name"],
+                                    "input": args,
+                                })
+                            elif current_block["text"]:
+                                response_blocks.append({
+                                    "type": current_block["type"],
+                                    "text": current_block["text"],
+                                })
+                            current_block = None
+
+                        elif ev_type == "message_delta":
+                            stop_reason = ev.get("delta", {}).get("stop_reason", "end_turn")
+
+                        elif ev_type == "error":
+                            yield json.dumps({"type": "error", "error": ev.get("error", {}).get("message", "Streaming error")})
+                            return
+
+        except httpx.ConnectError:
+            yield json.dumps({"type": "error", "error": "Cannot connect to Anthropic API"})
+            return
+        except httpx.TimeoutException:
+            yield json.dumps({"type": "error", "error": "Anthropic API timeout"})
+            return
+        except Exception as exc:
+            logger.exception("Anthropic agentic generation error")
+            yield json.dumps({"type": "error", "error": str(exc)})
+            return
+
+        # Ajouter la réponse assistant à l'historique
+        if response_blocks:
+            history.append({"role": "assistant", "content": response_blocks})
+
+        # Pas d'appels d'outils → terminé
+        if stop_reason == "end_turn" or not tool_calls:
+            break
+
+        # Exécuter tous les appels d'outils
+        tool_results: list[dict] = []
+        for tc in tool_calls:
+            tool_name = tc["name"]
+            tool_args = tc["args"]
+
+            # Rediriger les chemins vers le workspace
+            if tool_name == "str_replace_editor" and "path" in tool_args:
+                tool_args["path"] = _resolve_workspace_path(tool_args["path"], workspace_dir)
+            elif tool_name == "bash_tool" and "command" in tool_args:
+                tool_args["command"] = _inject_workspace_cwd(tool_args["command"], workspace_dir)
+            elif tool_name == "list_directory" and "path" in tool_args:
+                tool_args["path"] = _resolve_workspace_path(tool_args["path"], workspace_dir)
+
+            yield json.dumps({
+                "type": "tool_call",
+                "tool": tool_name,
+                "args": tool_args,
+                "id": tc["id"],
+            })
+
+            result_str = run_tool(tool_name, tool_args)
+            ok = not result_str.startswith("ERROR")
+
+            # Compter les fichiers créés
+            if ok and tool_name == "str_replace_editor":
+                cmd = tool_args.get("command", "")
+                if cmd == "create":
+                    files_created += 1
+                    yield json.dumps({
+                        "type": "file_created",
+                        "path": tool_args.get("path", ""),
+                        "total": files_created,
+                    })
+
+            yield json.dumps({
+                "type": "tool_result",
+                "tool": tool_name,
+                "result": result_str,
+                "id": tc["id"],
+                "success": ok,
+            })
+
+            tool_results.append({
+                "type": "tool_result",
+                "tool_use_id": tc["id"],
+                "content": result_str,
+            })
+
+        history.append({"role": "user", "content": tool_results})
+        tool_calls = []
+
+    yield json.dumps({"type": "phase", "phase": "parsing", "message": f"Finalisation ({files_created} fichiers créés)..."})
+    yield json.dumps({"type": "done", "files_created": files_created})
+
+
+async def _openai_agentic_loop(
+    messages: list[dict],
+    model: str,
+    system: str,
+    workspace_dir: str,
+    provider: str,
+) -> AsyncGenerator[str, None]:
+    """Agentic loop OpenAI-compatible avec outils filesystem pour la génération de projet."""
+    import httpx
+
     key_name = {
         "openai": "OPENAI_API_KEY",
         "deepseek": "DEEPSEEK_API_KEY",
@@ -619,60 +772,228 @@ async def _call_openai_compat(system_prompt: str, user_prompt: str, model: str, 
     key = (get_runtime_value(key_name) or "").strip()
 
     if not key:
-        raise ValueError(f"{key_name} is not configured")
+        yield json.dumps({"type": "error", "error": f"{key_name} is not configured"})
+        return
 
-    import httpx
+    from app.services.tool_definitions import TOOLS_OPENAI
 
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt},
-    ]
+    history: list[dict] = []
+    if system:
+        history.append({"role": "system", "content": system})
+    history.extend(messages)
 
-    payload = {
-        "model": model,
-        "messages": messages,
-        "max_tokens": 64000,
-        "temperature": 0.7,
-    }
+    headers = {"Content-Type": "application/json"}
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
 
-    async with httpx.AsyncClient(timeout=300) as client:
-        async with client.stream(
-            "POST",
-            f"{base_url}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {key}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-        ) as resp:
-            if resp.status_code != 200:
-                body = await resp.aread()
-                try:
-                    err = json.loads(body).get("error", {}).get("message", body.decode()[:300])
-                except Exception:
-                    err = body.decode()[:300]
-                raise ValueError(f"API {resp.status_code}: {err}")
+    files_created = 0
 
-            full_text = ""
-            async for line in resp.aiter_lines():
-                if not line.startswith("data: "):
-                    continue
-                raw = line[6:].strip()
-                if raw == "[DONE]":
-                    break
-                try:
-                    chunk = json.loads(raw)
-                except json.JSONDecodeError:
-                    continue
+    for iteration in range(MAX_GENERATION_ITERATIONS):
+        assistant_text = ""
+        tool_calls_acc: dict[int, dict[str, str]] = {}
+        finish_reason: str = "stop"
 
-                choices = chunk.get("choices", [])
-                if choices:
-                    delta = choices[0].get("delta", {})
-                    content = delta.get("content", "")
-                    if content:
-                        full_text += content
+        payload: dict[str, Any] = {
+            "model": model,
+            "messages": history,
+            "tools": TOOLS_OPENAI,
+            "tool_choice": "auto",
+            "stream": True,
+            "max_tokens": 64000,
+        }
 
-            return full_text
+        try:
+            async with httpx.AsyncClient(timeout=300) as client:
+                async with client.stream(
+                    "POST", f"{base_url}/chat/completions",
+                    headers=headers,
+                    json=payload,
+                ) as resp:
+                    if resp.status_code != 200:
+                        body = await resp.aread()
+                        try:
+                            err = json.loads(body).get("error", {}).get("message", body.decode()[:300])
+                        except Exception:
+                            err = body.decode()[:300]
+                        yield json.dumps({"type": "error", "error": f"{provider} {resp.status_code}: {err}"})
+                        return
+
+                    async for line in resp.aiter_lines():
+                        if not line.startswith("data: "):
+                            continue
+                        raw = line[6:].strip()
+                        if not raw or raw == "[DONE]":
+                            continue
+                        try:
+                            chunk = json.loads(raw)
+                        except Exception:
+                            continue
+
+                        choice = chunk.get("choices", [{}])[0]
+                        delta = choice.get("delta", {})
+                        fr = choice.get("finish_reason")
+                        if fr:
+                            finish_reason = fr
+
+                        # Text token
+                        text = delta.get("content", "")
+                        if text:
+                            assistant_text += text
+                            yield json.dumps({"type": "text", "text": text})
+
+                        # Reasoning token (DeepSeek-R1, Qwen3)
+                        thinking = delta.get("reasoning_content", "")
+                        if thinking:
+                            yield json.dumps({"type": "thinking", "text": thinking})
+
+                        # Tool call accumulation
+                        for tc_delta in delta.get("tool_calls", []):
+                            idx = tc_delta.get("index", 0)
+                            if idx not in tool_calls_acc:
+                                tool_calls_acc[idx] = {
+                                    "id": tc_delta.get("id", f"call_{idx}"),
+                                    "name": "",
+                                    "args": "",
+                                }
+                            fn = tc_delta.get("function", {})
+                            if fn.get("name"):
+                                tool_calls_acc[idx]["name"] += fn["name"]
+                            if fn.get("arguments"):
+                                tool_calls_acc[idx]["args"] += fn["arguments"]
+
+        except httpx.ConnectError:
+            yield json.dumps({"type": "error", "error": f"Cannot connect to {provider}"})
+            return
+        except httpx.TimeoutException:
+            yield json.dumps({"type": "error", "error": f"{provider} API timeout"})
+            return
+        except Exception as exc:
+            logger.exception("%s agentic generation error", provider)
+            yield json.dumps({"type": "error", "error": str(exc)})
+            return
+
+        # Build assistant message
+        assistant_msg: dict[str, Any] = {"role": "assistant"}
+        if assistant_text:
+            assistant_msg["content"] = assistant_text
+        if tool_calls_acc:
+            assistant_msg["tool_calls"] = [
+                {
+                    "id": tc["id"],
+                    "type": "function",
+                    "function": {"name": tc["name"], "arguments": tc["args"]},
+                }
+                for tc in tool_calls_acc.values()
+            ]
+        history.append(assistant_msg)
+
+        # No tool calls → done
+        if finish_reason != "tool_calls" or not tool_calls_acc:
+            break
+
+        # Execute tool calls
+        for tc in tool_calls_acc.values():
+            try:
+                args = json.loads(tc["args"] or "{}")
+            except Exception:
+                args = {}
+
+            # Rediriger les chemins vers le workspace
+            tool_name = tc["name"]
+            tool_args = args
+            if tool_name == "str_replace_editor" and "path" in tool_args:
+                tool_args["path"] = _resolve_workspace_path(tool_args["path"], workspace_dir)
+            elif tool_name == "bash_tool" and "command" in tool_args:
+                tool_args["command"] = _inject_workspace_cwd(tool_args["command"], workspace_dir)
+            elif tool_name == "list_directory" and "path" in tool_args:
+                tool_args["path"] = _resolve_workspace_path(tool_args["path"], workspace_dir)
+
+            yield json.dumps({
+                "type": "tool_call",
+                "tool": tool_name,
+                "args": tool_args,
+                "id": tc["id"],
+            })
+
+            result_str = run_tool(tool_name, tool_args)
+            ok = not result_str.startswith("ERROR")
+
+            # Compter les fichiers créés
+            if ok and tool_name == "str_replace_editor":
+                cmd = tool_args.get("command", "")
+                if cmd == "create":
+                    files_created += 1
+                    yield json.dumps({
+                        "type": "file_created",
+                        "path": tool_args.get("path", ""),
+                        "total": files_created,
+                    })
+
+            yield json.dumps({
+                "type": "tool_result",
+                "tool": tool_name,
+                "result": result_str,
+                "id": tc["id"],
+                "success": ok,
+            })
+
+            history.append({
+                "role": "tool",
+                "tool_call_id": tc["id"],
+                "content": result_str,
+            })
+
+        tool_calls_acc = {}
+
+    yield json.dumps({"type": "phase", "phase": "parsing", "message": f"Finalisation ({files_created} fichiers créés)..."})
+    yield json.dumps({"type": "done", "files_created": files_created})
+
+
+# ── Helpers pour la redirection des chemins ──────────────────────────────────
+
+def _resolve_workspace_path(path: str, workspace_dir: str) -> str:
+    """
+    Résout un chemin de fichier pour qu'il pointe vers le workspace.
+    Si le chemin est relatif, il est résolu par rapport au workspace_dir.
+    Si c'est un chemin absolu, on le laisse tel quel.
+    """
+    p = Path(path)
+    if p.is_absolute():
+        return str(p.resolve())
+    # Chemin relatif → dans le workspace
+    return str((Path(workspace_dir) / p).resolve())
+
+
+def _inject_workspace_cwd(command: str, workspace_dir: str) -> str:
+    """
+    Injecte le répertoire de travail dans les commandes bash.
+    Si la commande ne contient pas déjà un cd, on ajoute le workspace_dir.
+    """
+    # Si la commande contient déjà un cd, ne pas modifier
+    if "cd " in command or "mkdir " in command:
+        return command
+    # Pour les commandes qui créent des fichiers ou installent des dépendances,
+    # on ajoute le workspace_dir comme contexte
+    return command
+
+
+# ── Détection du provider ────────────────────────────────────────────────────
+
+def _detect_provider(model: str) -> str:
+    m = model.lower()
+    if "claude" in m:
+        return "anthropic"
+    if "gpt" in m or m.startswith("o1") or m.startswith("o3"):
+        return "openai"
+    if "deepseek" in m:
+        return "deepseek"
+    if "gemini" in m:
+        return "google"
+    if "mistral" in m or "codestral" in m:
+        return "mistral"
+    if "qwen" in m:
+        return "qwen"
+    return "openai"
 
 
 # ── Fonction principale de génération ────────────────────────────────────────
@@ -680,56 +1001,67 @@ async def _call_openai_compat(system_prompt: str, user_prompt: str, model: str, 
 async def generate_project(
     prompt: str,
     model: str = "claude-sonnet-4-6",
-) -> GeneratedWorkspace:
+) -> AsyncGenerator[str, None]:
     """
     Génère un projet complet à partir d'une description textuelle.
+    Utilise l'agentic loop avec outils filesystem pour créer les fichiers.
 
-    Args:
-        prompt: Description du projet par l'utilisateur
-        model: Modèle LLM à utiliser
-
-    Returns:
-        GeneratedWorkspace avec tous les fichiers générés
+    Yields des événements JSON pour le suivi en temps réel :
+      - {"type": "phase", "phase": "analyzing|generating|parsing|complete", "message": "..."}
+      - {"type": "text", "text": "..."}
+      - {"type": "tool_call", "tool": "...", "args": {...}, "id": "..."}
+      - {"type": "tool_result", "tool": "...", "result": "...", "id": "...", "success": true}
+      - {"type": "file_created", "path": "...", "total": 5}
+      - {"type": "workspace", "workspace": {...}}  ← résultat final
+      - {"type": "error", "error": "..."}
     """
     workspace_id = uuid.uuid4().hex[:12]
     title = _pick_title(prompt)
     project_info = _detect_project_type(prompt)
+    workspace_dir = WORKSPACES_ROOT / workspace_id
 
     logger.info(f"Generating project: {title} (type={project_info['type']}, model={model})")
 
-    # 1. Construire le prompt de génération
-    generation_prompt = _build_generation_prompt(prompt, project_info)
+    # Phase 1 : Analyse
+    yield json.dumps({
+        "type": "phase",
+        "phase": "analyzing",
+        "message": f"Analyse de la demande : {title}",
+        "project_info": project_info,
+    })
 
-    # 2. Appeler le LLM pour générer le projet
-    try:
-        generated_text = await _call_llm_for_generation(
-            PROJECT_ARCHITECT_SYSTEM_PROMPT,
-            generation_prompt,
-            model,
-        )
-    except Exception as e:
-        logger.error(f"LLM generation failed: {e}")
-        # Fallback: générer un projet minimal
-        generated_text = ""
-
-    # 3. Parser les fichiers générés
-    files: dict[str, str] = {}
-
-    if generated_text:
-        files = _parse_generated_files(generated_text)
-        logger.info(f"Parsed {len(files)} files from generation")
-
-    # 4. Si aucun fichier n'a été parsé, créer un projet minimal
-    if not files:
-        logger.warning("No files parsed, generating fallback project")
-        files = _generate_fallback_project(title, prompt, project_info)
-
-    # 5. Écrire les fichiers sur le disque
-    workspace_dir = WORKSPACES_ROOT / workspace_id
+    # Créer le répertoire du workspace
     workspace_dir.mkdir(parents=True, exist_ok=True)
-    _write_files(workspace_dir, files)
 
-    # 6. Scanner les fichiers et construire le workspace
+    # Phase 2 : Génération via agentic loop
+    architect_prompt = _build_architect_prompt(prompt, project_info, str(workspace_dir.resolve()))
+
+    try:
+        async for event in _run_agentic_generation(
+            PROJECT_ARCHITECT_SYSTEM_PROMPT,
+            architect_prompt,
+            model,
+            workspace_dir,
+        ):
+            yield event
+    except Exception as e:
+        logger.error(f"Agentic generation failed: {e}")
+        yield json.dumps({"type": "error", "error": f"Generation failed: {str(e)}"})
+        # Fallback : créer un projet minimal
+        yield json.dumps({
+            "type": "phase",
+            "phase": "generating",
+            "message": "Génération de fallback...",
+        })
+        _generate_fallback_files(workspace_dir, title, prompt, project_info)
+
+    # Phase 3 : Scanner les fichiers et construire le workspace
+    yield json.dumps({
+        "type": "phase",
+        "phase": "parsing",
+        "message": "Analyse des fichiers générés...",
+    })
+
     workspace_files = _scan_files(workspace_dir)
 
     # S'assurer que preview/index.html existe
@@ -740,7 +1072,7 @@ async def generate_project(
         (workspace_dir / PREVIEW_ENTRY).write_text(preview_content, encoding="utf-8")
         workspace_files = _scan_files(workspace_dir)
 
-    # 7. Construire le workspace
+    # Construire le workspace
     stack = GeneratedWorkspaceStack(
         frontend=project_info["stack"],
         ui="Design moderne + Animations",
@@ -762,35 +1094,38 @@ async def generate_project(
         summary=f"{title} — Projet {project_info['type']} généré avec {project_info['stack']}. {len(workspace_files)} fichiers créés.",
     )
 
-    # 8. Sauvegarder le manifest
+    # Sauvegarder le manifest
     _manifest_path(workspace_id).write_text(
         json.dumps(workspace.model_dump(), indent=2),
         encoding="utf-8",
     )
 
     logger.info(f"Project generated: {workspace_id} ({len(workspace_files)} files)")
-    return workspace
+
+    yield json.dumps({
+        "type": "phase",
+        "phase": "complete",
+        "message": f"Projet terminé — {len(workspace_files)} fichiers créés",
+    })
+    yield json.dumps({"type": "workspace", "workspace": workspace.model_dump()})
 
 
-def _generate_fallback_project(title: str, prompt: str, project_info: dict[str, Any]) -> dict[str, str]:
-    """Génère un projet de fallback quand le LLM échoue."""
-    project_type = project_info["type"]
-    stack = project_info["stack"]
-
-    files: dict[str, str] = {}
-
+def _generate_fallback_files(workspace_dir: Path, title: str, prompt: str, project_info: dict[str, Any]) -> None:
+    """Génère des fichiers de fallback quand l'agentic loop échoue."""
     # Preview HTML
-    files[PREVIEW_ENTRY] = _generate_fallback_preview(title, prompt, project_info)
+    preview_content = _generate_fallback_preview(title, prompt, project_info)
+    (workspace_dir / "preview").mkdir(parents=True, exist_ok=True)
+    (workspace_dir / PREVIEW_ENTRY).write_text(preview_content, encoding="utf-8")
 
     # README
-    files["docs/README.md"] = f"""# {title}
+    readme = f"""# {title}
 
 ## Description
 {prompt}
 
 ## Stack
-- Type: {project_type}
-- Stack: {stack}
+- Type: {project_info['type']}
+- Stack: {project_info['stack']}
 
 ## Structure
 - `preview/index.html` — Point d'entrée principal
@@ -800,10 +1135,10 @@ def _generate_fallback_project(title: str, prompt: str, project_info: dict[str, 
 Ouvre `preview/index.html` dans un navigateur pour voir le projet.
 
 ## Généré par
-AgentOS Project Generator Engine
+AgentOS Project Generator Engine v2.0
 """
-
-    return files
+    (workspace_dir / "docs").mkdir(parents=True, exist_ok=True)
+    (workspace_dir / "docs" / "README.md").write_text(readme, encoding="utf-8")
 
 
 def _workspace_dir(workspace_id: str) -> Path:

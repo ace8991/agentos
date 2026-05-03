@@ -397,17 +397,77 @@ export interface ProjectGenerateRequest {
   title?: string;
 }
 
-export async function generateProject(params: ProjectGenerateRequest): Promise<GeneratedWorkspace> {
+/** Événement reçu du flux SSE de génération de projet */
+export interface ProjectGenerateEvent {
+  type: 'phase' | 'text' | 'tool_call' | 'tool_result' | 'file_created' | 'workspace' | 'error';
+  phase?: string;
+  message?: string;
+  text?: string;
+  tool?: string;
+  args?: Record<string, unknown>;
+  id?: string;
+  result?: string;
+  success?: boolean;
+  path?: string;
+  total?: number;
+  workspace?: GeneratedWorkspace;
+  error?: string;
+}
+
+/**
+ * Génère un projet via SSE streaming.
+ * Appelle `onEvent` pour chaque événement reçu.
+ * Retourne le GeneratedWorkspace final.
+ */
+export async function generateProject(
+  params: ProjectGenerateRequest,
+  onEvent?: (event: ProjectGenerateEvent) => void,
+  signal?: AbortSignal,
+): Promise<GeneratedWorkspace> {
   const response = await fetch(`${BASE}/project/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
-    signal: AbortSignal.timeout(300000), // 5 minutes timeout
+    signal,
   });
   if (!response.ok) {
     throw new Error(await readError(response, `Project generation failed: ${response.status}`));
   }
-  return response.json();
+
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error('No response body');
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('data: ')) continue;
+      try {
+        const event: ProjectGenerateEvent = JSON.parse(trimmed.slice(6));
+        onEvent?.(event);
+        if (event.type === 'workspace' && event.workspace) {
+          return event.workspace;
+        }
+        if (event.type === 'error') {
+          throw new Error(event.error ?? 'Erreur inconnue');
+        }
+      } catch (err) {
+        if (err instanceof SyntaxError) continue;
+        throw err;
+      }
+    }
+  }
+
+  throw new Error('Stream ended without workspace');
 }
 
 export async function getProjectStatus(workspaceId: string): Promise<{ status: string; workspace?: GeneratedWorkspace }> {
