@@ -125,8 +125,10 @@ const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady, initialPrompt,
     });
   }, []);
 
-  const handleGenerate = useCallback(async () => {
-    if (!prompt.trim()) return;
+  const handleGenerate = useCallback(async (overridePrompt?: string) => {
+    const effectivePrompt = (overridePrompt ?? prompt).trim();
+    if (!effectivePrompt) return;
+    if (overridePrompt) setPrompt(overridePrompt);
 
     setPhase('analyzing');
     setError(null);
