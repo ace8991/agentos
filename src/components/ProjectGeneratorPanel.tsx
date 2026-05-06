@@ -309,7 +309,7 @@ const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady }: ProjectGener
           {(phase === 'analyzing' || phase === 'generating' || phase === 'parsing') && (
             <div className="space-y-4 py-4">
               {PHASES.map((p) => {
-                const currentPhase = phase;
+                const currentPhase = phase as string;
                 const isActive = currentPhase === p.phase;
                 const isDone =
                   (p.phase === 'analyzing' && (currentPhase === 'generating' || currentPhase === 'parsing' || currentPhase === 'complete')) ||

@@ -101,8 +101,8 @@ interface CodePanelProps {
   projectPath: string;
   projectType: string;
   onClose: () => void;
-  isFullscreen: boolean;
-  onToggleFullscreen: () => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 // ─── FileTreeNode Component ──────────────────────────────────────────
