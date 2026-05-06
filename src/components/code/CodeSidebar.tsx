@@ -87,7 +87,11 @@ const CodeSidebar = ({ onSelectProject, activeProject }: CodeSidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const [projects, setProjects] = useState<AppProject[]>([]);
   const [search, setSearch] = useState('');
-  const [tab, setTab] = useState<'projects' | 'new'>('projects');
+  const [tab, setTab] = useState<'projects' | 'history' | 'new'>('projects');
+  const history = useStore((s) => s.history);
+  const setViewingHistory = useStore((s) => s.setViewingHistory);
+  const deleteHistoryRun = useStore((s) => s.deleteHistoryRun);
+  const codeHistory = history.filter((h) => !h.thread || h.thread === 'chat' || h.thread === 'agent');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
