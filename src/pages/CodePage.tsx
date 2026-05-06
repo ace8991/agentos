@@ -387,7 +387,7 @@ const shouldUseProjectGenerator = (text: string): boolean => {
 
 const shouldRouteToAgent = (
   text: string,
-  mode: 'chat' | 'agent',
+  mode: string,
   backendOnline: boolean,
 ) => {
   if (mode === 'agent') return true;
