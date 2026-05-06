@@ -1637,18 +1637,6 @@ const CodePage = () => {
             <Sparkles size={12} />
             Generate
           </button>
-          <button
-            onClick={() => setHistoryOpen(!historyOpen)}
-            className={`flex items-center gap-1.5 rounded-md border px-3 py-1 text-xs transition-colors active:scale-[0.97] ${
-              historyOpen
-                ? 'border-primary-300/18 bg-primary-400/10 text-primary-100 hover:bg-primary-400/15'
-                : 'border-border text-muted-foreground hover:bg-surface-elevated'
-            }`}
-            title="Conversation history"
-          >
-            <Clock size={12} />
-            History
-          </button>
           {isPaused && (
             <span className="rounded-md bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent">
               Paused
