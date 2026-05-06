@@ -2081,7 +2081,12 @@ const CodePage = () => {
 
 <ProjectGeneratorPanel
   open={projectGeneratorOpen}
-  onClose={() => setProjectGeneratorOpen(false)}
+  initialPrompt={projectGeneratorInitialPrompt}
+  autoStart
+  onClose={() => {
+    setProjectGeneratorOpen(false);
+    setProjectGeneratorInitialPrompt('');
+  }}
   onWorkspaceReady={handleProjectWorkspaceReady}
 />
 
