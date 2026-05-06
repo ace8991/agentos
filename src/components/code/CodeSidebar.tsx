@@ -27,6 +27,7 @@ import {
   setCurrentProjectId,
   type AppProject,
 } from '@/lib/projects';
+import { useStore, type HistoryRun } from '@/store/useStore';
 
 /* ───────────────────────────────────────────
    Types
@@ -86,7 +87,11 @@ const CodeSidebar = ({ onSelectProject, activeProject }: CodeSidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const [projects, setProjects] = useState<AppProject[]>([]);
   const [search, setSearch] = useState('');
-  const [tab, setTab] = useState<'projects' | 'new'>('projects');
+  const [tab, setTab] = useState<'projects' | 'history' | 'new'>('projects');
+  const history = useStore((s) => s.history);
+  const setViewingHistory = useStore((s) => s.setViewingHistory);
+  const deleteHistoryRun = useStore((s) => s.deleteHistoryRun);
+  const codeHistory = history.filter((h) => !h.thread || h.thread === 'chat' || h.thread === 'agent');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -262,6 +267,16 @@ const CodeSidebar = ({ onSelectProject, activeProject }: CodeSidebarProps) => {
           Projets
         </button>
         <button
+          onClick={() => { setTab('history'); resetNewForm(); }}
+          className={`flex-1 text-center text-xs font-medium py-1.5 rounded-md transition-colors ${
+            tab === 'history'
+              ? 'bg-[hsl(0,0%,18%)] text-foreground'
+              : 'text-muted-foreground hover:text-foreground hover:bg-[hsl(0,0%,14%)]'
+          }`}
+        >
+          Historique
+        </button>
+        <button
           onClick={() => setTab('new')}
           className={`flex-1 text-center text-xs font-medium py-1.5 rounded-md transition-colors ${
             tab === 'new'
@@ -275,6 +290,51 @@ const CodeSidebar = ({ onSelectProject, activeProject }: CodeSidebarProps) => {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
+        {tab === 'history' && (
+          <div className="px-2 py-2 space-y-1">
+            {codeHistory.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                <div className="h-12 w-12 rounded-xl bg-[hsl(0,0%,14%)] flex items-center justify-center mb-3">
+                  <MessageSquare size={22} className="text-muted-foreground/60" />
+                </div>
+                <p className="text-sm text-foreground/70 font-medium mb-1">Aucune conversation</p>
+                <p className="text-xs text-muted-foreground/60 max-w-[200px]">
+                  Lancez un prompt pour générer un projet complet — l'historique apparaîtra ici.
+                </p>
+              </div>
+            ) : (
+              codeHistory.map((run) => (
+                <div key={run.run_id} className="group relative">
+                  <button
+                    onClick={() => setViewingHistory(run)}
+                    className="w-full flex items-start gap-2.5 px-2.5 py-2 rounded-lg text-left text-foreground/80 hover:bg-[hsl(0,0%,15%)] transition-colors"
+                  >
+                    <MessageSquare size={14} className="mt-0.5 flex-shrink-0 text-muted-foreground/70" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate text-foreground/90">
+                        {run.task || 'Conversation sans titre'}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground/60 truncate flex items-center gap-1.5">
+                        <Clock size={10} />
+                        {getRelativeDate(new Date(run.date))}
+                        <span>·</span>
+                        <span>{run.steps} étape{run.steps !== 1 ? 's' : ''}</span>
+                      </p>
+                    </div>
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); deleteHistoryRun(run.run_id); }}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-destructive transition-colors rounded opacity-0 group-hover:opacity-100"
+                    title="Supprimer"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
         {tab === 'projects' && (
           <div className="px-2 py-2 space-y-1">
             {/* Search */}
