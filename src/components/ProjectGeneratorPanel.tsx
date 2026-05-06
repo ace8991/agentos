@@ -316,7 +316,7 @@ const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady, initialPrompt,
                   Appuyez sur <kbd className="rounded border border-white/10 bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px]">Enter</kbd> pour générer
                 </p>
                 <button
-                  onClick={handleGenerate}
+                  onClick={() => handleGenerate()}
                   disabled={!prompt.trim()}
                   className="inline-flex items-center gap-1.5 rounded-full border border-primary-300/18 bg-primary-400/10 px-4 py-2 text-sm font-medium text-primary-100 transition-colors hover:bg-primary-400/15 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
