@@ -1607,29 +1607,6 @@ const CodePage = () => {
             {currentProject ? currentProject.name : 'Projects'}
           </button>
           <button
-            onClick={() => setIncognitoMode(!incognitoMode)}
-            className={`hidden items-center gap-1.5 rounded-md border px-3 py-1 text-xs transition-colors md:inline-flex ${
-              incognitoMode
-                ? 'border-primary-300/18 bg-primary-400/10 text-primary-100 hover:bg-primary-400/15'
-                : 'border-border text-muted-foreground hover:bg-surface-elevated'
-            }`}
-            title="Private session mode"
-          >
-            <Ghost size={12} />
-            {incognitoMode ? 'Private' : 'Standard'}
-          </button>
-          <button
-            onClick={() => setIsCodePanelOpen(!isCodePanelOpen)}
-            className={`flex items-center gap-1.5 rounded-md border px-3 py-1 text-xs transition-colors active:scale-[0.97] ${
-              isCodePanelOpen
-                ? 'border-primary-300/18 bg-primary-400/10 text-primary-100 hover:bg-primary-400/15'
-                : 'border-border text-muted-foreground hover:bg-surface-elevated'
-            }`}
-          >
-            <Code2 size={12} />
-            Code
-          </button>
-          <button
             onClick={() => setProjectGeneratorOpen(true)}
             className="flex items-center gap-1.5 rounded-md border border-primary-300/18 bg-primary-400/10 px-3 py-1 text-xs font-medium text-primary-100 transition-colors hover:bg-primary-400/15 active:scale-[0.97]"
             title="Generate a project with AI"
