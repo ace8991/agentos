@@ -229,6 +229,23 @@ const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady, initialPrompt,
     setTimeout(() => inputRef.current?.focus(), 100);
   }, []);
 
+  // Auto-start generation when an initialPrompt is provided
+  useEffect(() => {
+    if (!open) {
+      autoStartedRef.current = null;
+      return;
+    }
+    if (!autoStart || !initialPrompt) return;
+    if (autoStartedRef.current === initialPrompt) return;
+    autoStartedRef.current = initialPrompt;
+    setPrompt(initialPrompt);
+    // Defer to next tick so prompt state is committed before generate reads it
+    setTimeout(() => {
+      // Inline-start: bypass the prompt-state read by calling generate via state
+      handleGenerate();
+    }, 50);
+  }, [open, autoStart, initialPrompt, handleGenerate]);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey) {
