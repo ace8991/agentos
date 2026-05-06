@@ -966,6 +966,7 @@ const CodePage = () => {
   const [isCodePanelOpen, setIsCodePanelOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [projectGeneratorOpen, setProjectGeneratorOpen] = useState(false);
+  const [projectGeneratorInitialPrompt, setProjectGeneratorInitialPrompt] = useState<string>('');
   const [activeProject, setActiveProject] = useState<AppProject | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
