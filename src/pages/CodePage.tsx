@@ -19,7 +19,7 @@ import ArtifactWorkspaceModal from '@/components/chat/ArtifactWorkspaceModal';
 import { ArtifactPanel } from '@/components/artifact/ArtifactPanel';
 import { useArtifactStore } from '@/stores/artifactStore';
 import { createArtifactStreamHandler } from '@/hooks/useArtifactStream';
-import { chatDirect, createBuilderWorkspace, type ChatMessage as ChatMessageType, type ToolCallEvent, type ToolResultEvent } from '@/lib/api';
+import { chatDirect, createBuilderWorkspace, type ChatMessage as ChatMessageType, type ToolCallEvent, type ToolResultEvent, type GeneratedWorkspace } from '@/lib/api';
 import { collectArtifactsFromEntries, type WorkspaceView } from '@/lib/artifacts';
 import { executeDesktopCommanderIntent } from '@/lib/desktop-commander-intents';
 import {
