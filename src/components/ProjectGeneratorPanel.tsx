@@ -78,11 +78,13 @@ interface ProjectGeneratorPanelProps {
   open: boolean;
   onClose: () => void;
   onWorkspaceReady: (workspace: GeneratedWorkspace) => void;
+  initialPrompt?: string;
+  autoStart?: boolean;
 }
 
 /* ─── Component ─────────────────────────────────────── */
 
-const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady }: ProjectGeneratorPanelProps) => {
+const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady, initialPrompt, autoStart }: ProjectGeneratorPanelProps) => {
   const [prompt, setPrompt] = useState('');
   const [phase, setPhase] = useState<GenerationPhase>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +97,7 @@ const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady }: ProjectGener
   const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
+  const autoStartedRef = useRef<string | null>(null);
 
   // Focus input when opened
   useEffect(() => {
