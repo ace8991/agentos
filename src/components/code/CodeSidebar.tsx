@@ -27,6 +27,7 @@ import {
   setCurrentProjectId,
   type AppProject,
 } from '@/lib/projects';
+import { useStore, type HistoryRun } from '@/store/useStore';
 
 /* ───────────────────────────────────────────
    Types
