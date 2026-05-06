@@ -78,11 +78,13 @@ interface ProjectGeneratorPanelProps {
   open: boolean;
   onClose: () => void;
   onWorkspaceReady: (workspace: GeneratedWorkspace) => void;
+  initialPrompt?: string;
+  autoStart?: boolean;
 }
 
 /* ─── Component ─────────────────────────────────────── */
 
-const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady }: ProjectGeneratorPanelProps) => {
+const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady, initialPrompt, autoStart }: ProjectGeneratorPanelProps) => {
   const [prompt, setPrompt] = useState('');
   const [phase, setPhase] = useState<GenerationPhase>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +97,7 @@ const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady }: ProjectGener
   const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
+  const autoStartedRef = useRef<string | null>(null);
 
   // Focus input when opened
   useEffect(() => {
@@ -122,8 +125,10 @@ const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady }: ProjectGener
     });
   }, []);
 
-  const handleGenerate = useCallback(async () => {
-    if (!prompt.trim()) return;
+  const handleGenerate = useCallback(async (overridePrompt?: string) => {
+    const effectivePrompt = (overridePrompt ?? prompt).trim();
+    if (!effectivePrompt) return;
+    if (overridePrompt) setPrompt(overridePrompt);
 
     setPhase('analyzing');
     setError(null);
@@ -226,6 +231,23 @@ const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady }: ProjectGener
     setTimeout(() => inputRef.current?.focus(), 100);
   }, []);
 
+  // Auto-start generation when an initialPrompt is provided
+  useEffect(() => {
+    if (!open) {
+      autoStartedRef.current = null;
+      return;
+    }
+    if (!autoStart || !initialPrompt) return;
+    if (autoStartedRef.current === initialPrompt) return;
+    autoStartedRef.current = initialPrompt;
+    setPrompt(initialPrompt);
+    // Defer to next tick so prompt state is committed before generate reads it
+    setTimeout(() => {
+      // Inline-start: bypass the prompt-state read by calling generate via state
+      handleGenerate();
+    }, 50);
+  }, [open, autoStart, initialPrompt, handleGenerate]);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -294,7 +316,7 @@ const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady }: ProjectGener
                   Appuyez sur <kbd className="rounded border border-white/10 bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px]">Enter</kbd> pour générer
                 </p>
                 <button
-                  onClick={handleGenerate}
+                  onClick={() => handleGenerate()}
                   disabled={!prompt.trim()}
                   className="inline-flex items-center gap-1.5 rounded-full border border-primary-300/18 bg-primary-400/10 px-4 py-2 text-sm font-medium text-primary-100 transition-colors hover:bg-primary-400/15 disabled:opacity-40 disabled:cursor-not-allowed"
                 >

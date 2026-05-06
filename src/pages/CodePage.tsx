@@ -381,8 +381,23 @@ const shouldUseBuilderWorkspace = (text: string, preferences: ComposerPreference
  */
 const shouldUseProjectGenerator = (text: string): boolean => {
   const lower = text.toLowerCase().trim();
-  if (lower.length < 10) return false;
-  return PROJECT_GENERATOR_KEYWORDS.some((keyword) => lower.includes(keyword));
+  if (lower.length < 8) return false;
+
+  // 1) Match explicite via la liste exhaustive de phrases
+  if (PROJECT_GENERATOR_KEYWORDS.some((keyword) => lower.includes(keyword))) {
+    return true;
+  }
+
+  // 2) Détection universelle: verbe d'action + nom de projet
+  // ex: "fais moi un jeu snake", "build me a portfolio", "je voudrais une app de notes"
+  const actionVerb = /\b(cr[ée]e?|cr[ée]er|g[ée]n[ée]re?|g[ée]n[ée]rer|fais|fait|faire|construis|construire|d[ée]veloppe?|d[ée]velopper|fabrique?|fabriquer|r[ée]alise?|r[ée]aliser|code|coder|programme?|programmer|monte?|monter|b[âa]tis|b[âa]tir|veux|voudrais|aimerais|peux[- ]tu|peut[- ]on|aide[- ]moi|build|create|make|generate|develop|design|implement|scaffold|bootstrap|i\s+want|i'?d\s+like|can\s+you|could\s+you|help\s+me|let'?s\s+(?:build|create|make))\b/;
+  const projectNoun = /\b(projet|application|app|appli|site|site\s+web|website|web\s*app|webapp|page|landing|portfolio|dashboard|tableau\s+de\s+bord|jeu|game|animation|outil|tool|saas|blog|boutique|shop|e[- ]?commerce|api|backend|frontend|fullstack|interface|ui|composant|component|librairie|library|module|plugin|extension|th[èe]me|theme|template|starter|boilerplate|clone|prototype|mvp|landing\s+page|home\s*page|page\s+d['e ]accueil|widget|chatbot|bot|crm|cms|forum|wiki|tracker|todo|note[s]?|calculator|calculatrice|timer|chronom[èe]tre|convertisseur|converter|player|gallery|galerie|calendar|calendrier|planner|agenda)\b/;
+
+  if (actionVerb.test(lower) && projectNoun.test(lower)) {
+    return true;
+  }
+
+  return false;
 };
 
 const shouldRouteToAgent = (
@@ -951,6 +966,7 @@ const CodePage = () => {
   const [isCodePanelOpen, setIsCodePanelOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [projectGeneratorOpen, setProjectGeneratorOpen] = useState(false);
+  const [projectGeneratorInitialPrompt, setProjectGeneratorInitialPrompt] = useState<string>('');
   const [activeProject, setActiveProject] = useState<AppProject | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1093,8 +1109,9 @@ const CodePage = () => {
     // Détection intelligente : demande de création de projet → ouvre le ProjectGeneratorPanel
     const shouldGenerateProject = shouldUseProjectGenerator(text);
     if (shouldGenerateProject && backendOnline) {
-      setInputValue(text);
+      setProjectGeneratorInitialPrompt(text);
       setProjectGeneratorOpen(true);
+      setInputValue('');
       return;
     }
 
@@ -2064,7 +2081,12 @@ const CodePage = () => {
 
 <ProjectGeneratorPanel
   open={projectGeneratorOpen}
-  onClose={() => setProjectGeneratorOpen(false)}
+  initialPrompt={projectGeneratorInitialPrompt}
+  autoStart
+  onClose={() => {
+    setProjectGeneratorOpen(false);
+    setProjectGeneratorInitialPrompt('');
+  }}
   onWorkspaceReady={handleProjectWorkspaceReady}
 />
 
