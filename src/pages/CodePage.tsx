@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 import { toast } from '@/components/ui/sonner';
-import { useStore, type LogEntry } from '@/store/useStore';
+import { useStore, type LogEntry, type AgentMode } from '@/store/useStore';
 import ChatMessage from '@/components/chat/ChatMessage';
 import LiveSessionCard from '@/components/chat/LiveSessionCard';
 import ThinkingIndicator from '@/components/chat/ThinkingIndicator';
@@ -387,7 +387,7 @@ const shouldUseProjectGenerator = (text: string): boolean => {
 
 const shouldRouteToAgent = (
   text: string,
-  mode: string,
+  mode: AgentMode,
   backendOnline: boolean,
 ) => {
   if (mode === 'agent') return true;
