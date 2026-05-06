@@ -2,7 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } fro
 import { AlertTriangle, Bot, CheckCircle, Code2, Database, FolderOpen, Ghost, Layers3, MessageSquareText, Mic, MonitorPlay, Paperclip, Plus, Send, Square, X } from 'lucide-react';
 
 import { toast } from '@/components/ui/sonner';
-import { useStore, type LogEntry } from '@/store/useStore';
+import { useStore, type LogEntry, type AgentMode } from '@/store/useStore';
 import ChatMessage from './chat/ChatMessage';
 import LiveSessionCard from './chat/LiveSessionCard';
 import ThinkingIndicator from './chat/ThinkingIndicator';
@@ -76,7 +76,7 @@ const shouldUseBuilderWorkspace = (text: string, preferences: ComposerPreference
 
 const shouldRouteToAgent = (
   text: string,
-  mode: ReturnType<typeof useStore.getState>['mode'],
+  mode: AgentMode,
   backendOnline: boolean,
 ) => {
   if (!backendOnline) return false;
