@@ -1109,8 +1109,9 @@ const CodePage = () => {
     // Détection intelligente : demande de création de projet → ouvre le ProjectGeneratorPanel
     const shouldGenerateProject = shouldUseProjectGenerator(text);
     if (shouldGenerateProject && backendOnline) {
-      setInputValue(text);
+      setProjectGeneratorInitialPrompt(text);
       setProjectGeneratorOpen(true);
+      setInputValue('');
       return;
     }
 
