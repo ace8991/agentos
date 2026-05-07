@@ -1625,7 +1625,11 @@ const CodePage = () => {
             {currentProject ? currentProject.name : 'Projects'}
           </button>
           <button
-            onClick={() => setProjectGeneratorOpen(true)}
+            onClick={() => {
+              setProjectGeneratorInitialPrompt('');
+              setProjectGeneratorAutoStart(false);
+              setProjectGeneratorOpen(true);
+            }}
             className="flex items-center gap-1.5 rounded-md border border-primary-300/18 bg-primary-400/10 px-3 py-1 text-xs font-medium text-primary-100 transition-colors hover:bg-primary-400/15 active:scale-[0.97]"
             title="Generate a project with AI"
           >
