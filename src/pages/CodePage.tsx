@@ -1108,11 +1108,10 @@ const CodePage = () => {
       shouldRouteToAgent(text, mode, backendOnline) ||
       (mode === 'agent' && backendOnline && requiresLocalTools(text));
 
-    // Détection intelligente : demande de création de projet → ouvre le ProjectGeneratorPanel
+    // Détection intelligente : demande de création de projet → demande confirmation
     const shouldGenerateProject = shouldUseProjectGenerator(text);
     if (shouldGenerateProject && backendOnline) {
-      setProjectGeneratorInitialPrompt(text);
-      setProjectGeneratorOpen(true);
+      setPendingProjectPrompt(text);
       setInputValue('');
       return;
     }
