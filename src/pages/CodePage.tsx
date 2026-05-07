@@ -967,6 +967,8 @@ const CodePage = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [projectGeneratorOpen, setProjectGeneratorOpen] = useState(false);
   const [projectGeneratorInitialPrompt, setProjectGeneratorInitialPrompt] = useState<string>('');
+  const [projectGeneratorAutoStart, setProjectGeneratorAutoStart] = useState(false);
+  const [pendingProjectPrompt, setPendingProjectPrompt] = useState<string | null>(null);
   const [activeProject, setActiveProject] = useState<AppProject | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1106,11 +1108,10 @@ const CodePage = () => {
       shouldRouteToAgent(text, mode, backendOnline) ||
       (mode === 'agent' && backendOnline && requiresLocalTools(text));
 
-    // Détection intelligente : demande de création de projet → ouvre le ProjectGeneratorPanel
+    // Détection intelligente : demande de création de projet → demande confirmation
     const shouldGenerateProject = shouldUseProjectGenerator(text);
     if (shouldGenerateProject && backendOnline) {
-      setProjectGeneratorInitialPrompt(text);
-      setProjectGeneratorOpen(true);
+      setPendingProjectPrompt(text);
       setInputValue('');
       return;
     }
@@ -1624,7 +1625,11 @@ const CodePage = () => {
             {currentProject ? currentProject.name : 'Projects'}
           </button>
           <button
-            onClick={() => setProjectGeneratorOpen(true)}
+            onClick={() => {
+              setProjectGeneratorInitialPrompt('');
+              setProjectGeneratorAutoStart(false);
+              setProjectGeneratorOpen(true);
+            }}
             className="flex items-center gap-1.5 rounded-md border border-primary-300/18 bg-primary-400/10 px-3 py-1 text-xs font-medium text-primary-100 transition-colors hover:bg-primary-400/15 active:scale-[0.97]"
             title="Generate a project with AI"
           >
@@ -2082,13 +2087,61 @@ const CodePage = () => {
 <ProjectGeneratorPanel
   open={projectGeneratorOpen}
   initialPrompt={projectGeneratorInitialPrompt}
-  autoStart
+  autoStart={projectGeneratorAutoStart}
   onClose={() => {
     setProjectGeneratorOpen(false);
     setProjectGeneratorInitialPrompt('');
+    setProjectGeneratorAutoStart(false);
   }}
   onWorkspaceReady={handleProjectWorkspaceReady}
 />
+
+{pendingProjectPrompt && (
+  <div
+    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+    onClick={() => setPendingProjectPrompt(null)}
+  >
+    <div
+      className="w-full max-w-md rounded-xl border border-border bg-[hsl(var(--surface))] p-5 shadow-2xl"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex items-center gap-2 mb-3">
+        <Sparkles size={16} className="text-primary" />
+        <h3 className="text-sm font-semibold text-foreground">Générer un projet complet ?</h3>
+      </div>
+      <p className="text-xs text-muted-foreground mb-3">
+        Votre demande ressemble à une création de projet. Voulez-vous lancer le générateur de projet&nbsp;?
+      </p>
+      <div className="rounded-lg border border-border bg-background/50 px-3 py-2 mb-4 text-xs text-foreground/80 max-h-24 overflow-y-auto">
+        {pendingProjectPrompt}
+      </div>
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={() => {
+            const prompt = pendingProjectPrompt;
+            setPendingProjectPrompt(null);
+            setInputValue(prompt);
+          }}
+          className="px-3 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+        >
+          Non, juste discuter
+        </button>
+        <button
+          onClick={() => {
+            const prompt = pendingProjectPrompt;
+            setPendingProjectPrompt(null);
+            setProjectGeneratorInitialPrompt(prompt);
+            setProjectGeneratorAutoStart(true);
+            setProjectGeneratorOpen(true);
+          }}
+          className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+        >
+          Oui, générer
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
 
       </div>
