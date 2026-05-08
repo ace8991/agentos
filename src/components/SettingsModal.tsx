@@ -11,6 +11,7 @@ import RemoteControlPanel from './settings/RemoteControlPanel';
 import DocumentationGuide from './settings/DocumentationGuide';
 import MobileHubPanel from './settings/MobileHubPanel';
 import { DesktopCommanderSettings } from './settings/DesktopCommanderSettings';
+import McpServersPanel from './settings/McpServersPanel';
 import { buildDefaultConnectors, loadConnectors, mergeConnectorState, saveConnectors, type ConnectorState } from '@/lib/connectors';
 import { API_BASE_URL, syncRuntimeConfig } from '@/lib/api';
 import { logout as logoutSession } from '@/lib/auth';
