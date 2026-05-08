@@ -1297,6 +1297,7 @@ const SettingsModal = () => {
                 setConfigConnectorId(null);
               }}
             />
+            <McpServersPanel />
           </div>
         );
 
