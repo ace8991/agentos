@@ -1,82 +1,41 @@
-# Plan : Architecture "Online + Local" style Claude.ai (adaptée à l'existant)
+## Diagnostic général du projet
 
-## Constat
+### Résultats des vérifications
 
-Le projet dispose déjà de la majorité de l'architecture demandée :
-
-| Demande du prompt | État actuel |
+| Vérification | Statut |
 |---|---|
-| `backendService` / polling santé | `useStore.syncBackendHealth` + `RuntimeSync` dans `App.tsx` (poll 15s/60s) |
-| `useBackendStatus` hook | `useStore((s) => s.backendOnline)` |
-| Indicateur statut backend | `SidebarToolStatus` + `SidebarModeSwitch` |
-| Banner backend offline | `BackendOfflineOverlay` |
-| Service IA streaming | `chatDirect()` dans `src/lib/api.ts` (déjà SSE multi-provider) |
-| System prompt adaptatif online/local | `buildChatSystemPrompt({ backendOnline })` dans `system-prompt.ts` |
-| Settings clés API | `SettingsModal` + `ProviderConfigModal` (localStorage) |
-| Variables `VITE_*` | `.env.example` présent |
-| Multi-provider (Anthropic/OpenAI/DeepSeek/Google/Mistral/Groq/Qwen/Ollama) | Déjà dans `normalizeModel` |
+| TypeScript (`tsc --noEmit`) | ✅ 0 erreur |
+| Tests unitaires Vitest | ✅ 13/13 passés (4 fichiers) |
+| Frontend Vite (localhost:8080) | ✅ En ligne |
+| Backend FastAPI (localhost:8000) | ⚠️ Non démarré dans la sandbox (normal — c'est un service local externe) |
+| Logs Vite (errors/warns) | ✅ Aucun |
+| Runtime errors navigateur | ✅ Aucun |
+| Console logs | ✅ Aucun |
 
-Recréer `backendService.ts`, `aiService.ts`, `config/index.ts`, `BackendStatusIndicator`, `LocalConnectionBanner`, `SettingsPanel`, `useBackendStatus`, `useApiKeys` **dupliquerait** la logique existante et casserait l'intégration avec `useStore`, `chatDirect`, `SidebarToolStatus`. Mauvaise idée.
+### Inventaire des composants clés
 
-## Ce qui manque réellement (et qui vaut la peine)
+- `src/pages/CodePage.tsx` — 2157 lignes (point d'entrée mode Code)
+- `src/components/ProjectGeneratorPanel.tsx` — 583 lignes (générateur de projet avec auto-start + confirmation)
+- `src/components/settings/McpServersPanel.tsx` — 216 lignes (panneau MCP ajouté récemment)
+- Tous les panneaux Settings présents : DesktopCommander, Documentation, McpServers, MobileHub, RemoteControl
 
-Trois éléments du prompt ne sont PAS encore présents et apportent une vraie valeur :
+### État global
 
-1. **Compact `BackendStatusIndicator` chip** dans `TopNavBar` — chip animé "Mode en ligne" / "Local connecté" / "Connexion…" (l'existant `SidebarToolStatus` est riche mais caché dans la sidebar ; un chip top-bar aligne avec Claude.ai).
-2. **`LocalConnectionBanner` dismissible** non-bloquant — `BackendOfflineOverlay` actuel est un overlay plein écran ; le prompt propose une bannière fine en haut avec commande copiable, pour ne pas bloquer le mode online pur.
-3. **Filtrage explicite des outils filesystem côté frontend** quand `backendOnline=false` — vérifier que `chatDirect` ne propose AUCUN outil filesystem/shell au modèle quand le backend est offline (le system prompt le fait déjà via `buildChatSystemPrompt`, mais confirmer pour les tool schemas envoyés à l'API Anthropic native).
+Le projet **compile sans erreur**, **tous les tests passent**, **aucune erreur runtime** n'est détectée et le serveur de dev frontend tourne normalement. Les fonctionnalités récemment ajoutées (confirmation du générateur de projet, panneau MCP Servers dans Connectors, régex universelle de détection) sont en place côté code.
 
-## Plan d'implémentation
+### Points d'attention (non-bloquants)
 
-### 1. Nouveau composant : `src/components/BackendStatusChip.tsx`
-- Petit chip 3 états (checking / online-local / online-cloud) basé sur `useStore((s) => ({ backendOnline, backendChecked, backendHealth }))`.
-- Dot animé (pulse vert quand local, bleu quand cloud-only).
-- Tooltip : "Backend local connecté" / "Mode en ligne — lance le backend pour filesystem/terminal".
-- Style aligné Claude desktop (#1a1a1a, bordures fines).
+1. **Backend FastAPI** : non lancé dans la sandbox Lovable. C'est attendu — il doit tourner localement sur la machine de l'utilisateur (`localhost:8000`) pour activer l'agentic loop, la génération de projets, et les serveurs MCP. Sans lui, le frontend fonctionne en mode dégradé (chat direct via les providers configurés).
+2. **Taille de `CodePage.tsx`** : 2157 lignes — refactor recommandé à terme (extraction de sous-composants), mais pas urgent.
+3. **`backend/data/mcp_servers.json`** vide `[]` — normal, aucun serveur MCP configuré pour l'instant.
 
-### 2. Nouveau composant : `src/components/LocalConnectionBanner.tsx`
-- Bannière dismissible (sessionStorage `agentos_banner_dismissed`).
-- S'affiche uniquement si `backendChecked && !backendOnline && !dismissed`.
-- Bouton copier la commande : `python -m uvicorn backend.app.main:app --port 8000` (commande réelle du projet, pas `npx agentos-backend`).
-- Bouton "Ouvrir guide" → ouvre `SETUP-ET-DEMARRER.ps1` README.
-- N'interfère PAS avec `BackendOfflineOverlay` (qui ne s'affiche que pour les actions agent nécessitant le backend).
+### Plan d'action proposé
 
-### 3. Intégration dans `TopNavBar`
-- Ajouter `<BackendStatusChip />` à droite des liens de navigation.
-- Ajouter `<LocalConnectionBanner />` au-dessus du contenu principal dans `Welcome`, `Dashboard`, `CodePage`, `CoworkPage` (via un layout shared ou injection directe).
+Aucune correction nécessaire — le projet est sain. Si vous voulez aller plus loin, je propose au choix :
 
-### 4. Audit & filtrage outils dans `src/lib/api.ts`
-- Dans `chatDirect`, vérifier le bloc qui construit `tools: ToolSchema[]` envoyé à l'API.
-- S'assurer que quand `backendOnline === false`, on retire les tools `file_*`, `shell`, `desktop_commander_*`, `git_*` du payload (pas seulement du prompt système).
-- Conserver les tools "purs" (web_search, artifact_create) qui marchent sans backend.
+- **A.** Tester le flux end-to-end côté navigateur (ouvrir le preview, déclencher une demande "crée une app todo", vérifier la boîte de confirmation, vérifier l'ouverture du `ProjectGeneratorPanel`).
+- **B.** Vérifier la connectivité backend depuis le frontend (afficher l'état de `localhost:8000` dans l'UI et améliorer le message si down).
+- **C.** Refactor de `CodePage.tsx` (extraire le handler de détection projet, la boîte de confirmation, et la logique d'envoi de message dans des hooks/sous-composants).
+- **D.** Aucune action — tout va bien.
 
-### 5. Documentation rapide
-- Mettre à jour `README.md` avec la section "Mode en ligne vs local" (3 paragraphes).
-
-## Ce qui n'est PAS fait (et pourquoi)
-
-- **Pas de `backendService` / `aiService` séparé** : la logique existe déjà dans `useStore` + `lib/api.ts`. Dupliquer ferait diverger les deux sources de vérité.
-- **Pas de `src/config/index.ts`** : `import.meta.env` est utilisé directement et c'est suffisant pour Vite.
-- **Pas de `useApiKeys` hook séparé** : `SettingsModal` + `user-config.ts` gèrent déjà le localStorage des clés.
-- **Pas de modification du `vite.config.ts`** : le proxy `/api/local` n'est pas nécessaire — `API_BASE_URL` pointe déjà sur `http://localhost:8000` avec CORS côté FastAPI.
-- **Pas de `npm install @anthropic-ai/sdk`** : `chatDirect` fait du SSE manuel, pas besoin du SDK officiel (qui ajouterait ~200KB).
-
-## Fichiers impactés
-
-**Nouveaux :**
-- `src/components/BackendStatusChip.tsx`
-- `src/components/LocalConnectionBanner.tsx`
-
-**Modifiés :**
-- `src/components/TopNavBar.tsx` (ajout du chip)
-- `src/pages/Welcome.tsx`, `Dashboard.tsx`, `CodePage.tsx`, `CoworkPage.tsx` (ajout du banner — ou wrapper layout)
-- `src/lib/api.ts` (filtrage tools selon `backendOnline` dans `chatDirect`)
-- `README.md` (section online/local)
-
-## Détails techniques
-
-- Le chip lit `useStore` directement (pas de nouveau hook).
-- Le banner utilise `sessionStorage` (pas localStorage) pour réapparaître à chaque session.
-- Filtrage tools : ajouter une constante `BACKEND_REQUIRED_TOOLS = new Set(['shell', 'file_read', 'file_write', 'file_edit', 'desktop_commander_*', 'git_*'])` et filtrer le tableau `tools` avant le `fetch` Anthropic/OpenAI.
-- Tooltip via shadcn `Tooltip` (déjà importé via `TooltipProvider` dans `App.tsx`).
-- Animation pulse via Tailwind `animate-pulse` (pas besoin de framer-motion supplémentaire).
+Dites-moi laquelle vous voulez (ou décrivez un comportement précis à diagnostiquer).
