@@ -127,7 +127,7 @@ const AgentDockSync = () => {
 };
 
 const RouteFallback = () => (
-  <div className="flex h-screen w-full items-center justify-center bg-[linear-gradient(180deg,#6679a6_0%,#3a334c_48%,#121520_100%)]">
+  <div className="flex h-screen w-full items-center justify-center bg-[linear-gradient(180deg,#3a3a37_0%,#30302E_48%,#262624_100%)]">
     <div className="rounded-3xl border border-white/12 bg-black/20 px-5 py-3 text-sm font-medium text-white/88 backdrop-blur-xl">
       AgentOS is loading...
     </div>
