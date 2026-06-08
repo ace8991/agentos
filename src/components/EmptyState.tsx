@@ -10,13 +10,13 @@ const EmptyState = () => (
       <line x1="64" y1="33" x2="70" y2="33" stroke="hsl(0 0% 100% / 0.25)" strokeWidth="2" strokeLinecap="round" />
       {/* Antenna */}
       <line x1="60" y1="20" x2="60" y2="12" stroke="hsl(0 0% 100% / 0.15)" strokeWidth="1.5" />
-      <circle cx="60" cy="10" r="3" fill="hsl(263 84% 58% / 0.4)" />
+      <circle cx="60" cy="10" r="3" fill="hsl(var(--primary) / 0.5)" />
       {/* Arms */}
       <line x1="35" y1="55" x2="25" y2="65" stroke="hsl(0 0% 100% / 0.1)" strokeWidth="2" strokeLinecap="round" />
       <line x1="85" y1="55" x2="95" y2="65" stroke="hsl(0 0% 100% / 0.1)" strokeWidth="2" strokeLinecap="round" />
       {/* Zzz */}
-      <text x="88" y="25" fill="hsl(263 84% 58% / 0.3)" fontSize="12" fontFamily="Inter">z</text>
-      <text x="95" y="18" fill="hsl(263 84% 58% / 0.2)" fontSize="10" fontFamily="Inter">z</text>
+      <text x="88" y="25" fill="hsl(var(--primary) / 0.4)" fontSize="12" fontFamily="Inter">z</text>
+      <text x="95" y="18" fill="hsl(var(--primary) / 0.25)" fontSize="10" fontFamily="Inter">z</text>
     </svg>
     <h3 className="text-lg font-medium text-foreground mb-1.5">No tasks yet</h3>
     <p className="text-sm text-muted-foreground max-w-xs">Define a task and run your agent</p>

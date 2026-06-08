@@ -11,7 +11,7 @@ const AgentBrainVisualizer = () => {
       <div
         className="absolute inset-0 rounded-full pointer-events-none"
         style={{
-          background: 'radial-gradient(circle, hsl(263 84% 58% / 0.12) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, hsl(var(--primary) / 0.15) 0%, transparent 70%)',
         }}
       />
       <svg width="200" height="120" viewBox="0 0 200 120">
