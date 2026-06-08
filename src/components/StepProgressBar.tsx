@@ -11,7 +11,7 @@ const StepProgressBar = () => {
         className="h-full transition-all duration-500 ease-out"
         style={{
           width: `${pct}%`,
-          background: 'linear-gradient(90deg, hsl(263 84% 58%), hsl(174 84% 32%))',
+          background: 'linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary-light)))',
         }}
       />
       <div className="absolute -top-7 left-1/2 -translate-x-1/2 hidden group-hover:block bg-surface-elevated text-xs text-foreground px-2 py-1 rounded-md">
