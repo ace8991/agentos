@@ -6,44 +6,45 @@
 
 @layer base {
   :root {
-    --background: 240 33% 4%;
-    --foreground: 50 18% 93%;
+    /* Claude AI (Anthropic) palette — warm slate dark + Claude Orange */
+    --background: 60 3% 15%;          /* #262624 */
+    --foreground: 48 24% 95%;         /* #F5F4EE */
 
-    --card: 240 20% 8%;
-    --card-foreground: 50 18% 93%;
-    --card-elevated: 240 20% 12%;
+    --card: 60 3% 19%;                /* #30302E */
+    --card-foreground: 48 24% 95%;
+    --card-elevated: 60 3% 22%;       /* #3A3A37 */
 
-    --popover: 240 20% 8%;
-    --popover-foreground: 50 18% 93%;
+    --popover: 60 3% 19%;
+    --popover-foreground: 48 24% 95%;
 
-    /* Primary: violet/purple — the single dominant accent color */
-    --primary: 263 84% 58%;
-    --primary-foreground: 0 0% 100%;
-    --primary-light: 263 70% 72%;
-    --primary-dark: 263 60% 40%;
-    --primary-muted: 263 50% 20%;
-    --primary-glow: 263 84% 58% / 0.15;
+    /* Primary: Claude Orange (terracotta) */
+    --primary: 16 60% 60%;            /* #D97757 */
+    --primary-foreground: 48 24% 97%;
+    --primary-light: 16 70% 72%;
+    --primary-dark: 16 50% 46%;       /* ~#C96442 */
+    --primary-muted: 16 45% 24%;      /* ~#7A3A2A */
+    --primary-glow: 16 60% 60% / 0.18;
 
-    /* Secondary: derived from primary with lower saturation */
-    --secondary: 263 40% 45%;
-    --secondary-foreground: 0 0% 100%;
+    /* Secondary */
+    --secondary: 16 30% 38%;
+    --secondary-foreground: 48 24% 97%;
 
     /* Muted */
-    --muted: 240 20% 12%;
-    --muted-foreground: 220 9% 46%;
+    --muted: 60 3% 22%;
+    --muted-foreground: 30 6% 64%;    /* #A8A29E */
 
-    /* Accent: now uses primary hue instead of orange */
-    --accent: 263 84% 58%;
-    --accent-foreground: 0 0% 100%;
+    /* Accent */
+    --accent: 16 60% 60%;
+    --accent-foreground: 48 24% 97%;
 
-    /* Destructive: keep red for errors */
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
+    /* Destructive — brick red */
+    --destructive: 5 50% 47%;         /* #B5453B */
+    --destructive-foreground: 48 24% 97%;
 
     /* Border & input */
-    --border: 0 0% 100% / 0.06;
-    --input: 0 0% 100% / 0.06;
-    --ring: 263 84% 58%;
+    --border: 48 24% 95% / 0.08;
+    --input: 48 24% 95% / 0.08;
+    --ring: 16 60% 60%;
 
     /* Radius */
     --radius: 0.75rem;
@@ -51,24 +52,24 @@
     --radius-pill: 1.25rem;
 
     /* Surface */
-    --surface: 240 20% 8%;
-    --surface-elevated: 240 20% 12%;
+    --surface: 60 3% 19%;
+    --surface-elevated: 60 3% 22%;
 
-    /* Semantic colors — all derived from primary */
-    --success: 263 70% 50%;
-    --info: 263 70% 60%;
-    --warning: 263 60% 55%;
+    /* Semantic */
+    --success: 125 16% 56%;           /* sage #7A9E7E */
+    --info: 16 60% 60%;
+    --warning: 42 66% 55%;            /* #D9A441 */
 
-    /* Primary-based semantic aliases for replacing hardcoded colors */
-    --primary-100: 263 70% 90%;
-    --primary-200: 263 65% 80%;
-    --primary-300: 263 60% 70%;
-    --primary-400: 263 55% 60%;
-    --primary-500: 263 84% 58%;
-    --primary-600: 263 60% 40%;
-    --primary-700: 263 50% 30%;
-    --primary-800: 263 40% 20%;
-    --primary-900: 263 30% 12%;
+    /* Primary scale */
+    --primary-100: 18 70% 92%;
+    --primary-200: 18 65% 82%;
+    --primary-300: 17 62% 72%;
+    --primary-400: 16 60% 66%;
+    --primary-500: 16 60% 60%;
+    --primary-600: 16 50% 46%;
+    --primary-700: 16 48% 36%;
+    --primary-800: 16 45% 24%;
+    --primary-900: 16 40% 16%;
   }
 
   * {
@@ -86,11 +87,12 @@
 @layer components {
   .glass-modal {
     backdrop-filter: blur(16px);
-    background: rgba(18, 18, 26, 0.85);
+    background: rgba(38, 38, 36, 0.85);
   }
 
-  .glow-purple {
-    box-shadow: 0 0 0 1px hsl(263 84% 58% / 0.4), 0 0 12px hsl(263 84% 58% / 0.15);
+  .glow-purple,
+  .glow-primary {
+    box-shadow: 0 0 0 1px hsl(16 60% 60% / 0.4), 0 0 12px hsl(16 60% 60% / 0.18);
   }
 
   .status-dot {
