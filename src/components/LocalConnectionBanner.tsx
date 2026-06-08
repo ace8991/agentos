@@ -50,27 +50,27 @@ const LocalConnectionBanner = ({ className }: LocalConnectionBannerProps) => {
   return (
     <div
       className={cn(
-        'relative z-30 flex flex-wrap items-center gap-3 border-b border-primary-500/20 bg-[linear-gradient(90deg,rgba(139,92,246,0.10),rgba(99,102,241,0.10))] px-4 py-2 text-xs text-primary-100 backdrop-blur-md',
+        'relative z-30 flex flex-wrap items-center gap-3 border-b border-primary/20 bg-[linear-gradient(90deg,hsl(var(--primary)/0.10),hsl(var(--primary)/0.04))] px-4 py-2 text-xs text-primary-foreground/90 backdrop-blur-md',
         className,
       )}
       role="status"
     >
-      <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary-500/20 text-primary-200">
+      <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary">
         <Terminal size={12} aria-hidden="true" />
       </div>
 
       <div className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1.5 min-w-0">
-        <span className="text-primary-100/90">
-          <span className="font-medium text-white">Online mode active.</span>{' '}
+        <span className="text-foreground/80">
+          <span className="font-medium text-foreground">Online mode active.</span>{' '}
           Start the local backend to unlock filesystem, terminal & git:
         </span>
 
-        <div className="flex items-center gap-1.5 rounded-md border border-white/10 bg-black/30 px-2 py-1 font-mono text-[11px] text-primary-100">
+        <div className="flex items-center gap-1.5 rounded-md border border-border bg-background/40 px-2 py-1 font-mono text-[11px] text-foreground/90">
           <code className="truncate max-w-[260px] sm:max-w-none">{BACKEND_COMMAND}</code>
           <button
             type="button"
             onClick={handleCopy}
-            className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-primary-200 transition-colors hover:bg-white/10 hover:text-white"
+            className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface-elevated hover:text-foreground"
             aria-label="Copy command"
           >
             {copied ? <Check size={12} /> : <Copy size={12} />}
@@ -81,7 +81,7 @@ const LocalConnectionBanner = ({ className }: LocalConnectionBannerProps) => {
       <button
         type="button"
         onClick={handleDismiss}
-        className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-primary-200/60 transition-colors hover:bg-white/10 hover:text-white"
+        className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-elevated hover:text-foreground"
         aria-label="Dismiss"
       >
         <X size={14} />
