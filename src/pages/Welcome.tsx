@@ -326,7 +326,7 @@ const Welcome = () => {
       <TaskSidebar />
 
       <div className="flex-1 flex flex-col h-screen min-w-0 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,#6679a6_0%,#3a334c_48%,#121520_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,#3a3a37_0%,#30302E_48%,#262624_100%)]" />
         <img
           src="/images/hero-bg-user-preview.avif"
           alt=""
