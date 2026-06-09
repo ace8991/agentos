@@ -2098,6 +2098,7 @@ const CodePage = () => {
   open={projectGeneratorOpen}
   initialPrompt={projectGeneratorInitialPrompt}
   autoStart={projectGeneratorAutoStart}
+  model={model}
   onClose={() => {
     setProjectGeneratorOpen(false);
     setProjectGeneratorInitialPrompt('');
