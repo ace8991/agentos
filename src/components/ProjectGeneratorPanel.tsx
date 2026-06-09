@@ -150,7 +150,7 @@ const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady, initialPrompt,
       setProgressMessage('Génération du projet via agentic loop…');
 
       const result = await generateProject(
-        { prompt: prompt.trim() },
+        { prompt: effectivePrompt },
         (event: ProjectGenerateEvent) => {
           if (controller.signal.aborted) return;
 

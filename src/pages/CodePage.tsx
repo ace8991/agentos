@@ -1108,11 +1108,21 @@ const CodePage = () => {
       shouldRouteToAgent(text, mode, backendOnline) ||
       (mode === 'agent' && backendOnline && requiresLocalTools(text));
 
-    // Détection intelligente : demande de création de projet → demande confirmation
+    // Détection intelligente : demande de création de projet → lance directement le générateur
+    // (comme Claude Code / Lovable / Codex : un seul prompt → projet complet)
     const shouldGenerateProject = shouldUseProjectGenerator(text);
-    if (shouldGenerateProject && backendOnline) {
-      setPendingProjectPrompt(text);
+    if (shouldGenerateProject) {
+      if (!backendOnline) {
+        toast.error(
+          "Le générateur de projet a besoin du backend local (FastAPI sur localhost:8000). Démarre-le puis réessaie.",
+        );
+        return;
+      }
       setInputValue('');
+      setAttachments([]);
+      setProjectGeneratorInitialPrompt(text);
+      setProjectGeneratorAutoStart(true);
+      setProjectGeneratorOpen(true);
       return;
     }
 

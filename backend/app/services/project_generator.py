@@ -176,14 +176,22 @@ Vérifie que le projet est fonctionnel.
 ## RÈGLES DE GÉNÉRATION
 
 1. **Code COMPLET et FONCTIONNEL** — Pas de placeholder, pas de "..." ou "// rest"
-2. **Structure professionnelle** — Utilise les standards du framework choisi
-3. **CDN ou npm** selon le type de projet :
-   - Projets simples (jeux, animations) : CDN dans un seul HTML
-   - Projets complexes (React, fullstack) : npm + Vite + TypeScript
-4. **Dark mode** par défaut, design moderne et soigné
-5. **Responsive** — fonctionne sur mobile et desktop
-6. **Accessible** — attributs aria, rôles, labels
-7. **Performant** — pas de fuites mémoire, animations optimisées
+2. **PROJET COMPLET — JAMAIS UN SEUL FICHIER**. Tu DOIS créer au minimum :
+   - `preview/index.html` (point d'entrée, toujours présent)
+   - Au moins un fichier de styles (`preview/styles.css` ou inline complet)
+   - Au moins un fichier de script principal si le projet est interactif (`preview/app.js`, composant React, etc.)
+   - `docs/README.md` avec description, stack, instructions
+   - Les fichiers de config nécessaires (`package.json`, `vite.config.ts`, etc.) si stack npm
+   Une demande "crée un site/app/landing/jeu" attend un PROJET, pas un seul fichier.
+3. **NE T'ARRÊTE PAS après un seul outil**. Continue à appeler `str_replace_editor` jusqu'à ce que le projet soit complet et que `preview/index.html` ouvre quelque chose d'utilisable seul.
+4. **Structure professionnelle** — Utilise les standards du framework choisi
+5. **CDN ou npm** selon le type de projet :
+   - Projets simples (jeux, animations, landing pages statiques) : CDN dans `preview/index.html` + `preview/styles.css` + `preview/app.js`
+   - Projets complexes (React, fullstack) : `client/`, `server/`, etc. avec config npm
+6. **Dark mode** par défaut, design moderne et soigné
+7. **Responsive** — fonctionne sur mobile et desktop
+8. **Accessible** — attributs aria, rôles, labels
+9. **Performant** — pas de fuites mémoire, animations optimisées
 
 ## CAPACITÉS SPÉCIALES
 
@@ -966,15 +974,17 @@ def _resolve_workspace_path(path: str, workspace_dir: str) -> str:
 
 def _inject_workspace_cwd(command: str, workspace_dir: str) -> str:
     """
-    Injecte le répertoire de travail dans les commandes bash.
-    Si la commande ne contient pas déjà un cd, on ajoute le workspace_dir.
+    Force toutes les commandes shell à s'exécuter à l'intérieur du workspace
+    du projet généré, pour qu'aucun fichier ne soit créé ailleurs sur le PC.
     """
-    # Si la commande contient déjà un cd, ne pas modifier
-    if "cd " in command or "mkdir " in command:
+    if not command or not command.strip():
         return command
-    # Pour les commandes qui créent des fichiers ou installent des dépendances,
-    # on ajoute le workspace_dir comme contexte
-    return command
+    stripped = command.strip()
+    # Si la commande commence déjà par un cd vers le workspace, ne rien changer
+    if stripped.startswith("cd ") and workspace_dir in stripped:
+        return command
+    # Pour PowerShell on enchaîne avec ';' ; pour bash/cmd '&&' fonctionne aussi en PS 7+
+    return f'cd "{workspace_dir}"; {command}'
 
 
 # ── Détection du provider ────────────────────────────────────────────────────
