@@ -80,11 +80,12 @@ interface ProjectGeneratorPanelProps {
   onWorkspaceReady: (workspace: GeneratedWorkspace) => void;
   initialPrompt?: string;
   autoStart?: boolean;
+  model?: string;
 }
 
 /* ─── Component ─────────────────────────────────────── */
 
-const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady, initialPrompt, autoStart }: ProjectGeneratorPanelProps) => {
+const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady, initialPrompt, autoStart, model }: ProjectGeneratorPanelProps) => {
   const [prompt, setPrompt] = useState('');
   const [phase, setPhase] = useState<GenerationPhase>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -150,7 +151,7 @@ const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady, initialPrompt,
       setProgressMessage('Génération du projet via agentic loop…');
 
       const result = await generateProject(
-        { prompt: effectivePrompt },
+        { prompt: effectivePrompt, ...(model ? { model } : {}) },
         (event: ProjectGenerateEvent) => {
           if (controller.signal.aborted) return;
 
@@ -241,11 +242,8 @@ const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady, initialPrompt,
     if (autoStartedRef.current === initialPrompt) return;
     autoStartedRef.current = initialPrompt;
     setPrompt(initialPrompt);
-    // Defer to next tick so prompt state is committed before generate reads it
-    setTimeout(() => {
-      // Inline-start: bypass the prompt-state read by calling generate via state
-      handleGenerate();
-    }, 50);
+    // Pass the prompt explicitly to avoid relying on React state flush timing
+    handleGenerate(initialPrompt);
   }, [open, autoStart, initialPrompt, handleGenerate]);
 
   const handleKeyDown = useCallback(

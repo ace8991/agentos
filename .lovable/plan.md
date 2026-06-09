@@ -1,32 +1,48 @@
-## Objectif
-Transformer le mode Code pour qu’une demande comme “crée-moi un site moderne” lance directement une génération complète de projet, façon Claude Code / Lovable / Codex, au lieu de créer un seul fichier puis s’arrêter.
+# Vérification de la configuration « génération complète »
 
-## Plan
+## ✅ Ce qui est correctement en place
 
-1. **Corriger le déclenchement “one prompt”**
-   - Prioriser la détection de création de site/app avant les intentions simples Desktop Commander.
-   - Lancer automatiquement le générateur de projet sans demander une confirmation intermédiaire.
-   - Si le backend local est offline, afficher une erreur claire avec l’action à faire, au lieu de tomber vers une création de fichier simple.
+**Frontend (`src/pages/CodePage.tsx`)**
+- `handleSend` détecte une demande de création (`shouldUseProjectGenerator`) et lance directement `ProjectGeneratorPanel` avec `autoStart=true` et `initialPrompt=text`. ✔
+- Toast d'erreur clair si le backend est offline (pas de blocage silencieux). ✔
+- Auto-reset de `autoStart` à la fermeture. ✔
 
-2. **Corriger le bug d’auto-start du générateur**
-   - Dans `ProjectGeneratorPanel`, utiliser le prompt reçu en paramètre (`initialPrompt`) au lieu de relire un état React potentiellement vide.
-   - Envoyer `effectivePrompt` à l’API, pas `prompt.trim()`.
-   - Passer le modèle sélectionné au générateur pour que le mode Code utilise bien le modèle choisi.
+**Panneau (`src/components/ProjectGeneratorPanel.tsx`)**
+- `useEffect` d'auto-start déclenche la génération une seule fois (`autoStartedRef`). ✔
+- `handleGenerate` accepte un `overridePrompt` et utilise `effectivePrompt`. ✔
 
-3. **Renforcer la boucle agentique backend**
-   - Améliorer le prompt système “Project Architect” pour imposer plusieurs fichiers minimum selon le type de projet : preview, source, styles, README, config si nécessaire.
-   - Éviter les générations “un seul fichier” sauf si l’utilisateur demande explicitement un fichier unique.
-   - Demander à l’agent de créer, vérifier, puis finaliser le projet avec un aperçu utilisable.
+**Backend (`backend/app/services/project_generator.py`)**
+- System prompt renforcé : interdiction du « un seul fichier », exige `preview/index.html` + styles + script + `docs/README.md` + configs. ✔
+- `MAX_GENERATION_ITERATIONS = 30` (assez pour un projet complet). ✔
+- `_inject_workspace_cwd` préfixe chaque commande shell par `cd "<workspace>"` pour confiner les écritures. ✔
+- Route `POST /project/generate` (SSE) accepte `prompt`, `model`, `title` et stream les events `phase / text / tool_call / tool_result / file_created / workspace`. ✔
 
-4. **Sécuriser le workspace de génération**
-   - Forcer les commandes et fichiers générés à rester dans le dossier workspace du projet généré.
-   - Corriger l’injection de répertoire de travail pour `bash_tool`, afin que les commandes ne créent pas des fichiers ailleurs sur le PC.
-   - Ajouter un fallback multi-fichiers plus utile si le modèle ou la clé API échoue.
+**Client API (`src/lib/api.ts`)**
+- `generateProject` parse correctement les `data:` SSE et résout sur l'event `workspace`. ✔
 
-5. **Améliorer le retour visuel dans le mode Code**
-   - Ajouter dans le chat/log une entrée claire : analyse, création des fichiers, vérification, workspace prêt.
-   - Ouvrir automatiquement l’aperçu du workspace généré quand la génération se termine.
-   - Garder les actions Preview / Code / Files disponibles juste après la génération.
+## ⚠️ Deux petits problèmes restants à corriger
 
-## Résultat attendu
-Après modification, une seule demande comme “crée un website moderne pour un restaurant” doit lancer directement une génération complète, créer plusieurs fichiers dans un workspace, afficher la progression, puis ouvrir l’aperçu du site généré.
+### 1. L'auto-start ne passe pas le prompt en argument
+`ProjectGeneratorPanel.tsx` (≈ ligne 247) appelle `handleGenerate()` sans argument après `setPrompt(initialPrompt)`. Le `setTimeout(50ms)` est fragile : si React n'a pas flushé, `effectivePrompt = prompt.trim()` peut être vide → génération avortée silencieusement.
+→ **Correctif** : `handleGenerate(initialPrompt)` (le param `overridePrompt` existe déjà).
+
+### 2. Le modèle sélectionné dans le CodePage n'est pas transmis
+`generateProject({ prompt })` n'envoie jamais le `selectedModel`. Le backend retombe toujours sur `claude-sonnet-4-6` → impose `ANTHROPIC_API_KEY`, et ignore le choix de l'utilisateur (DeepSeek, GPT, Gemini…).
+→ **Correctif** : passer `{ prompt: text, model: selectedModel }` depuis `CodePage.handleSend`, et utiliser ce model dans le panneau.
+
+## 🔴 Pré-requis runtime (hors code)
+
+Le preview cloud ne peut **pas** joindre `localhost:8000` — c'est attendu. Pour tester la génération complète :
+1. Lancer `start-backend.bat` sur la machine locale (FastAPI sur `:8000`).
+2. Renseigner au moins une clé API dans `backend/.env` (`ANTHROPIC_API_KEY` recommandé pour le défaut, ou `OPENAI_API_KEY` / `DEEPSEEK_API_KEY` / `GOOGLE_API_KEY` selon le modèle).
+3. Ouvrir le frontend depuis `localhost` (ou tunnel) pour que le navigateur joigne `localhost:8000`.
+
+## Plan d'action
+
+```text
+1. ProjectGeneratorPanel.tsx       → handleGenerate(initialPrompt)
+2. CodePage.tsx (handleSend)       → ajouter model: selectedModel à generateProject
+3. ProjectGeneratorPanel + api.ts  → propager le champ model dans ProjectGenerateRequest
+```
+
+Aucun changement backend nécessaire — la route accepte déjà `model`.
