@@ -444,7 +444,7 @@ async def models_available():
             {'id': 'qwen3-235b-a22b-instruct-2507', 'name': 'Qwen3 235B', 'provider': 'qwen'},
         ]
     if not mods:
-        mods = [{'id': 'claude-sonnet-4-6', 'name': 'Claude Sonnet 4.6', 'provider': 'anthropic', 'default': True}]
+        mods = [{'id': 'claude-sonnet-4-7', 'name': 'Claude Sonnet 4.7 (latest)', 'provider': 'anthropic', 'default': True}]
     return {
         'models': mods,
         'providers': {
