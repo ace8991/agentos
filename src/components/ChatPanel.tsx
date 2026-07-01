@@ -125,9 +125,9 @@ const pickSmartAgentModel = (
   backendHealth: ReturnType<typeof useStore.getState>['backendHealth'],
 ) => {
   if (isAgentModelSupported(currentModel)) return currentModel;
-  if (backendHealth?.system?.anthropic_key) return 'claude-sonnet-4-6';
+  if (backendHealth?.system?.anthropic_key) return 'claude-sonnet-4-7';
   if (backendHealth?.system?.openai_key) return 'gpt-4o';
-  return 'claude-sonnet-4-6';
+  return 'claude-sonnet-4-7';
 };
 
 const ChatPanel = () => {

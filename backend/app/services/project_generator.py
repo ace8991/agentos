@@ -1010,7 +1010,7 @@ def _detect_provider(model: str) -> str:
 
 async def generate_project(
     prompt: str,
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-4-7",
 ) -> AsyncGenerator[str, None]:
     """
     Génère un projet complet à partir d'une description textuelle.

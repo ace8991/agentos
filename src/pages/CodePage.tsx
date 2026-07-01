@@ -906,7 +906,7 @@ const pickSmartAgentModel = (
     'minimum viable product',
   ];
   if (heavyKeywords.some((keyword) => lower.includes(keyword))) {
-    return 'claude-sonnet-4-20250514';
+    return 'claude-sonnet-4-7';
   }
   return currentModel;
 };

@@ -74,7 +74,7 @@ def think_and_act(
     max_steps: int,
     history: list[dict],
     memory: dict,
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-4-7",
     last_tool_result: Optional[dict] = None,
     reasoning_effort: Optional[str] = None,
 ) -> tuple[str, Optional[AgentAction]]:

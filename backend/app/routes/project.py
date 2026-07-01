@@ -33,7 +33,7 @@ router = APIRouter(prefix="/project", tags=["project"])
 
 class ProjectGenerateRequest(BaseModel):
     prompt: str
-    model: str = "claude-sonnet-4-6"
+    model: str = "claude-sonnet-4-7"
     title: str | None = None
 
 

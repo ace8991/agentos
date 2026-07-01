@@ -127,7 +127,7 @@ const SettingsModal = () => {
   const [pyautoguiEnabled, setPyautoguiEnabled] = useState(true);
   const [confirmClick, setConfirmClick] = useState(false);
   const [computerUseProvider, setComputerUseProvider] = useState<'auto' | 'anthropic' | 'disabled'>('auto');
-  const [computerUseModel, setComputerUseModel] = useState('claude-sonnet-4-6');
+  const [computerUseModel, setComputerUseModel] = useState('claude-sonnet-4-7');
 
   // Scheduled tasks
   const [scheduledTasks, setScheduledTasks] = useState<ScheduledTask[]>([]);
@@ -226,7 +226,7 @@ const SettingsModal = () => {
     setMaxErrors(Number(localStorage.getItem('MAX_ERRORS')) || 3);
     setConfirmClick(localStorage.getItem('CONFIRM_CLICK') === 'true');
     setComputerUseProvider((localStorage.getItem('COMPUTER_USE_PROVIDER') as 'auto' | 'anthropic' | 'disabled' | null) || 'auto');
-    setComputerUseModel(localStorage.getItem('COMPUTER_USE_MODEL') || 'claude-sonnet-4-6');
+    setComputerUseModel(localStorage.getItem('COMPUTER_USE_MODEL') || 'claude-sonnet-4-7');
 
     // Scheduled tasks
     try {
@@ -888,7 +888,7 @@ const SettingsModal = () => {
                   disabled={computerUseProvider === 'disabled'}
                   className="bg-muted border border-border rounded-md px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring w-full disabled:opacity-50"
                 >
-                  <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
+                  <option value="claude-sonnet-4-7">Claude Sonnet 4.6</option>
                   <option value="claude-opus-4-5">Claude Opus 4.5</option>
                 </select>
               </ConfigRow>

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 @dataclass
 class AgentConfig:
     # Default model when none specified
-    default_model: str = os.getenv("AGENT_DEFAULT_MODEL", "claude-opus-4-7")
+    default_model: str = os.getenv("AGENT_DEFAULT_MODEL", "claude-opus-4-8")
 
     # API keys
     anthropic_api_key: str | None = os.getenv("ANTHROPIC_API_KEY")
