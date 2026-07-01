@@ -145,7 +145,7 @@ const REASONING_MODELS = new Set([
   'gpt-5.4', 'gpt-5.3-codex', 'gpt-5.2-codex', 'gpt-5.1',
   'o1', 'o3-mini',
   // Anthropic — extended thinking
-  'claude-opus-4-5', 'claude-sonnet-4-6',
+  'claude-opus-4-8', 'claude-sonnet-4-7', 'claude-opus-4-5', 'claude-sonnet-4-6',
   // Qwen3 — enable_thinking
   'qwen3-235b-a22b-instruct-2507',
   // DeepSeek-R1 — chain-of-thought
