@@ -13,9 +13,11 @@ from src.agent.core.registry import MODEL_REGISTRY, get_model as registry_get_mo
 # ── Legacy model list (kept for backward compatibility) ───────────────────────
 
 _MODELS: list[ModelInfo] = [
+    ModelInfo(id="claude-opus-4-8", name="Claude Opus 4.8 (latest)", provider="anthropic", cost_per_step="server-key", vision=True),
+    ModelInfo(id="claude-sonnet-4-7", name="Claude Sonnet 4.7 (latest)", provider="anthropic", cost_per_step="server-key", vision=True),
     ModelInfo(id="claude-opus-4-5", name="Claude Opus 4.5", provider="anthropic", cost_per_step="server-key", vision=True),
     ModelInfo(id="claude-sonnet-4-6", name="Claude Sonnet 4.6", provider="anthropic", cost_per_step="server-key", vision=True),
-    ModelInfo(id="claude-haiku-3-5", name="Claude Haiku 3.5", provider="anthropic", cost_per_step="server-key", vision=True),
+    ModelInfo(id="claude-haiku-4-5", name="Claude Haiku 4.5", provider="anthropic", cost_per_step="server-key", vision=True),
     ModelInfo(id="gpt-5.4", name="GPT-5.4", provider="openai", cost_per_step="server-key", vision=True),
     ModelInfo(id="gpt-5.3-codex", name="GPT-5.3-Codex", provider="openai", cost_per_step="server-key", vision=True),
     ModelInfo(id="gpt-5.2-codex", name="GPT-5.2-Codex", provider="openai", cost_per_step="server-key", vision=True),
