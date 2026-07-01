@@ -7,7 +7,7 @@ ReasoningEffort = Literal["none", "minimal", "low", "medium", "high", "xhigh"]
 
 class StartRequest(BaseModel):
     task: str
-    model: str = "claude-sonnet-4-6"
+    model: str = "claude-sonnet-4-7"
     max_steps: int = 20
     capture_interval_ms: int = 1000
     reasoning_effort: Optional[ReasoningEffort] = None
@@ -296,13 +296,13 @@ class ExecutionSummary(BaseModel):
 
 class ExecutionPlanRequest(BaseModel):
     task: str
-    model: str = "claude-sonnet-4-6"
+    model: str = "claude-sonnet-4-7"
     max_steps: int = 20
 
 
 class ExecutionRunRequest(BaseModel):
     task: str
-    model: str = "claude-sonnet-4-6"
+    model: str = "claude-sonnet-4-7"
     max_steps: int = 20
     capture_interval_ms: int = 1000
     reasoning_effort: Optional[ReasoningEffort] = None

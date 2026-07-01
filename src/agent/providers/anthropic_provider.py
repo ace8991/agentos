@@ -29,8 +29,10 @@ logger = logging.getLogger("agentos.agent.anthropic")
 class AnthropicProvider(LLMProvider):
     name = "anthropic"
 
-    # Models that support the native computer use tool
+    # Models that support the native computer use tool (pixel-precise `computer_20251124`).
     COMPUTER_USE_MODELS = {
+        "claude-opus-4-8",
+        "claude-sonnet-4-7",
         "claude-opus-4-7",
         "claude-opus-4-6",
         "claude-opus-4-5",
@@ -38,15 +40,24 @@ class AnthropicProvider(LLMProvider):
         "claude-haiku-4-5-20251001",
     }
 
+    # Models that support Anthropic extended thinking (interleaved reasoning blocks).
+    EXTENDED_THINKING_MODELS = {
+        "claude-opus-4-8",
+        "claude-sonnet-4-7",
+        "claude-opus-4-7",
+    }
+
     def __init__(
         self,
         model_id: str,
         *,
         api_key: str | None = None,
-        max_tokens: int = 4096,
+        max_tokens: int = 16_384,
         display_width: int = 1920,
         display_height: int = 1080,
         enable_computer_use: bool = True,
+        enable_extended_thinking: bool = True,
+        thinking_budget_tokens: int = 8_192,
     ):
         self.model_id = model_id
         self.client = AsyncAnthropic(api_key=api_key or os.getenv("ANTHROPIC_API_KEY"))
@@ -54,6 +65,11 @@ class AnthropicProvider(LLMProvider):
         self.display_width = display_width
         self.display_height = display_height
         self.enable_computer_use = enable_computer_use and model_id in self.COMPUTER_USE_MODELS
+        self.enable_extended_thinking = (
+            enable_extended_thinking and model_id in self.EXTENDED_THINKING_MODELS
+        )
+        self.thinking_budget_tokens = thinking_budget_tokens
+
 
     async def chat(
         self,
@@ -82,12 +98,26 @@ class AnthropicProvider(LLMProvider):
         if system_prompt:
             kwargs["system"] = system_prompt
 
-        # Add computer use beta header when applicable
-        extra_headers = {}
+        # Extended thinking on supported models — give the model a real reasoning budget.
+        if self.enable_extended_thinking:
+            kwargs["thinking"] = {
+                "type": "enabled",
+                "budget_tokens": self.thinking_budget_tokens,
+            }
+
+        # Beta headers: computer use + extended thinking.
+        beta_flags: list[str] = []
         if self.enable_computer_use:
-            extra_headers["anthropic-beta"] = "computer-use-2025-01-24"
+            beta_flags.append("computer-use-2025-01-24")
+        if self.enable_extended_thinking:
+            beta_flags.append("interleaved-thinking-2025-05-14")
+
+        extra_headers = {}
+        if beta_flags:
+            extra_headers["anthropic-beta"] = ",".join(beta_flags)
 
         if extra_headers:
+
             kwargs["extra_headers"] = extra_headers
 
         response = await self.client.messages.create(**kwargs)
