@@ -36,7 +36,19 @@ COMPUTER_USE_UNAVAILABLE_PATTERNS = (
 )
 
 SUPPORTED_COMPUTER_USE_PROVIDERS = {"auto", "anthropic", "disabled"}
-SUPPORTED_COMPUTER_USE_MODELS = {"claude-opus-4-5", "claude-sonnet-4-6"}
+SUPPORTED_COMPUTER_USE_MODELS = {
+    "claude-opus-4-8",
+    "claude-sonnet-4-7",
+    "claude-opus-4-5",
+    "claude-sonnet-4-6",
+    "claude-haiku-4-5",
+}
+DEFAULT_COMPUTER_USE_MODEL = "claude-sonnet-4-7"
+
+
+def resolve_computer_use_runtime() -> dict:
+    model = (get_runtime_value("COMPUTER_USE_MODEL", DEFAULT_COMPUTER_USE_MODEL) or DEFAULT_COMPUTER_USE_MODEL).strip()
+    return model if model in SUPPORTED_COMPUTER_USE_MODELS else DEFAULT_COMPUTER_USE_MODEL
 
 
 def get_computer_use_provider() -> str:
