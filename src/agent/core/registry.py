@@ -30,7 +30,29 @@ class ModelInfo:
 # REGISTRY — add new models here
 # ─────────────────────────────────────────────────────────────────
 MODEL_REGISTRY: dict[str, ModelInfo] = {
-    # Anthropic — native computer use
+    # Anthropic — Latest tier (Claude 4.8 / 4.7) — full native computer use +
+    # extended thinking, 500k context, large output budget.
+    "claude-opus-4-8": ModelInfo(
+        id="claude-opus-4-8",
+        provider="anthropic",
+        label="Claude Opus 4.8 (latest)",
+        supports_vision=True,
+        supports_computer_use=True,
+        supports_thinking=True,
+        max_context=500_000,
+        default_max_tokens=16_384,
+    ),
+    "claude-sonnet-4-7": ModelInfo(
+        id="claude-sonnet-4-7",
+        provider="anthropic",
+        label="Claude Sonnet 4.7 (latest)",
+        supports_vision=True,
+        supports_computer_use=True,
+        supports_thinking=True,
+        max_context=500_000,
+        default_max_tokens=16_384,
+    ),
+    # Anthropic — previous generation
     "claude-opus-4-7": ModelInfo(
         id="claude-opus-4-7",
         provider="anthropic",
@@ -39,6 +61,7 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         supports_computer_use=True,
         supports_thinking=True,
         max_context=200_000,
+        default_max_tokens=8192,
     ),
     "claude-opus-4-6": ModelInfo(
         id="claude-opus-4-6",
@@ -47,6 +70,7 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         supports_vision=True,
         supports_computer_use=True,
         max_context=200_000,
+        default_max_tokens=8192,
     ),
     "claude-sonnet-4-6": ModelInfo(
         id="claude-sonnet-4-6",
@@ -55,6 +79,7 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         supports_vision=True,
         supports_computer_use=True,
         max_context=200_000,
+        default_max_tokens=8192,
     ),
     "claude-haiku-4-5": ModelInfo(
         id="claude-haiku-4-5-20251001",
@@ -63,7 +88,9 @@ MODEL_REGISTRY: dict[str, ModelInfo] = {
         supports_vision=True,
         supports_computer_use=True,
         max_context=200_000,
+        default_max_tokens=8192,
     ),
+
 
     # DeepSeek — function calling + vision, no native computer use
     "deepseek-v4-pro": ModelInfo(
