@@ -400,9 +400,11 @@ async def models_available():
     mods = []
     if a:
         mods += [
+            {'id': 'claude-opus-4-8',   'name': 'Claude Opus 4.8 (latest)',   'provider': 'anthropic'},
+            {'id': 'claude-sonnet-4-7', 'name': 'Claude Sonnet 4.7 (latest)', 'provider': 'anthropic', 'default': True},
             {'id': 'claude-opus-4-5',   'name': 'Claude Opus 4.5',   'provider': 'anthropic'},
-            {'id': 'claude-sonnet-4-6', 'name': 'Claude Sonnet 4.6', 'provider': 'anthropic', 'default': True},
-            {'id': 'claude-haiku-3-5',  'name': 'Claude Haiku 3.5',  'provider': 'anthropic', 'fast': True},
+            {'id': 'claude-sonnet-4-6', 'name': 'Claude Sonnet 4.6', 'provider': 'anthropic'},
+            {'id': 'claude-haiku-4-5',  'name': 'Claude Haiku 4.5',  'provider': 'anthropic', 'fast': True},
         ]
     if o:
         mods += [
