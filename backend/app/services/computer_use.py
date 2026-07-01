@@ -46,19 +46,14 @@ SUPPORTED_COMPUTER_USE_MODELS = {
 DEFAULT_COMPUTER_USE_MODEL = "claude-sonnet-4-7"
 
 
-def resolve_computer_use_runtime() -> dict:
-    model = (get_runtime_value("COMPUTER_USE_MODEL", DEFAULT_COMPUTER_USE_MODEL) or DEFAULT_COMPUTER_USE_MODEL).strip()
-    return model if model in SUPPORTED_COMPUTER_USE_MODELS else DEFAULT_COMPUTER_USE_MODEL
-
-
 def get_computer_use_provider() -> str:
     provider = (get_runtime_value("COMPUTER_USE_PROVIDER", "auto") or "auto").strip().lower()
     return provider if provider in SUPPORTED_COMPUTER_USE_PROVIDERS else "auto"
 
 
 def get_computer_use_model() -> str:
-    model = (get_runtime_value("COMPUTER_USE_MODEL", "claude-sonnet-4-6") or "claude-sonnet-4-6").strip()
-    return model if model in SUPPORTED_COMPUTER_USE_MODELS else "claude-sonnet-4-6"
+    model = (get_runtime_value("COMPUTER_USE_MODEL", DEFAULT_COMPUTER_USE_MODEL) or DEFAULT_COMPUTER_USE_MODEL).strip()
+    return model if model in SUPPORTED_COMPUTER_USE_MODELS else DEFAULT_COMPUTER_USE_MODEL
 
 
 def resolve_computer_use_runtime() -> dict[str, str | bool]:
