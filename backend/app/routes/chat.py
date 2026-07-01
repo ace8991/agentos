@@ -50,7 +50,7 @@ class Msg(BaseModel):
 
 class ChatReq(BaseModel):
     messages: list[Msg]
-    model: str = 'claude-sonnet-4-6'
+    model: str = 'claude-sonnet-4-7'
     stream: bool = True
     max_tokens: int = 4096
     system: Optional[str] = None
