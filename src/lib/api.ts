@@ -77,7 +77,7 @@ const VALID = new Set([
 ]);
 
 export function normalizeModel(model: string): string {
-  if (!model) return 'claude-sonnet-4-6';
+  if (!model) return 'claude-sonnet-4-7';
   const lowered = model.toLowerCase();
   if (MODEL_FIX[lowered]) return MODEL_FIX[lowered];
   if (VALID.has(lowered)) return lowered;
@@ -87,9 +87,9 @@ export function normalizeModel(model: string): string {
   if (lowered.includes('mistral') || lowered.includes('codestral')) return 'mistral-large-latest';
   if (lowered.includes('llama') || lowered.includes('mixtral')) return 'llama-3.3-70b-versatile';
   if (lowered.includes('qwen')) return 'qwen-max';
-  if (lowered.includes('opus')) return 'claude-opus-4-5';
-  if (lowered.includes('haiku')) return 'claude-haiku-3-5';
-  return 'claude-sonnet-4-6';
+  if (lowered.includes('opus')) return 'claude-opus-4-8';
+  if (lowered.includes('haiku')) return 'claude-haiku-4-5';
+  return 'claude-sonnet-4-7';
 }
 
 async function readError(response: Response, fallback: string) {
