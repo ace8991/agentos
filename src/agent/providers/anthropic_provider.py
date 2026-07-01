@@ -98,12 +98,26 @@ class AnthropicProvider(LLMProvider):
         if system_prompt:
             kwargs["system"] = system_prompt
 
-        # Add computer use beta header when applicable
-        extra_headers = {}
+        # Extended thinking on supported models — give the model a real reasoning budget.
+        if self.enable_extended_thinking:
+            kwargs["thinking"] = {
+                "type": "enabled",
+                "budget_tokens": self.thinking_budget_tokens,
+            }
+
+        # Beta headers: computer use + extended thinking.
+        beta_flags: list[str] = []
         if self.enable_computer_use:
-            extra_headers["anthropic-beta"] = "computer-use-2025-01-24"
+            beta_flags.append("computer-use-2025-01-24")
+        if self.enable_extended_thinking:
+            beta_flags.append("interleaved-thinking-2025-05-14")
+
+        extra_headers = {}
+        if beta_flags:
+            extra_headers["anthropic-beta"] = ",".join(beta_flags)
 
         if extra_headers:
+
             kwargs["extra_headers"] = extra_headers
 
         response = await self.client.messages.create(**kwargs)
