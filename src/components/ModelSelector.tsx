@@ -25,9 +25,11 @@ export const MODEL_PROVIDERS: ModelProvider[] = [
     requiresKey: true,
     keyName: 'ANTHROPIC_API_KEY',
     models: [
-      { id: 'claude-opus-4-5', name: 'Claude Opus 4.5', description: 'Most capable' },
+      { id: 'claude-opus-4-8', name: 'Claude Opus 4.8', description: 'Latest — extended thinking + computer use' },
+      { id: 'claude-sonnet-4-7', name: 'Claude Sonnet 4.7', description: 'Latest — best balance, thinking + computer use' },
+      { id: 'claude-opus-4-5', name: 'Claude Opus 4.5', description: 'Most capable (previous gen)' },
       { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', description: 'Balanced' },
-      { id: 'claude-haiku-3-5', name: 'Claude Haiku 3.5', description: 'Fast & cheap' },
+      { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5', description: 'Fast & cheap' },
     ],
   },
   {
