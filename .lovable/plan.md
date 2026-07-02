@@ -1,48 +1,83 @@
-# Vérification de la configuration « génération complète »
+# Plan — Robustesse backend, traçabilité modèle, garde-fous génération
 
-## ✅ Ce qui est correctement en place
+## 1. Health check bi-directionnel + gate de génération
 
-**Frontend (`src/pages/CodePage.tsx`)**
-- `handleSend` détecte une demande de création (`shouldUseProjectGenerator`) et lance directement `ProjectGeneratorPanel` avec `autoStart=true` et `initialPrompt=text`. ✔
-- Toast d'erreur clair si le backend est offline (pas de blocage silencieux). ✔
-- Auto-reset de `autoStart` à la fermeture. ✔
+**Backend** (`backend/app/routes/health.py`)
+- Enrichir la réponse `/health` avec :
+  - `providers_configured`: dict `{anthropic, openai, deepseek, mistral, groq}` = booléen selon `runtime_config.get_runtime_value`
+  - `project_generator_ready`: booléen (workspace dir accessible en écriture + au moins une clé provider présente)
+  - `version` + `uptime_seconds`
 
-**Panneau (`src/components/ProjectGeneratorPanel.tsx`)**
-- `useEffect` d'auto-start déclenche la génération une seule fois (`autoStartedRef`). ✔
-- `handleGenerate` accepte un `overridePrompt` et utilise `effectivePrompt`. ✔
+**Frontend**
+- `src/store/useStore.ts` : ajouter `backendHealth: HealthPayload | null`, `backendLastCheck: number`, remplir depuis `syncBackendHealth`.
+- `src/components/ProjectGeneratorPanel.tsx` : avant `startGeneration`, appeler un helper `assertBackendReady()` qui :
+  1. Force un refresh `/health` (bypass du cache 15s)
+  2. Bloque avec un toast explicite si `backendOnline=false` OU `project_generator_ready=false` OU la clé du provider du modèle sélectionné manque
+  3. Affiche un état "En attente du backend…" au lieu de lancer une génération qui s'arrêtera au premier tool_call
+- `src/pages/CodePage.tsx` : dans le flux "création de projet détectée", même garde avant d'ouvrir le panneau — si offline, message clair au lieu d'un panneau qui timeout.
 
-**Backend (`backend/app/services/project_generator.py`)**
-- System prompt renforcé : interdiction du « un seul fichier », exige `preview/index.html` + styles + script + `docs/README.md` + configs. ✔
-- `MAX_GENERATION_ITERATIONS = 30` (assez pour un projet complet). ✔
-- `_inject_workspace_cwd` préfixe chaque commande shell par `cd "<workspace>"` pour confiner les écritures. ✔
-- Route `POST /project/generate` (SSE) accepte `prompt`, `model`, `title` et stream les events `phase / text / tool_call / tool_result / file_created / workspace`. ✔
+## 2. ModelSelector — identifiant modèle cohérent partout
 
-**Client API (`src/lib/api.ts`)**
-- `generateProject` parse correctement les `data:` SSE et résout sur l'event `workspace`. ✔
+**Audit ciblé** :
+- `src/components/ModelSelector.tsx` — source de vérité (déjà branchée sur `registry`).
+- `src/lib/api.ts` : `chatDirect`, `chatStream`, `runAgent` — vérifier qu'aucun fallback `|| "claude-sonnet-4-7"` ne masque un id vide.
+- `src/pages/CodePage.tsx` — prop `model` de `ProjectGeneratorPanel`.
+- `src/components/ProjectGeneratorPanel.tsx` — payload POST `/project/generate`.
+- `backend/app/routes/chat.py`, `backend/app/routes/project.py`, `backend/app/services/brain.py`, `backend/app/services/project_generator.py` — s'assurer que l'id reçu est utilisé tel quel (pas de remap silencieux).
 
-## ⚠️ Deux petits problèmes restants à corriger
+**Changements** :
+- Introduire `src/lib/model-guard.ts` avec `resolveModelId(id?: string): string` qui :
+  - Renvoie l'id si présent dans `registry`
+  - Sinon **throw** au lieu de fallback silencieux (le caller gère le toast)
+- Appeler `resolveModelId` dans `chatDirect`, `runAgent`, `ProjectGeneratorPanel.startGeneration`, `CodePage` (avant envoi).
+- Côté backend, `brain.py` et `project_generator.py` : si le modèle reçu n'est pas dans le registry, renvoyer HTTP 400 avec message explicite au lieu de basculer sur un défaut.
 
-### 1. L'auto-start ne passe pas le prompt en argument
-`ProjectGeneratorPanel.tsx` (≈ ligne 247) appelle `handleGenerate()` sans argument après `setPrompt(initialPrompt)`. Le `setTimeout(50ms)` est fragile : si React n'a pas flushé, `effectivePrompt = prompt.trim()` peut être vide → génération avortée silencieusement.
-→ **Correctif** : `handleGenerate(initialPrompt)` (le param `overridePrompt` existe déjà).
+## 3. Journalisation détaillée (modèle, thinking, beta headers)
 
-### 2. Le modèle sélectionné dans le CodePage n'est pas transmis
-`generateProject({ prompt })` n'envoie jamais le `selectedModel`. Le backend retombe toujours sur `claude-sonnet-4-6` → impose `ANTHROPIC_API_KEY`, et ignore le choix de l'utilisateur (DeepSeek, GPT, Gemini…).
-→ **Correctif** : passer `{ prompt: text, model: selectedModel }` depuis `CodePage.handleSend`, et utiliser ce model dans le panneau.
+**Backend**
+- `src/agent/providers/anthropic_provider.py` : log INFO structuré à chaque `chat()` :
+  ```
+  [anthropic] model=claude-opus-4-8 thinking=on(budget=8192) beta=computer-use-2025-01-24,interleaved-thinking-2025-05-14 tools=12
+  ```
+- `backend/app/services/brain.py` : log identique pour le chemin natif Anthropic + le chemin OpenAI-compat (avec `reasoning_effort` si présent).
+- `backend/app/services/project_generator.py` : log de démarrage `[project_generator] model=… workspace=… prompt_chars=…` et un log par tool_call.
 
-## 🔴 Pré-requis runtime (hors code)
+**Frontend**
+- `src/lib/api.ts` : `console.info("[chat]", { model, endpoint, streaming, thinking })` avant chaque requête, gardé derrière `import.meta.env.DEV || localStorage.getItem("agentos:verbose")`.
+- Étendre `SidebarToolStatus` (ou créer `DebugConsole` déjà présent si applicable) pour surfacer les 20 derniers logs de génération en UI (mode dev).
 
-Le preview cloud ne peut **pas** joindre `localhost:8000` — c'est attendu. Pour tester la génération complète :
-1. Lancer `start-backend.bat` sur la machine locale (FastAPI sur `:8000`).
-2. Renseigner au moins une clé API dans `backend/.env` (`ANTHROPIC_API_KEY` recommandé pour le défaut, ou `OPENAI_API_KEY` / `DEEPSEEK_API_KEY` / `GOOGLE_API_KEY` selon le modèle).
-3. Ouvrir le frontend depuis `localhost` (ou tunnel) pour que le navigateur joigne `localhost:8000`.
+## 4. Test de génération multi-fichiers
 
-## Plan d'action
+**Nouveau test** : `backend/tests/test_project_generator_multifile.py`
+- Utilise `unittest.mock.patch` pour stubber le client Anthropic : renvoie une séquence scriptée de tool_use (`str_replace_editor` créant `index.html`, `styles.css`, `script.js`, `README.md`, `package.json`, puis un `bash_tool` finalisation, puis stop).
+- Appelle `project_generator.run(prompt="landing page moderne", model="claude-sonnet-4-7")` en mode synchrone (helper de test qui draine le SSE).
+- Assertions :
+  - Au moins 4 fichiers créés dans le workspace temporaire
+  - Présence d'un fichier HTML, un CSS, un JS, un README
+  - `workspace.json` contient bien `status="complete"` (pas `error` ni `analyzing`)
+  - Le run n'a pas terminé après le 1er tool_call (compteur ≥ 5)
+- Ajouter un second test négatif : si le stub renvoie un seul tool_call puis stop, le générateur doit marquer `status="incomplete"` et logger un warning — évite la régression "s'arrête après un fichier".
+
+Mettre à jour `.github/workflows/ci.yml` si un job pytest existe pour inclure ce fichier.
+
+## Détails techniques
+
+- Aucun changement de palette / UI majeure — les toasts réutilisent `use-toast` existant.
+- `HealthPayload` typé dans `src/lib/api.ts` et partagé avec le store.
+- Les logs backend passent par `logging.getLogger("agentos.<module>")` déjà en place ; niveau INFO par défaut, DEBUG pour le détail tool_call.
+- Les tests utilisent `pytest` + `pytest-asyncio` déjà présents dans `requirements.txt` (à vérifier lors du build).
+
+## Fichiers touchés
 
 ```text
-1. ProjectGeneratorPanel.tsx       → handleGenerate(initialPrompt)
-2. CodePage.tsx (handleSend)       → ajouter model: selectedModel à generateProject
-3. ProjectGeneratorPanel + api.ts  → propager le champ model dans ProjectGenerateRequest
+backend/app/routes/health.py            (enrichir payload)
+backend/app/services/brain.py           (logs + validation modèle)
+backend/app/services/project_generator.py (logs + garde-fou single-file)
+backend/tests/test_project_generator_multifile.py (nouveau)
+src/agent/providers/anthropic_provider.py (logs)
+src/store/useStore.ts                   (backendHealth)
+src/lib/api.ts                          (types + logs + resolveModelId usage)
+src/lib/model-guard.ts                  (nouveau)
+src/components/ProjectGeneratorPanel.tsx (gate + resolveModelId)
+src/pages/CodePage.tsx                  (gate avant ouverture panneau)
 ```
-
-Aucun changement backend nécessaire — la route accepte déjà `model`.

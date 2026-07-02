@@ -580,6 +580,16 @@ async def _anthropic_agentic_loop(
 
     history = list(messages)
     files_created = 0
+    headers = {
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+        "anthropic-beta": "computer-use-2025-01-24",
+    }
+    logger.info(
+        "[project_generator/anthropic] model=%s max_tokens=64000 tools=%d beta=%s",
+        model, len(TOOLS_ANTHROPIC), headers["anthropic-beta"],
+    )
 
     for iteration in range(MAX_GENERATION_ITERATIONS):
         payload: dict[str, Any] = {
@@ -594,11 +604,7 @@ async def _anthropic_agentic_loop(
             async with httpx.AsyncClient(timeout=300) as client:
                 async with client.stream(
                     "POST", "https://api.anthropic.com/v1/messages",
-                    headers={
-                        "x-api-key": key,
-                        "anthropic-version": "2023-06-01",
-                        "content-type": "application/json",
-                    },
+                    headers=headers,
                     json=payload,
                 ) as resp:
                     if resp.status_code != 200:
@@ -795,6 +801,10 @@ async def _openai_agentic_loop(
         headers["Authorization"] = f"Bearer {key}"
 
     files_created = 0
+    logger.info(
+        "[project_generator/%s] model=%s max_tokens=64000 tools=%d",
+        provider, model, len(TOOLS_OPENAI),
+    )
 
     for iteration in range(MAX_GENERATION_ITERATIONS):
         assistant_text = ""

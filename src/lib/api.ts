@@ -139,6 +139,15 @@ export async function chatDirect(
   },
 ): Promise<void> {
   const normalizedModel = normalizeModel(model);
+  try {
+    const { resolveModelId } = await import('@/lib/model-guard');
+    const mode = messages.some((m) => m.role === 'system' && typeof m.content === 'string' && m.content.includes('agent'))
+      ? 'agent' as const
+      : 'chat' as const;
+    resolveModelId(normalizedModel, mode === 'agent' ? 'agent' : 'chat', { reasoningEffort });
+  } catch {
+    /* logging is best-effort */
+  }
   const userPrompt = [...messages].reverse().find((message) => {
     if (message.role !== 'user') return false;
     return typeof message.content === 'string' ? true : message.content.some(p => p.type === 'text');
@@ -535,6 +544,30 @@ export interface HealthResponse {
   desktop_commander?: {
     enabled?: boolean;
   };
+  project_generator?: {
+    ready: boolean;
+    providers: string[];
+    reason?: string | null;
+  };
+  providers?: Record<string, boolean>;
+}
+
+export function isProjectGeneratorReady(health: HealthResponse | null | undefined): {
+  ready: boolean;
+  reason?: string;
+} {
+  if (!health) return { ready: false, reason: 'Backend hors ligne' };
+  const pg = health.project_generator;
+  if (pg) {
+    return pg.ready
+      ? { ready: true }
+      : { ready: false, reason: pg.reason ?? 'Aucun provider LLM configuré' };
+  }
+  // Fallback for older backend payloads
+  const hasProvider = health.system?.anthropic_key || health.system?.openai_key || health.system?.deepseek_key;
+  return hasProvider
+    ? { ready: true }
+    : { ready: false, reason: 'Aucun provider LLM configuré' };
 }
 
 export async function checkHealth(): Promise<HealthResponse> {

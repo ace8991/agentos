@@ -18,6 +18,19 @@ def detect_capabilities() -> dict:
     remote_config = get_remote_config()
     mobile_hub_state = get_mobile_hub_state()
 
+    # Project generator is ready when at least one LLM provider is configured.
+    _provider_keys = (
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "GOOGLE_API_KEY",
+        "MISTRAL_API_KEY",
+        "GROQ_API_KEY",
+        "QWEN_API_KEY",
+    )
+    _provider_ready = [k.replace("_API_KEY", "").lower() for k in _provider_keys if has_runtime_value(k)]
+    project_generator_ready = len(_provider_ready) > 0
+
     return {
         "status": "ok",
         "version": "1.1.0",
@@ -70,6 +83,11 @@ def detect_capabilities() -> dict:
             "computer_use_model": computer_use_runtime["model"],
             "computer_use_ready": computer_use_runtime["ready"],
             "desktop_commander_ready": IS_LOCAL,
+        },
+        "project_generator": {
+            "ready": project_generator_ready,
+            "providers": _provider_ready,
+            "reason": None if project_generator_ready else "No LLM provider configured",
         },
     }
 
