@@ -81,14 +81,26 @@ async def _anthropic(req: ChatReq) -> AsyncIterator[str]:
     payload: dict = {'model': model, 'max_tokens': req.max_tokens, 'messages': msgs, 'stream': True}
     if system:
         payload['system'] = system
+    thinking_budget = 0
     if req.reasoning_effort in ('low', 'medium', 'high'):
         budgets = {'low': 3000, 'medium': 10000, 'high': 25000}
-        payload['thinking'] = {'type': 'enabled', 'budget_tokens': budgets[req.reasoning_effort]}
+        thinking_budget = budgets[req.reasoning_effort]
+        payload['thinking'] = {'type': 'enabled', 'budget_tokens': thinking_budget}
+    headers = {'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json'}
+    beta = []
+    if thinking_budget:
+        beta.append('interleaved-thinking-2025-05-14')
+    if beta:
+        headers['anthropic-beta'] = ','.join(beta)
+    logger.info(
+        "[chat/anthropic] model=%s max_tokens=%s thinking=%s beta=%s",
+        model, req.max_tokens, thinking_budget or 'off', headers.get('anthropic-beta', 'none'),
+    )
     try:
         async with httpx.AsyncClient(timeout=120) as c:
             async with c.stream(
                 'POST', 'https://api.anthropic.com/v1/messages',
-                headers={'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json'},
+                headers=headers,
                 json=payload,
             ) as r:
                 if r.status_code != 200:

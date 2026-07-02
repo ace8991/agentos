@@ -580,6 +580,16 @@ async def _anthropic_agentic_loop(
 
     history = list(messages)
     files_created = 0
+    headers = {
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+        "anthropic-beta": "computer-use-2025-01-24",
+    }
+    logger.info(
+        "[project_generator/anthropic] model=%s max_tokens=64000 tools=%d beta=%s",
+        model, len(TOOLS_ANTHROPIC), headers["anthropic-beta"],
+    )
 
     for iteration in range(MAX_GENERATION_ITERATIONS):
         payload: dict[str, Any] = {
