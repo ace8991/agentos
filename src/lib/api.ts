@@ -139,6 +139,15 @@ export async function chatDirect(
   },
 ): Promise<void> {
   const normalizedModel = normalizeModel(model);
+  try {
+    const { resolveModelId } = await import('@/lib/model-guard');
+    const mode = messages.some((m) => m.role === 'system' && typeof m.content === 'string' && m.content.includes('agent'))
+      ? 'agent' as const
+      : 'chat' as const;
+    resolveModelId(normalizedModel, mode === 'agent' ? 'agent' : 'chat', { reasoningEffort });
+  } catch {
+    /* logging is best-effort */
+  }
   const userPrompt = [...messages].reverse().find((message) => {
     if (message.role !== 'user') return false;
     return typeof message.content === 'string' ? true : message.content.some(p => p.type === 'text');
