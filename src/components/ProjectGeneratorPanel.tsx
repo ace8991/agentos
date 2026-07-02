@@ -27,7 +27,9 @@ import {
   TerminalSquare,
   FilePlus2,
 } from 'lucide-react';
-import { generateProject, getProjectStatus, type GeneratedWorkspace, type GeneratedWorkspaceFile, type ProjectGenerateEvent } from '@/lib/api';
+import { generateProject, getProjectStatus, isProjectGeneratorReady, type GeneratedWorkspace, type GeneratedWorkspaceFile, type ProjectGenerateEvent } from '@/lib/api';
+import { resolveModelId } from '@/lib/model-guard';
+import { useStore } from '@/store/useStore';
 
 /* ─── Types ─────────────────────────────────────────── */
 
@@ -126,10 +128,30 @@ const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady, initialPrompt,
     });
   }, []);
 
+  const backendOnline = useStore((s) => s.backendOnline);
+  const backendChecked = useStore((s) => s.backendChecked);
+  const backendHealth = useStore((s) => s.backendHealth);
+
   const handleGenerate = useCallback(async (overridePrompt?: string) => {
     const effectivePrompt = (overridePrompt ?? prompt).trim();
     if (!effectivePrompt) return;
     if (overridePrompt) setPrompt(overridePrompt);
+
+    // Health gate — refuse to start a partial generation if backend is offline
+    // or if the project generator is not ready (no provider configured).
+    if (backendChecked && !backendOnline) {
+      setPhase('error');
+      setError('Backend hors ligne — la génération de projet nécessite le serveur local FastAPI en cours d\'exécution.');
+      setProgressMessage('Backend hors ligne');
+      return;
+    }
+    const readiness = isProjectGeneratorReady(backendHealth);
+    if (backendOnline && !readiness.ready) {
+      setPhase('error');
+      setError(`Impossible de démarrer la génération : ${readiness.reason ?? 'aucun provider LLM configuré'}. Ajoute une clé API dans les Paramètres.`);
+      setProgressMessage('Prérequis manquants');
+      return;
+    }
 
     setPhase('analyzing');
     setError(null);
@@ -138,6 +160,11 @@ const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady, initialPrompt,
     setFilesCreated(0);
     setToolCalls([]);
     setLlmText('');
+
+    // Resolve + log the exact model id being sent to the backend.
+    const resolved = model
+      ? resolveModelId(model, 'project_generator')
+      : undefined;
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -151,7 +178,7 @@ const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady, initialPrompt,
       setProgressMessage('Génération du projet via agentic loop…');
 
       const result = await generateProject(
-        { prompt: effectivePrompt, ...(model ? { model } : {}) },
+        { prompt: effectivePrompt, ...(resolved ? { model: resolved.id } : {}) },
         (event: ProjectGenerateEvent) => {
           if (controller.signal.aborted) return;
 
