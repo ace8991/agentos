@@ -801,6 +801,10 @@ async def _openai_agentic_loop(
         headers["Authorization"] = f"Bearer {key}"
 
     files_created = 0
+    logger.info(
+        "[project_generator/%s] model=%s max_tokens=64000 tools=%d",
+        provider, model, len(TOOLS_OPENAI),
+    )
 
     for iteration in range(MAX_GENERATION_ITERATIONS):
         assistant_text = ""
