@@ -535,6 +535,30 @@ export interface HealthResponse {
   desktop_commander?: {
     enabled?: boolean;
   };
+  project_generator?: {
+    ready: boolean;
+    providers: string[];
+    reason?: string | null;
+  };
+  providers?: Record<string, boolean>;
+}
+
+export function isProjectGeneratorReady(health: HealthResponse | null | undefined): {
+  ready: boolean;
+  reason?: string;
+} {
+  if (!health) return { ready: false, reason: 'Backend hors ligne' };
+  const pg = health.project_generator;
+  if (pg) {
+    return pg.ready
+      ? { ready: true }
+      : { ready: false, reason: pg.reason ?? 'Aucun provider LLM configuré' };
+  }
+  // Fallback for older backend payloads
+  const hasProvider = health.system?.anthropic_key || health.system?.openai_key || health.system?.deepseek_key;
+  return hasProvider
+    ? { ready: true }
+    : { ready: false, reason: 'Aucun provider LLM configuré' };
 }
 
 export async function checkHealth(): Promise<HealthResponse> {
