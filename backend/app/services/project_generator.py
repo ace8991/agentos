@@ -604,11 +604,7 @@ async def _anthropic_agentic_loop(
             async with httpx.AsyncClient(timeout=300) as client:
                 async with client.stream(
                     "POST", "https://api.anthropic.com/v1/messages",
-                    headers={
-                        "x-api-key": key,
-                        "anthropic-version": "2023-06-01",
-                        "content-type": "application/json",
-                    },
+                    headers=headers,
                     json=payload,
                 ) as resp:
                     if resp.status_code != 200:
