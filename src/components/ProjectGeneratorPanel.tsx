@@ -246,7 +246,7 @@ const ProjectGeneratorPanel = ({ open, onClose, onWorkspaceReady, initialPrompt,
       setError(err instanceof Error ? err.message : 'Erreur inconnue');
       setProgressMessage('Échec de la génération');
     }
-  }, [prompt, onWorkspaceReady]);
+  }, [prompt, onWorkspaceReady, model, backendChecked, backendOnline, backendHealth]);
 
   const handleRegenerate = useCallback(() => {
     setPhase('idle');
