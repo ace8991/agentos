@@ -576,6 +576,8 @@ const ChatPanel = () => {
 
     const assistantId = crypto.randomUUID();
     assistantBufferRef.current = '';
+    streamAbortedRef.current = false;
+
     const streamHandler = createArtifactStreamHandler(assistantId);
 
     const assistantEntry: LogEntry = {
