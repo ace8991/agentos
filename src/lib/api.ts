@@ -11,6 +11,26 @@ const getBase = () => {
 export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || getBase()).replace(/\/$/, '');
 const BASE = API_BASE_URL;
 
+/**
+ * Flags the backend as offline immediately (without waiting for the next health
+ * poll) so the UI can show the offline status and block partial rendering.
+ * Imported dynamically to avoid a circular import with the Zustand store.
+ */
+export function markBackendOffline(): void {
+  try {
+    if (typeof window !== 'undefined') {
+      (window as unknown as Record<string, unknown>).__agentos_backend_online__ = false;
+    }
+    void import('@/store/useStore').then(({ useStore }) => {
+      useStore.getState().setBackendOnline(false);
+      useStore.setState({ backendHealth: null });
+    });
+  } catch {
+    // best effort
+  }
+}
+
+
 export interface ChatMessageContentPart {
   type: 'text' | 'image';
   text?: string;
