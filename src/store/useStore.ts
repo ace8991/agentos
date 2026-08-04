@@ -386,9 +386,17 @@ export const useStore = create<AppState>((set, get) => ({
           // Keep the initial health result if runtime sync is unavailable.
         }
       }
+      healthFailureStreak = 0;
       set({ backendHealth: health, backendOnline: true, backendChecked: true });
       void get().syncMcpState();
     } catch {
+      healthFailureStreak += 1;
+      // Anti-flicker: only declare the backend offline after two consecutive
+      // failed probes (a single dropped 2s poll is not an outage).
+      if (healthFailureStreak < 2 && get().backendOnline) {
+        set({ backendChecked: true });
+        return;
+      }
       set({
         backendHealth: null,
         backendOnline: false,
@@ -396,8 +404,19 @@ export const useStore = create<AppState>((set, get) => ({
         mcpServers: [],
         capabilityStatus: [],
       });
+      // A backend outage must not leave an agent run "running" with half-written steps.
+      const state = get();
+      if (state.status === 'running') {
+        state.stopTimer();
+        set({
+          status: 'error',
+          errorMessage: 'Backend hors ligne : exécution interrompue.',
+          runSteps: [],
+        });
+      }
     }
   },
+
   setActiveThread: (thread) => set({ activeThread: thread }),
   setCurrentProjectId: (projectId) => {
     persistCurrentProjectId(projectId);
