@@ -383,27 +383,7 @@ export async function chatDirect(
   }
 }
 
-    const message = error instanceof Error ? error.message : String(error);
-    const looksLikeNetworkFailure =
-      message.toLowerCase().includes('fetch') ||
-      message.toLowerCase().includes('network') ||
-      message.toLowerCase().includes('failed to fetch');
 
-    if (looksLikeNetworkFailure) {
-      // Backend unreachable -> fall back to direct provider call from the browser
-      const provider = detectDirectProvider(normalizedModel);
-      if (provider !== 'unsupported' && getApiKey(provider)) {
-        await runDirectFromBrowser();
-        return;
-      }
-      onError(
-        `Backend offline and no direct API key found for "${normalizedModel}". Start the local backend on port 8000, or add your provider key in Settings.`,
-      );
-      return;
-    }
-    onError(message);
-  }
-}
 
 export type GeneratedWorkspaceKind = 'website' | 'landing' | 'app' | 'dashboard' | 'slides' | 'presentation';
 export type GeneratedWorkspaceFileGroup = 'client' | 'server' | 'database' | 'docs' | 'assets' | 'output';
