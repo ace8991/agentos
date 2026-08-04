@@ -626,20 +626,31 @@ const ChatPanel = () => {
       },
       () => {
         setChatLoading(false);
+        if (streamAbortedRef.current) return;
         // Dernier parse pour capturer les artifacts restants
         streamHandler.onDone();
         useStore.getState().saveConversationSnapshot({ label: text, thread: 'chat' });
       },
       (err) => {
         setChatLoading(false);
+        const offline = !useStore.getState().backendOnline;
+        const message = streamAbortedRef.current
+          ? `${err}${offline ? ' Le backend est hors ligne — réponse partielle ignorée.' : ''}`
+          : err;
         useStore.setState((state) => ({
           entries: state.entries.map((entry) =>
-            entry.id === assistantId ? { ...entry, type: 'error', action: err } : entry,
+            entry.id === assistantId ? { ...entry, type: 'error', action: message } : entry,
           ),
         }));
         useStore.getState().saveConversationSnapshot({ label: text, thread: 'chat' });
       },
       {
+        onStreamAborted: () => {
+          // Aucun rendu partiel : on jette le buffer et on n'analyse pas les artifacts.
+          streamAbortedRef.current = true;
+          assistantBufferRef.current = '';
+        },
+
         onToolCall: (event: ToolCallEvent) => {
           const entryId = crypto.randomUUID();
           toolEntryMap.set(event.id, entryId);
