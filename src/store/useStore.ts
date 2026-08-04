@@ -312,7 +312,11 @@ const buildAgentCompletionMessage = (
   return sections.join('\n\n');
 };
 
+/** Consecutive failed health probes (anti-flicker for the 2.5s polling loop). */
+let healthFailureStreak = 0;
+
 export const useStore = create<AppState>((set, get) => ({
+
   mode: 'chat',
   task: '',
   status: 'idle',
