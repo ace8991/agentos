@@ -11,6 +11,26 @@ const getBase = () => {
 export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || getBase()).replace(/\/$/, '');
 const BASE = API_BASE_URL;
 
+/**
+ * Flags the backend as offline immediately (without waiting for the next health
+ * poll) so the UI can show the offline status and block partial rendering.
+ * Imported dynamically to avoid a circular import with the Zustand store.
+ */
+export function markBackendOffline(): void {
+  try {
+    if (typeof window !== 'undefined') {
+      (window as unknown as Record<string, unknown>).__agentos_backend_online__ = false;
+    }
+    void import('@/store/useStore').then(({ useStore }) => {
+      useStore.getState().setBackendOnline(false);
+      useStore.setState({ backendHealth: null });
+    });
+  } catch {
+    // best effort
+  }
+}
+
+
 export interface ChatMessageContentPart {
   type: 'text' | 'image';
   text?: string;
@@ -136,8 +156,11 @@ export async function chatDirect(
     onToolCall?: (event: ToolCallEvent) => void;
     onToolResult?: (event: ToolResultEvent) => void;
     images?: Array<{ media_type: string; data: string }>;
+    /** Called when the stream is cut mid-flight (backend crash / network loss). */
+    onStreamAborted?: (reason: string) => void;
   },
 ): Promise<void> {
+
   const normalizedModel = normalizeModel(model);
   try {
     const { resolveModelId } = await import('@/lib/model-guard');
@@ -193,6 +216,29 @@ export async function chatDirect(
     // ignore detection errors and fall through to backend attempt
   }
 
+  // Abort controller + inactivity watchdog: if the backend dies mid-stream the
+  // socket can hang forever, so we cut it and surface an offline state instead
+  // of leaving a half-rendered message on screen.
+  const controller = new AbortController();
+  let watchdog: ReturnType<typeof setTimeout> | null = null;
+  let abortedByWatchdog = false;
+  const INACTIVITY_MS = 20000;
+  const armWatchdog = () => {
+    if (watchdog) clearTimeout(watchdog);
+    watchdog = setTimeout(() => {
+      abortedByWatchdog = true;
+      controller.abort();
+    }, INACTIVITY_MS);
+  };
+  const clearWatchdog = () => {
+    if (watchdog) {
+      clearTimeout(watchdog);
+      watchdog = null;
+    }
+  };
+
+  let streamStarted = false;
+
   try {
     try {
       await syncRuntimeConfig();
@@ -200,9 +246,11 @@ export async function chatDirect(
       // Best effort: if sync fails we still attempt the request so existing backend env keys can work.
     }
 
+    armWatchdog();
     const response = await fetch(`${BASE}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
       body: JSON.stringify({
         messages: payloadMessages,
         model: normalizedModel,
@@ -216,12 +264,14 @@ export async function chatDirect(
     });
 
     if (!response.ok) {
+      clearWatchdog();
       onError(await readError(response, `Backend ${response.status}`));
       return;
     }
 
     const reader = response.body?.getReader();
     if (!reader) {
+      clearWatchdog();
       onError('No response body');
       return;
     }
@@ -230,76 +280,115 @@ export async function chatDirect(
     let buffer = '';
     let hasContent = false;
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() ?? '';
+    const failStream = async (reason: string) => {
+      clearWatchdog();
+      try {
+        await reader.cancel();
+      } catch {
+        // reader may already be closed
+      }
+      markBackendOffline();
+      options?.onStreamAborted?.(reason);
+      onError(reason);
+    };
 
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        const raw = line.slice(6).trim();
-        if (!raw) continue;
-        if (raw === '[DONE]') {
-          onDone();
-          return;
-        }
-        try {
-          const event = JSON.parse(raw);
-          if (event.type === 'token' && event.content) {
-            hasContent = true;
-            onToken(event.content);
-          } else if (event.type === 'text' && event.text) {
-            hasContent = true;
-            onToken(event.text);
-          } else if (event.type === 'thinking' && event.text) {
-            options?.onThinking?.(event.text);
-          } else if (event.type === 'tool_call') {
-            // Agentic loop: model is calling a tool
-            hasContent = true;
-            options?.onToolCall?.({ tool: event.tool, args: event.args ?? {}, id: event.id ?? '' });
-            options?.onToolUse?.(event.tool, event.args ?? {});
-          } else if (event.type === 'tool_result') {
-            // Agentic loop: tool execution result
-            options?.onToolResult?.({ tool: event.tool, result: event.result ?? '', id: event.id ?? '', success: event.success ?? true });
-          } else if (event.type === 'content_block_delta' && event.delta?.text) {
-            hasContent = true;
-            onToken(event.delta.text);
-          } else if (event.type === 'content_block_delta' && event.delta?.type === 'thinking_delta' && event.delta?.thinking) {
-            options?.onThinking?.(event.delta.thinking);
-          } else if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
-            options?.onToolUse?.(event.content_block.name, event.content_block.input || {});
-          } else if (event.type === 'content_block_delta' && event.delta?.type === 'input_json_delta') {
-            // accumulate silently
-          } else if (event.type === 'done') {
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        armWatchdog();
+        streamStarted = true;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (!raw) continue;
+          if (raw === '[DONE]') {
+            clearWatchdog();
             onDone();
             return;
-          } else if (event.type === 'error') {
-            onError(event.content || event.error || 'Streaming error');
-            return;
           }
-        } catch {
-          hasContent = true;
-          onToken(raw);
+          try {
+            const event = JSON.parse(raw);
+            if (event.type === 'token' && event.content) {
+              hasContent = true;
+              onToken(event.content);
+            } else if (event.type === 'text' && event.text) {
+              hasContent = true;
+              onToken(event.text);
+            } else if (event.type === 'thinking' && event.text) {
+              options?.onThinking?.(event.text);
+            } else if (event.type === 'tool_call') {
+              // Agentic loop: model is calling a tool
+              hasContent = true;
+              options?.onToolCall?.({ tool: event.tool, args: event.args ?? {}, id: event.id ?? '' });
+              options?.onToolUse?.(event.tool, event.args ?? {});
+            } else if (event.type === 'tool_result') {
+              // Agentic loop: tool execution result
+              options?.onToolResult?.({ tool: event.tool, result: event.result ?? '', id: event.id ?? '', success: event.success ?? true });
+            } else if (event.type === 'content_block_delta' && event.delta?.text) {
+              hasContent = true;
+              onToken(event.delta.text);
+            } else if (event.type === 'content_block_delta' && event.delta?.type === 'thinking_delta' && event.delta?.thinking) {
+              options?.onThinking?.(event.delta.thinking);
+            } else if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
+              options?.onToolUse?.(event.content_block.name, event.content_block.input || {});
+            } else if (event.type === 'content_block_delta' && event.delta?.type === 'input_json_delta') {
+              // accumulate silently
+            } else if (event.type === 'done') {
+              clearWatchdog();
+              onDone();
+              return;
+            } else if (event.type === 'error') {
+              await failStream(event.content || event.error || 'Streaming error');
+              return;
+            }
+          } catch (parseError) {
+            if (parseError instanceof Error && parseError.name === 'AbortError') throw parseError;
+            hasContent = true;
+            onToken(raw);
+          }
         }
       }
+    } catch (streamError) {
+      const reason = abortedByWatchdog
+        ? 'Flux interrompu : aucune donnée du backend pendant 20 s. Backend hors ligne.'
+        : 'Flux interrompu : connexion au backend perdue.';
+      void streamError;
+      await failStream(reason);
+      return;
     }
 
+    clearWatchdog();
+
     if (!hasContent) {
+      markBackendOffline();
       onError('No response - check backend connectivity and model configuration.');
     } else {
       onDone();
     }
   } catch (error) {
+    clearWatchdog();
     const message = error instanceof Error ? error.message : String(error);
     const looksLikeNetworkFailure =
       message.toLowerCase().includes('fetch') ||
       message.toLowerCase().includes('network') ||
-      message.toLowerCase().includes('failed to fetch');
+      message.toLowerCase().includes('failed to fetch') ||
+      message.toLowerCase().includes('abort');
 
     if (looksLikeNetworkFailure) {
-      // Backend unreachable -> fall back to direct provider call from the browser
+      markBackendOffline();
+      // Mid-stream failures must never be retried: the partial answer is already
+      // on screen and a direct retry would duplicate content.
+      if (streamStarted) {
+        options?.onStreamAborted?.('Flux interrompu : connexion au backend perdue.');
+        onError('Flux interrompu : connexion au backend perdue.');
+        return;
+      }
+      // Backend unreachable before any token -> fall back to direct provider call
       const provider = detectDirectProvider(normalizedModel);
       if (provider !== 'unsupported' && getApiKey(provider)) {
         await runDirectFromBrowser();
@@ -313,6 +402,8 @@ export async function chatDirect(
     onError(message);
   }
 }
+
+
 
 export type GeneratedWorkspaceKind = 'website' | 'landing' | 'app' | 'dashboard' | 'slides' | 'presentation';
 export type GeneratedWorkspaceFileGroup = 'client' | 'server' | 'database' | 'docs' | 'assets' | 'output';
@@ -571,7 +662,7 @@ export function isProjectGeneratorReady(health: HealthResponse | null | undefine
 }
 
 export async function checkHealth(): Promise<HealthResponse> {
-  const response = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(5000) });
+  const response = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(2000) });
   if (!response.ok) {
     throw new Error(`Health check failed: ${response.status}`);
   }
@@ -858,23 +949,27 @@ export function createExecutionEventStream(
     }
   };
 
+  const failPermanently = (reason: string) => {
+    settled = true;
+    closeStream();
+    markBackendOffline();
+    onError(reason);
+  };
+
   const scheduleReconnect = async () => {
     if (settled || reconnectAttempts >= maxReconnectAttempts) {
-      settled = true;
-      onError('Connection lost');
+      failPermanently('Connection lost');
       return;
     }
 
     try {
       const status = await getExecutionRun(runId);
       if (!status.active) {
-        settled = true;
-        onError('Connection lost');
+        failPermanently('Connection lost');
         return;
       }
     } catch {
-      settled = true;
-      onError('Connection lost');
+      failPermanently('Connection lost');
       return;
     }
 
@@ -887,7 +982,13 @@ export function createExecutionEventStream(
     clearReconnect();
     source = new EventSource(`${BASE}/execute/runs/${runId}/stream`);
     source.onmessage = (message) => {
-      const data: AgentEvent = JSON.parse(message.data);
+      let data: AgentEvent;
+      try {
+        data = JSON.parse(message.data) as AgentEvent;
+      } catch {
+        // Truncated SSE frame (backend crashed mid-write): ignore this chunk.
+        return;
+      }
       onEvent(data);
       if (data.type === 'done' || data.type === 'error') {
         settled = true;
@@ -905,6 +1006,7 @@ export function createExecutionEventStream(
       void scheduleReconnect();
     };
   };
+
 
   connect();
   return source as EventSource;
