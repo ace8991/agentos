@@ -196,6 +196,29 @@ export async function chatDirect(
     // ignore detection errors and fall through to backend attempt
   }
 
+  // Abort controller + inactivity watchdog: if the backend dies mid-stream the
+  // socket can hang forever, so we cut it and surface an offline state instead
+  // of leaving a half-rendered message on screen.
+  const controller = new AbortController();
+  let watchdog: ReturnType<typeof setTimeout> | null = null;
+  let abortedByWatchdog = false;
+  const INACTIVITY_MS = 20000;
+  const armWatchdog = () => {
+    if (watchdog) clearTimeout(watchdog);
+    watchdog = setTimeout(() => {
+      abortedByWatchdog = true;
+      controller.abort();
+    }, INACTIVITY_MS);
+  };
+  const clearWatchdog = () => {
+    if (watchdog) {
+      clearTimeout(watchdog);
+      watchdog = null;
+    }
+  };
+
+  let streamStarted = false;
+
   try {
     try {
       await syncRuntimeConfig();
@@ -203,9 +226,11 @@ export async function chatDirect(
       // Best effort: if sync fails we still attempt the request so existing backend env keys can work.
     }
 
+    armWatchdog();
     const response = await fetch(`${BASE}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
       body: JSON.stringify({
         messages: payloadMessages,
         model: normalizedModel,
@@ -219,12 +244,14 @@ export async function chatDirect(
     });
 
     if (!response.ok) {
+      clearWatchdog();
       onError(await readError(response, `Backend ${response.status}`));
       return;
     }
 
     const reader = response.body?.getReader();
     if (!reader) {
+      clearWatchdog();
       onError('No response body');
       return;
     }
@@ -232,6 +259,21 @@ export async function chatDirect(
     const decoder = new TextDecoder();
     let buffer = '';
     let hasContent = false;
+
+    const failStream = async (reason: string) => {
+      clearWatchdog();
+      try {
+        await reader.cancel();
+      } catch {
+        // reader may already be closed
+      }
+      markBackendOffline();
+      options?.onStreamAborted?.(reason);
+      onError(reason);
+    };
+
+    try {
+
 
     while (true) {
       const { done, value } = await reader.read();
