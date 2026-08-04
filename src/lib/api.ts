@@ -662,7 +662,7 @@ export function isProjectGeneratorReady(health: HealthResponse | null | undefine
 }
 
 export async function checkHealth(): Promise<HealthResponse> {
-  const response = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(5000) });
+  const response = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(2000) });
   if (!response.ok) {
     throw new Error(`Health check failed: ${response.status}`);
   }
