@@ -273,70 +273,116 @@ export async function chatDirect(
     };
 
     try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        armWatchdog();
+        streamStarted = true;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
 
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() ?? '';
-
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        const raw = line.slice(6).trim();
-        if (!raw) continue;
-        if (raw === '[DONE]') {
-          onDone();
-          return;
-        }
-        try {
-          const event = JSON.parse(raw);
-          if (event.type === 'token' && event.content) {
-            hasContent = true;
-            onToken(event.content);
-          } else if (event.type === 'text' && event.text) {
-            hasContent = true;
-            onToken(event.text);
-          } else if (event.type === 'thinking' && event.text) {
-            options?.onThinking?.(event.text);
-          } else if (event.type === 'tool_call') {
-            // Agentic loop: model is calling a tool
-            hasContent = true;
-            options?.onToolCall?.({ tool: event.tool, args: event.args ?? {}, id: event.id ?? '' });
-            options?.onToolUse?.(event.tool, event.args ?? {});
-          } else if (event.type === 'tool_result') {
-            // Agentic loop: tool execution result
-            options?.onToolResult?.({ tool: event.tool, result: event.result ?? '', id: event.id ?? '', success: event.success ?? true });
-          } else if (event.type === 'content_block_delta' && event.delta?.text) {
-            hasContent = true;
-            onToken(event.delta.text);
-          } else if (event.type === 'content_block_delta' && event.delta?.type === 'thinking_delta' && event.delta?.thinking) {
-            options?.onThinking?.(event.delta.thinking);
-          } else if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
-            options?.onToolUse?.(event.content_block.name, event.content_block.input || {});
-          } else if (event.type === 'content_block_delta' && event.delta?.type === 'input_json_delta') {
-            // accumulate silently
-          } else if (event.type === 'done') {
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (!raw) continue;
+          if (raw === '[DONE]') {
+            clearWatchdog();
             onDone();
             return;
-          } else if (event.type === 'error') {
-            onError(event.content || event.error || 'Streaming error');
-            return;
           }
-        } catch {
-          hasContent = true;
-          onToken(raw);
+          try {
+            const event = JSON.parse(raw);
+            if (event.type === 'token' && event.content) {
+              hasContent = true;
+              onToken(event.content);
+            } else if (event.type === 'text' && event.text) {
+              hasContent = true;
+              onToken(event.text);
+            } else if (event.type === 'thinking' && event.text) {
+              options?.onThinking?.(event.text);
+            } else if (event.type === 'tool_call') {
+              // Agentic loop: model is calling a tool
+              hasContent = true;
+              options?.onToolCall?.({ tool: event.tool, args: event.args ?? {}, id: event.id ?? '' });
+              options?.onToolUse?.(event.tool, event.args ?? {});
+            } else if (event.type === 'tool_result') {
+              // Agentic loop: tool execution result
+              options?.onToolResult?.({ tool: event.tool, result: event.result ?? '', id: event.id ?? '', success: event.success ?? true });
+            } else if (event.type === 'content_block_delta' && event.delta?.text) {
+              hasContent = true;
+              onToken(event.delta.text);
+            } else if (event.type === 'content_block_delta' && event.delta?.type === 'thinking_delta' && event.delta?.thinking) {
+              options?.onThinking?.(event.delta.thinking);
+            } else if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
+              options?.onToolUse?.(event.content_block.name, event.content_block.input || {});
+            } else if (event.type === 'content_block_delta' && event.delta?.type === 'input_json_delta') {
+              // accumulate silently
+            } else if (event.type === 'done') {
+              clearWatchdog();
+              onDone();
+              return;
+            } else if (event.type === 'error') {
+              await failStream(event.content || event.error || 'Streaming error');
+              return;
+            }
+          } catch (parseError) {
+            if (parseError instanceof Error && parseError.name === 'AbortError') throw parseError;
+            hasContent = true;
+            onToken(raw);
+          }
         }
       }
+    } catch (streamError) {
+      const reason = abortedByWatchdog
+        ? 'Flux interrompu : aucune donnée du backend pendant 20 s. Backend hors ligne.'
+        : 'Flux interrompu : connexion au backend perdue.';
+      void streamError;
+      await failStream(reason);
+      return;
     }
 
+    clearWatchdog();
+
     if (!hasContent) {
+      markBackendOffline();
       onError('No response - check backend connectivity and model configuration.');
     } else {
       onDone();
     }
   } catch (error) {
+    clearWatchdog();
+    const message = error instanceof Error ? error.message : String(error);
+    const looksLikeNetworkFailure =
+      message.toLowerCase().includes('fetch') ||
+      message.toLowerCase().includes('network') ||
+      message.toLowerCase().includes('failed to fetch') ||
+      message.toLowerCase().includes('abort');
+
+    if (looksLikeNetworkFailure) {
+      markBackendOffline();
+      // Mid-stream failures must never be retried: the partial answer is already
+      // on screen and a direct retry would duplicate content.
+      if (streamStarted) {
+        options?.onStreamAborted?.('Flux interrompu : connexion au backend perdue.');
+        onError('Flux interrompu : connexion au backend perdue.');
+        return;
+      }
+      // Backend unreachable before any token -> fall back to direct provider call
+      const provider = detectDirectProvider(normalizedModel);
+      if (provider !== 'unsupported' && getApiKey(provider)) {
+        await runDirectFromBrowser();
+        return;
+      }
+      onError(
+        `Backend offline and no direct API key found for "${normalizedModel}". Start the local backend on port 8000, or add your provider key in Settings.`,
+      );
+      return;
+    }
+    onError(message);
+  }
+}
+
     const message = error instanceof Error ? error.message : String(error);
     const looksLikeNetworkFailure =
       message.toLowerCase().includes('fetch') ||
