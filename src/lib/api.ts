@@ -949,23 +949,27 @@ export function createExecutionEventStream(
     }
   };
 
+  const failPermanently = (reason: string) => {
+    settled = true;
+    closeStream();
+    markBackendOffline();
+    onError(reason);
+  };
+
   const scheduleReconnect = async () => {
     if (settled || reconnectAttempts >= maxReconnectAttempts) {
-      settled = true;
-      onError('Connection lost');
+      failPermanently('Connection lost');
       return;
     }
 
     try {
       const status = await getExecutionRun(runId);
       if (!status.active) {
-        settled = true;
-        onError('Connection lost');
+        failPermanently('Connection lost');
         return;
       }
     } catch {
-      settled = true;
-      onError('Connection lost');
+      failPermanently('Connection lost');
       return;
     }
 
@@ -978,7 +982,13 @@ export function createExecutionEventStream(
     clearReconnect();
     source = new EventSource(`${BASE}/execute/runs/${runId}/stream`);
     source.onmessage = (message) => {
-      const data: AgentEvent = JSON.parse(message.data);
+      let data: AgentEvent;
+      try {
+        data = JSON.parse(message.data) as AgentEvent;
+      } catch {
+        // Truncated SSE frame (backend crashed mid-write): ignore this chunk.
+        return;
+      }
       onEvent(data);
       if (data.type === 'done' || data.type === 'error') {
         settled = true;
@@ -996,6 +1006,7 @@ export function createExecutionEventStream(
       void scheduleReconnect();
     };
   };
+
 
   connect();
   return source as EventSource;
