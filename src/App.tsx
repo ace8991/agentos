@@ -25,25 +25,21 @@ const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
 const queryClient = new QueryClient();
 
+const HEALTH_POLL_MS = 2500;
+const RUNTIME_SYNC_MS = 30000;
+
 const RuntimeSync = () => {
   const syncBackendHealth = useStore((s) => s.syncBackendHealth);
 
   useEffect(() => {
     let cancelled = false;
-    let timeoutId: number | null = null;
+    let healthTimer: number | null = null;
+    let runtimeTimer: number | null = null;
 
-    const probe = async () => {
-      try {
-        await syncRuntimeConfig();
-        const mobileHub = await getMobileHubState();
-        mirrorMobileHubOverlayState(mobileHub.overlays);
-      } catch {
-        // The backend may be offline; health probing below will surface the current state.
-      }
+    // Fast loop: health only, every 2.5s, online or offline.
+    const pollHealth = async () => {
       await syncBackendHealth();
-      if (cancelled) {
-        return;
-      }
+      if (cancelled) return;
       // Mirror backend-online state onto window so non-React code (chatDirect)
       // can fast-path to direct provider calls when the backend is offline.
       try {
@@ -52,22 +48,35 @@ const RuntimeSync = () => {
       } catch {
         // ignore
       }
-      const delay = useStore.getState().backendOnline ? 15000 : 60000;
-      timeoutId = window.setTimeout(probe, delay);
+      healthTimer = window.setTimeout(pollHealth, HEALTH_POLL_MS);
     };
 
-    void probe();
+    // Slow loop: runtime config + mobile hub mirror.
+    const syncRuntime = async () => {
+      try {
+        await syncRuntimeConfig();
+        const mobileHub = await getMobileHubState();
+        mirrorMobileHubOverlayState(mobileHub.overlays);
+      } catch {
+        // The backend may be offline; the health loop surfaces the current state.
+      }
+      if (cancelled) return;
+      runtimeTimer = window.setTimeout(syncRuntime, RUNTIME_SYNC_MS);
+    };
+
+    void syncRuntime();
+    void pollHealth();
 
     return () => {
       cancelled = true;
-      if (timeoutId !== null) {
-        window.clearTimeout(timeoutId);
-      }
+      if (healthTimer !== null) window.clearTimeout(healthTimer);
+      if (runtimeTimer !== null) window.clearTimeout(runtimeTimer);
     };
   }, [syncBackendHealth]);
 
   return null;
 };
+
 
 const SkillSync = () => {
   useEffect(() => {
