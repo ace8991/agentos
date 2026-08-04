@@ -136,8 +136,11 @@ export async function chatDirect(
     onToolCall?: (event: ToolCallEvent) => void;
     onToolResult?: (event: ToolResultEvent) => void;
     images?: Array<{ media_type: string; data: string }>;
+    /** Called when the stream is cut mid-flight (backend crash / network loss). */
+    onStreamAborted?: (reason: string) => void;
   },
 ): Promise<void> {
+
   const normalizedModel = normalizeModel(model);
   try {
     const { resolveModelId } = await import('@/lib/model-guard');
