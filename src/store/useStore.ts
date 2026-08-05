@@ -332,6 +332,7 @@ export const useStore = create<AppState>((set, get) => ({
   backendOnline: false,
   backendChecked: false,
   backendHealth: null,
+  healthFailureStreak: 0,
   errorMessage: null,
   activeThread: null,
   currentProjectId: loadCurrentProjectId(),
