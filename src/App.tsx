@@ -25,7 +25,6 @@ const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
 const queryClient = new QueryClient();
 
-const HEALTH_POLL_MS = 2500;
 const HEALTH_BACKOFF_MS = [2500, 5000, 10000];
 const RUNTIME_SYNC_MS = 30000;
 
