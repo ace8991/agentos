@@ -394,20 +394,21 @@ export const useStore = create<AppState>((set, get) => ({
         }
       }
       healthFailureStreak = 0;
-      set({ backendHealth: health, backendOnline: true, backendChecked: true });
+      set({ backendHealth: health, backendOnline: true, backendChecked: true, healthFailureStreak: 0 });
       void get().syncMcpState();
     } catch {
       healthFailureStreak += 1;
       // Anti-flicker: only declare the backend offline after two consecutive
       // failed probes (a single dropped 2s poll is not an outage).
       if (healthFailureStreak < 2 && get().backendOnline) {
-        set({ backendChecked: true });
+        set({ backendChecked: true, healthFailureStreak });
         return;
       }
       set({
         backendHealth: null,
         backendOnline: false,
         backendChecked: true,
+        healthFailureStreak,
         mcpServers: [],
         capabilityStatus: [],
       });
