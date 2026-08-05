@@ -138,6 +138,8 @@ interface AppState {
   backendOnline: boolean;
   backendChecked: boolean;
   backendHealth: HealthResponse | null;
+  /** Consecutive failed health probes; drives the polling backoff. */
+  healthFailureStreak: number;
   errorMessage: string | null;
   activeThread: ActiveThread;
   currentProjectId: string | null;
