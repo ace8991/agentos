@@ -516,7 +516,187 @@ const ChatPanel = () => {
     }
   };
 
+  /**
+   * Runs one chat request end-to-end. Reused by the initial send and by the
+   * automatic resume that fires when the backend comes back online.
+   */
+  const runChatRequest = async (
+    request: ChatRequestPayload,
+    existingAssistantId?: string,
+    isResume = false,
+  ) => {
+    const assistantId = existingAssistantId ?? crypto.randomUUID();
+    assistantBufferRef.current = '';
+    streamAbortedRef.current = false;
+    setChatLoading(true);
+
+    const streamHandler = createArtifactStreamHandler(assistantId);
+
+    if (existingAssistantId) {
+      // Reuse the interrupted entry instead of appending a duplicate turn.
+      useStore.setState((state) => ({
+        entries: state.entries.map((entry) =>
+          entry.id === assistantId ? { ...entry, type: 'result', action: '', reasoning: '' } : entry,
+        ),
+      }));
+    } else {
+      addLogEntry({
+        id: assistantId,
+        step: 0,
+        timestamp: new Date().toISOString(),
+        type: 'result',
+        action: '',
+        reasoning: '',
+      });
+    }
+
+    // Track tool call entry IDs so we can update them with results
+    const toolEntryMap = new Map<string, string>();
+
+    const toolTypeForName = (toolName: string) => {
+      if (toolName === 'bash_tool') return 'shell' as const;
+      if (toolName === 'web_search') return 'web' as const;
+      if (toolName === 'str_replace_editor') return 'file' as const;
+      if (toolName === 'list_directory') return 'file' as const;
+      if (toolName === 'system_info') return 'perceive' as const;
+      return 'act' as const;
+    };
+
+    const toolLabelForName = (toolName: string, args: Record<string, unknown>) => {
+      if (toolName === 'bash_tool') return `$ ${String(args.command ?? '').slice(0, 60)}`;
+      if (toolName === 'str_replace_editor') return `${args.command ?? 'view'} · ${String(args.path ?? '').split('\\').pop()}`;
+      if (toolName === 'list_directory') return `ls ${String(args.path ?? '')}`;
+      if (toolName === 'web_search') return `🔍 ${String(args.query ?? '')}`;
+      if (toolName === 'system_info') return 'system_info';
+      return toolName;
+    };
+
+    await chatDirect(
+      request.messages,
+      request.model,
+      request.reasoningEffort,
+      request.webResearch,
+      (token) => {
+        assistantBufferRef.current += token;
+        // Parse les artifacts du stream et récupère le texte nettoyé
+        const cleanText = streamHandler.onChunk(token);
+        useStore.setState((state) => ({
+          entries: state.entries.map((entry) =>
+            entry.id === assistantId
+              ? { ...entry, action: cleanText || assistantBufferRef.current }
+              : entry,
+          ),
+        }));
+      },
+      () => {
+        setChatLoading(false);
+        if (streamAbortedRef.current) return;
+        pendingResumeRef.current = null;
+        // Dernier parse pour capturer les artifacts restants
+        streamHandler.onDone();
+        useStore.getState().saveConversationSnapshot({ label: request.label, thread: 'chat' });
+      },
+      (err) => {
+        setChatLoading(false);
+        const offline = !useStore.getState().backendOnline;
+        const willResume = streamAbortedRef.current && !isResume;
+        let message = err;
+        if (streamAbortedRef.current) {
+          message = `${err}${offline ? ' Le backend est hors ligne — réponse partielle ignorée.' : ''}`;
+          if (willResume) {
+            pendingResumeRef.current = { request, assistantId, attempted: false };
+            message += ' Reprise automatique dès le retour en ligne.';
+          } else {
+            pendingResumeRef.current = null;
+          }
+        }
+        useStore.setState((state) => ({
+          entries: state.entries.map((entry) =>
+            entry.id === assistantId ? { ...entry, type: 'error', action: message } : entry,
+          ),
+        }));
+        useStore.getState().saveConversationSnapshot({ label: request.label, thread: 'chat' });
+        if (willResume) {
+          toast.error('Backend hors ligne — reprise automatique dès le retour en ligne.', {
+            action: {
+              label: 'Reprendre maintenant',
+              onClick: () => void resumePendingRequest(),
+            },
+            cancel: {
+              label: 'Annuler',
+              onClick: () => {
+                pendingResumeRef.current = null;
+              },
+            },
+          });
+        }
+      },
+      {
+        onStreamAborted: () => {
+          // Aucun rendu partiel : on jette le buffer et on n'analyse pas les artifacts.
+          streamAbortedRef.current = true;
+          assistantBufferRef.current = '';
+        },
+
+        onToolCall: (event: ToolCallEvent) => {
+          const entryId = crypto.randomUUID();
+          toolEntryMap.set(event.id, entryId);
+          const label = toolLabelForName(event.tool, event.args);
+          setCurrentTool(event.tool);
+          useStore.getState().addLogEntry({
+            id: entryId,
+            step: 0,
+            timestamp: new Date().toISOString(),
+            type: toolTypeForName(event.tool),
+            action: label,
+            reasoning: '',
+            toolLabel: label,
+            tool_result: undefined,
+            actionType: event.tool,
+            toolArgs: event.args as Record<string, any>,
+          });
+        },
+        onToolResult: (event: ToolResultEvent) => {
+          const entryId = toolEntryMap.get(event.id);
+          setCurrentTool(null);
+          if (!entryId) return;
+          useStore.setState((state) => ({
+            entries: state.entries.map((e) =>
+              e.id === entryId
+                ? {
+                    ...e,
+                    type: event.success ? toolTypeForName(event.tool) : ('error' as const),
+                    tool_result: { output: event.result },
+                    reasoning: event.result,
+                  }
+                : e,
+            ),
+          }));
+        },
+      },
+    );
+  };
+
+  /** Replays the interrupted request (once) with its original payload. */
+  const resumePendingRequest = async () => {
+    const pending = pendingResumeRef.current;
+    if (!pending || pending.attempted) return;
+    pending.attempted = true;
+    toast.info('Backend de nouveau en ligne — reprise de la requête.');
+    await runChatRequest(pending.request, pending.assistantId, true);
+  };
+
+  // Auto-resume as soon as the backend comes back online.
+  useEffect(() => {
+    if (!backendOnline) return;
+    if (!pendingResumeRef.current || pendingResumeRef.current.attempted) return;
+    void resumePendingRequest();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [backendOnline]);
+
   const handleChatSend = async (text: string, attachmentContext = '') => {
+    // A brand new message cancels any pending resume from a previous turn.
+    pendingResumeRef.current = null;
     if (activeThread === 'agent' && status !== 'running' && status !== 'paused' && entries.length > 0) {
       useStore.getState().reset();
     }
