@@ -138,6 +138,8 @@ interface AppState {
   backendOnline: boolean;
   backendChecked: boolean;
   backendHealth: HealthResponse | null;
+  /** Consecutive failed health probes; drives the polling backoff. */
+  healthFailureStreak: number;
   errorMessage: string | null;
   activeThread: ActiveThread;
   currentProjectId: string | null;
@@ -312,7 +314,7 @@ const buildAgentCompletionMessage = (
   return sections.join('\n\n');
 };
 
-/** Consecutive failed health probes (anti-flicker for the 2.5s polling loop). */
+/** Consecutive failed health probes (anti-flicker + polling backoff). */
 let healthFailureStreak = 0;
 
 export const useStore = create<AppState>((set, get) => ({
@@ -330,6 +332,7 @@ export const useStore = create<AppState>((set, get) => ({
   backendOnline: false,
   backendChecked: false,
   backendHealth: null,
+  healthFailureStreak: 0,
   errorMessage: null,
   activeThread: null,
   currentProjectId: loadCurrentProjectId(),
@@ -391,20 +394,21 @@ export const useStore = create<AppState>((set, get) => ({
         }
       }
       healthFailureStreak = 0;
-      set({ backendHealth: health, backendOnline: true, backendChecked: true });
+      set({ backendHealth: health, backendOnline: true, backendChecked: true, healthFailureStreak: 0 });
       void get().syncMcpState();
     } catch {
       healthFailureStreak += 1;
       // Anti-flicker: only declare the backend offline after two consecutive
       // failed probes (a single dropped 2s poll is not an outage).
       if (healthFailureStreak < 2 && get().backendOnline) {
-        set({ backendChecked: true });
+        set({ backendChecked: true, healthFailureStreak });
         return;
       }
       set({
         backendHealth: null,
         backendOnline: false,
         backendChecked: true,
+        healthFailureStreak,
         mcpServers: [],
         capabilityStatus: [],
       });
