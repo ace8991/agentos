@@ -26,7 +26,12 @@ const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const queryClient = new QueryClient();
 
 const HEALTH_POLL_MS = 2500;
+const HEALTH_BACKOFF_MS = [2500, 5000, 10000];
 const RUNTIME_SYNC_MS = 30000;
+
+/** 2.5s while healthy, then 5s, then 10s (capped) after consecutive failures. */
+const nextHealthDelay = (failureStreak: number) =>
+  HEALTH_BACKOFF_MS[Math.min(failureStreak, HEALTH_BACKOFF_MS.length - 1)];
 
 const RuntimeSync = () => {
   const syncBackendHealth = useStore((s) => s.syncBackendHealth);
@@ -35,10 +40,17 @@ const RuntimeSync = () => {
     let cancelled = false;
     let healthTimer: number | null = null;
     let runtimeTimer: number | null = null;
+    let polling = false;
 
-    // Fast loop: health only, every 2.5s, online or offline.
+    // Fast loop: health only, backing off while offline.
     const pollHealth = async () => {
-      await syncBackendHealth();
+      if (cancelled || polling) return;
+      polling = true;
+      try {
+        await syncBackendHealth();
+      } finally {
+        polling = false;
+      }
       if (cancelled) return;
       // Mirror backend-online state onto window so non-React code (chatDirect)
       // can fast-path to direct provider calls when the backend is offline.
@@ -48,8 +60,25 @@ const RuntimeSync = () => {
       } catch {
         // ignore
       }
-      healthTimer = window.setTimeout(pollHealth, HEALTH_POLL_MS);
+      const delay = nextHealthDelay(useStore.getState().healthFailureStreak);
+      if (healthTimer !== null) window.clearTimeout(healthTimer);
+      healthTimer = window.setTimeout(pollHealth, delay);
     };
+
+    // Force an immediate probe (tab wake / browser back online) instead of
+    // waiting out a 10s backoff step.
+    const probeNow = () => {
+      if (cancelled) return;
+      if (healthTimer !== null) window.clearTimeout(healthTimer);
+      void pollHealth();
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') probeNow();
+    };
+
+    window.addEventListener('online', probeNow);
+    document.addEventListener('visibilitychange', onVisibility);
 
     // Slow loop: runtime config + mobile hub mirror.
     const syncRuntime = async () => {
@@ -69,6 +98,8 @@ const RuntimeSync = () => {
 
     return () => {
       cancelled = true;
+      window.removeEventListener('online', probeNow);
+      document.removeEventListener('visibilitychange', onVisibility);
       if (healthTimer !== null) window.clearTimeout(healthTimer);
       if (runtimeTimer !== null) window.clearTimeout(runtimeTimer);
     };
