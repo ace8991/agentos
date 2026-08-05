@@ -130,6 +130,21 @@ const pickSmartAgentModel = (
   return 'claude-sonnet-4-7';
 };
 
+/** Everything needed to replay a chat request verbatim. */
+type ChatRequestPayload = {
+  messages: ChatMessageType[];
+  model: string;
+  reasoningEffort: Parameters<typeof chatDirect>[2];
+  webResearch: boolean;
+  label: string;
+};
+
+type PendingChatResume = {
+  request: ChatRequestPayload;
+  assistantId: string;
+  attempted: boolean;
+};
+
 const ChatPanel = () => {
   const task = useStore((s) => s.task);
   const setTask = useStore((s) => s.setTask);
