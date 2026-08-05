@@ -185,6 +185,7 @@ const ChatPanel = () => {
   const composerMenuPanelRef = useRef<HTMLDivElement>(null);
   const assistantBufferRef = useRef('');
   const streamAbortedRef = useRef(false);
+  const pendingResumeRef = useRef<PendingChatResume | null>(null);
 
   const responseStyleLabel = getSavedResponseStyleLabel();
   const appendTranscript = useCallback((transcript: string) => {
