@@ -574,125 +574,15 @@ const ChatPanel = () => {
       messages.push({ role: 'user', content: text });
     }
 
-    const assistantId = crypto.randomUUID();
-    assistantBufferRef.current = '';
-    streamAbortedRef.current = false;
-
-    const streamHandler = createArtifactStreamHandler(assistantId);
-
-    const assistantEntry: LogEntry = {
-      id: assistantId,
-      step: 0,
-      timestamp: new Date().toISOString(),
-      type: 'result',
-      action: '',
-      reasoning: '',
-    };
-    addLogEntry(assistantEntry);
-
-    // Track tool call entry IDs so we can update them with results
-    const toolEntryMap = new Map<string, string>();
-
-    const toolTypeForName = (toolName: string) => {
-      if (toolName === 'bash_tool') return 'shell' as const;
-      if (toolName === 'web_search') return 'web' as const;
-      if (toolName === 'str_replace_editor') return 'file' as const;
-      if (toolName === 'list_directory') return 'file' as const;
-      if (toolName === 'system_info') return 'perceive' as const;
-      return 'act' as const;
-    };
-
-    const toolLabelForName = (toolName: string, args: Record<string, unknown>) => {
-      if (toolName === 'bash_tool') return `$ ${String(args.command ?? '').slice(0, 60)}`;
-      if (toolName === 'str_replace_editor') return `${args.command ?? 'view'} · ${String(args.path ?? '').split('\\').pop()}`;
-      if (toolName === 'list_directory') return `ls ${String(args.path ?? '')}`;
-      if (toolName === 'web_search') return `🔍 ${String(args.query ?? '')}`;
-      if (toolName === 'system_info') return 'system_info';
-      return toolName;
-    };
-
-    await chatDirect(
+    await runChatRequest({
       messages,
       model,
       reasoningEffort,
-      composerPreferences.webResearch,
-      (token) => {
-        assistantBufferRef.current += token;
-        // Parse les artifacts du stream et récupère le texte nettoyé
-        const cleanText = streamHandler.onChunk(token);
-        useStore.setState((state) => ({
-          entries: state.entries.map((entry) =>
-            entry.id === assistantId
-              ? { ...entry, action: cleanText || assistantBufferRef.current }
-              : entry,
-          ),
-        }));
-      },
-      () => {
-        setChatLoading(false);
-        if (streamAbortedRef.current) return;
-        // Dernier parse pour capturer les artifacts restants
-        streamHandler.onDone();
-        useStore.getState().saveConversationSnapshot({ label: text, thread: 'chat' });
-      },
-      (err) => {
-        setChatLoading(false);
-        const offline = !useStore.getState().backendOnline;
-        const message = streamAbortedRef.current
-          ? `${err}${offline ? ' Le backend est hors ligne — réponse partielle ignorée.' : ''}`
-          : err;
-        useStore.setState((state) => ({
-          entries: state.entries.map((entry) =>
-            entry.id === assistantId ? { ...entry, type: 'error', action: message } : entry,
-          ),
-        }));
-        useStore.getState().saveConversationSnapshot({ label: text, thread: 'chat' });
-      },
-      {
-        onStreamAborted: () => {
-          // Aucun rendu partiel : on jette le buffer et on n'analyse pas les artifacts.
-          streamAbortedRef.current = true;
-          assistantBufferRef.current = '';
-        },
-
-        onToolCall: (event: ToolCallEvent) => {
-          const entryId = crypto.randomUUID();
-          toolEntryMap.set(event.id, entryId);
-          const label = toolLabelForName(event.tool, event.args);
-          setCurrentTool(event.tool);
-          useStore.getState().addLogEntry({
-            id: entryId,
-            step: 0,
-            timestamp: new Date().toISOString(),
-            type: toolTypeForName(event.tool),
-            action: label,
-            reasoning: '',
-            toolLabel: label,
-            tool_result: undefined,
-            actionType: event.tool,
-            toolArgs: event.args as Record<string, any>,
-          });
-        },
-        onToolResult: (event: ToolResultEvent) => {
-          const entryId = toolEntryMap.get(event.id);
-          setCurrentTool(null);
-          if (!entryId) return;
-          useStore.setState((state) => ({
-            entries: state.entries.map((e) =>
-              e.id === entryId
-                ? {
-                    ...e,
-                    type: event.success ? toolTypeForName(event.tool) : ('error' as const),
-                    tool_result: { output: event.result },
-                    reasoning: event.result,
-                  }
-                : e,
-            ),
-          }));
-        },
-      },
-    );
+      webResearch: composerPreferences.webResearch,
+      label: text,
+    });
   };
+
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === 'Enter' && !event.shiftKey) {
