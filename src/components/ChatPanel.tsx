@@ -8,6 +8,7 @@ import LiveSessionCard from './chat/LiveSessionCard';
 import ThinkingIndicator from './chat/ThinkingIndicator';
 import TakeoverBanner from './chat/TakeoverBanner';
 import ModelSelector, { isAgentModelSupported } from './ModelSelector';
+import ThinkingLevelSelector from './ThinkingLevelSelector';
 import ProviderConfigModal from './ProviderConfigModal';
 import ComposerInsertMenu from './chat/ComposerInsertMenu';
 import ArtifactWorkspaceModal from './chat/ArtifactWorkspaceModal';
