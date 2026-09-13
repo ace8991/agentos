@@ -592,7 +592,10 @@ const Welcome = () => {
             <div className="rounded-[28px] border border-white/12 bg-[rgba(16,19,29,0.54)] shadow-[0_28px_120px_rgba(5,8,17,0.30)] backdrop-blur-2xl overflow-hidden">
               <div className="flex items-center justify-between border-b border-white/8 px-4 py-3 md:px-5">
                 <div className="text-[11px] uppercase tracking-[0.18em] text-white/48">Choose a model before you start</div>
-                <ModelSelector onConfigureProvider={setConfigProvider} />
+                <div className="flex items-center gap-2">
+                  <ModelSelector onConfigureProvider={setConfigProvider} />
+                  <ThinkingLevelSelector />
+                </div>
               </div>
               <div className="px-4 md:px-5 pt-4 md:pt-5 pb-2">
                 <input
