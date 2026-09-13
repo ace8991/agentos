@@ -349,6 +349,21 @@ const ModelSelector = ({ onConfigureProvider }: ModelSelectorProps) => {
                           {m.description && (
                             <div className="text-xs text-muted-foreground">{m.description}</div>
                           )}
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {getCapabilityBadges(m.id).map((badge) => (
+                              <span
+                                key={badge}
+                                className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                              >
+                                {badge}
+                              </span>
+                            ))}
+                            {provider.requiresKey && !configured && (
+                              <span className="rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] text-accent">
+                                Clé manquante
+                              </span>
+                            )}
+                          </div>
                         </div>
                         {model === m.id && <Check size={14} className="text-primary shrink-0" />}
                       </button>
