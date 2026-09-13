@@ -4,6 +4,7 @@ import { ChevronDown, Settings, Check, Server, Cpu, HardDrive } from 'lucide-rea
 import { useStore } from '@/store/useStore';
 import { getAvailableWebLLMModels, getLocalModelDisplayName, isLocalModel } from '@/lib/local-inference';
 import LocalModelManager from '@/components/LocalModelManager';
+import { getCapabilityBadges } from '@/lib/model-capabilities';
 export interface ModelProvider {
   id: string;
   name: string;
