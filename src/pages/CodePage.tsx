@@ -13,6 +13,7 @@ import LiveSessionCard from '@/components/chat/LiveSessionCard';
 import ThinkingIndicator from '@/components/chat/ThinkingIndicator';
 import TakeoverBanner from '@/components/chat/TakeoverBanner';
 import ModelSelector, { isAgentModelSupported } from '@/components/ModelSelector';
+import ThinkingLevelSelector from '@/components/ThinkingLevelSelector';
 import ProviderConfigModal from '@/components/ProviderConfigModal';
 import ComposerInsertMenu from '@/components/chat/ComposerInsertMenu';
 import ArtifactWorkspaceModal from '@/components/chat/ArtifactWorkspaceModal';
