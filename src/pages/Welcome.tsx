@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import TaskSidebar from '@/components/TaskSidebar';
 import ModelSelector from '@/components/ModelSelector';
+import ThinkingLevelSelector from '@/components/ThinkingLevelSelector';
 import ProviderConfigModal from '@/components/ProviderConfigModal';
 import BackendStatusChip from '@/components/BackendStatusChip';
 import LocalConnectionBanner from '@/components/LocalConnectionBanner';
