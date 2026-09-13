@@ -1581,6 +1581,7 @@ const CodePage = () => {
           <div className="min-w-0 flex items-center gap-2 md:gap-3">
           <div className="w-10 shrink-0 md:hidden" />
           <ModelSelector onConfigureProvider={setConfigProvider} />
+          <ThinkingLevelSelector />
           <span className="hidden truncate text-sm font-medium text-foreground md:inline">
             {task && activeThread === 'agent'
               ? task.slice(0, 50) + (task.length > 50 ? '...' : '')
