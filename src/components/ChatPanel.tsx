@@ -8,6 +8,7 @@ import LiveSessionCard from './chat/LiveSessionCard';
 import ThinkingIndicator from './chat/ThinkingIndicator';
 import TakeoverBanner from './chat/TakeoverBanner';
 import ModelSelector, { isAgentModelSupported } from './ModelSelector';
+import ThinkingLevelSelector from './ThinkingLevelSelector';
 import ProviderConfigModal from './ProviderConfigModal';
 import ComposerInsertMenu from './chat/ComposerInsertMenu';
 import ArtifactWorkspaceModal from './chat/ArtifactWorkspaceModal';
@@ -849,6 +850,7 @@ const ChatPanel = () => {
         <div className="min-w-0 flex items-center gap-2 md:gap-3">
           <div className="w-10 shrink-0 md:hidden" />
           <ModelSelector onConfigureProvider={setConfigProvider} />
+          <ThinkingLevelSelector />
           <span className="hidden truncate text-sm font-medium text-foreground md:inline">
             {task && activeThread === 'agent'
               ? task.slice(0, 50) + (task.length > 50 ? '...' : '')

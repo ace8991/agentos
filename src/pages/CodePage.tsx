@@ -13,6 +13,7 @@ import LiveSessionCard from '@/components/chat/LiveSessionCard';
 import ThinkingIndicator from '@/components/chat/ThinkingIndicator';
 import TakeoverBanner from '@/components/chat/TakeoverBanner';
 import ModelSelector, { isAgentModelSupported } from '@/components/ModelSelector';
+import ThinkingLevelSelector from '@/components/ThinkingLevelSelector';
 import ProviderConfigModal from '@/components/ProviderConfigModal';
 import ComposerInsertMenu from '@/components/chat/ComposerInsertMenu';
 import ArtifactWorkspaceModal from '@/components/chat/ArtifactWorkspaceModal';
@@ -1580,6 +1581,7 @@ const CodePage = () => {
           <div className="min-w-0 flex items-center gap-2 md:gap-3">
           <div className="w-10 shrink-0 md:hidden" />
           <ModelSelector onConfigureProvider={setConfigProvider} />
+          <ThinkingLevelSelector />
           <span className="hidden truncate text-sm font-medium text-foreground md:inline">
             {task && activeThread === 'agent'
               ? task.slice(0, 50) + (task.length > 50 ? '...' : '')
